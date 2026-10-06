@@ -3555,7 +3555,7 @@ function migrateFasesIfNeeded(idea) {
    public:true items written for a general user, not implementation
    details.
 ================================================================== */
-const DEPLOY_TIMESTAMP = "2026-09-29 00:49 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-06 17:37 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -3681,7 +3681,7 @@ async function submitBiImport() {
   if (!raw) return;
   let parsed;
   try {
-    parsed = JSON.parse(raw);
+    parsed = parseJsonLenient(raw);
   } catch (e) {
     await showAlert("That's not valid JSON. Make sure you're pasting the contents of a backup file.", { title: "Invalid JSON" });
     return;
@@ -4223,7 +4223,7 @@ async function saveInlineEdit() {
     const raw = stripJsonFences(document.getElementById("ie-json")?.value || "");
     let parsed;
     try {
-      parsed = JSON.parse(raw);
+      parsed = parseJsonLenient(raw);
     } catch (e) {
       await showAlert("The JSON is not valid. Fix any syntax errors before saving.", { title: "Invalid JSON" });
       return;
@@ -4379,12 +4379,59 @@ function stripJsonFences(str) {
   return str
     .replace(/^\uFEFF/, '')           // BOM
     .replace(/[\u200B-\u200D\uFEFF]/g, '') // zero-width chars
-    .replace(/[\u201C\u201D]/g, '"')  // curly double quotes → straight
-    .replace(/[\u2018\u2019]/g, "'")  // curly single quotes → straight
     .trim()
     .replace(/^```(?:json)?\s*/i, '') // opening fence with or without "json"
     .replace(/\s*```$/, '')           // closing fence
     .trim();
+}
+
+// Tries to parse JSON that may have typographic ("smart") quotes mixed in —
+// common when the text was edited in Word, Notion, Pages, etc. A blind
+// global replace of curly→straight quotes breaks content that legitimately
+// contains curly quotes as punctuation (e.g. a quoted phrase inside a
+// description). So this tries several strategies, from safest to most
+// aggressive, and uses the first one that actually parses.
+function parseJsonLenient(raw) {
+  // 1. Try as-is — maybe it's already valid
+  try { return JSON.parse(raw); } catch (e) {}
+
+  // 2. Replace ALL curly quotes with straight ones. Works when the
+  // content itself has no legitimate curly quotes, which is the common case.
+  const allStraight = raw
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2018\u2019]/g, "'");
+  try { return JSON.parse(allStraight); } catch (e) {}
+
+  // 3. Smarter pass: walk the string and only convert a curly quote to a
+  // straight one when it is acting as a JSON delimiter — i.e. it sits right
+  // after a structural character (, : [ { or whitespace following those)
+  // or right before one (, : ] } ), rather than in the middle of a word.
+  // This preserves curly quotes used as real punctuation inside text values.
+  let result = '';
+  const n = raw.length;
+  for (let i = 0; i < n; i++) {
+    const ch = raw[i];
+    const isCurlyDouble = ch === '\u201C' || ch === '\u201D';
+    const isCurlySingle = ch === '\u2018' || ch === '\u2019';
+    if (!isCurlyDouble && !isCurlySingle) { result += ch; continue; }
+
+    const prevNonSpace = raw.slice(0, i).trimEnd().slice(-1);
+    const nextNonSpace = raw.slice(i + 1).trimStart().slice(0, 1);
+    const looksLikeDelimiter =
+      ['{', '[', ',', ':'].includes(prevNonSpace) ||
+      [':', ',', '}', ']'].includes(nextNonSpace) ||
+      prevNonSpace === '' || nextNonSpace === '';
+
+    if (looksLikeDelimiter) {
+      result += isCurlyDouble ? '"' : "'";
+    } else {
+      result += ch; // keep as literal punctuation inside the text
+    }
+  }
+  try { return JSON.parse(result); } catch (e) {}
+
+  // 4. Give up — let the caller show its own "invalid JSON" message.
+  throw new Error("Could not parse JSON even after quote repair");
 }
 
 // Inline add/delete helpers for Things to figure out
@@ -4453,7 +4500,7 @@ async function submitImport() {
   if (!raw) return;
   let parsed;
   try {
-    parsed = JSON.parse(raw);
+    parsed = parseJsonLenient(raw);
   } catch (e) {
     await showAlert("Paste exactly the JSON block the AI gave you, without adding or removing anything.", { title: "That's not valid JSON" });
     return;
@@ -4641,7 +4688,7 @@ async function submitEvolve() {
   if (!raw || !pendingEvolveIdeaId) return;
   let item;
   try {
-    item = JSON.parse(raw);
+    item = parseJsonLenient(raw);
   } catch (e) {
     await showAlert("Paste exactly the JSON block the AI gave you, without adding or removing anything.", { title: "That's not valid JSON" });
     return;
