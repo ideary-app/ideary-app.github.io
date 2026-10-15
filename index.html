@@ -3243,6 +3243,52 @@ it).
     .idea-card-actions { display: flex; gap: 12px; justify-content: flex-end; }
   }
   .idea-card-actions { display: flex; gap: 10px; align-items: center; }
+
+  /* ---- Cover colors (two-tone, no greys) — chosen in Settings ---- */
+  html {
+    --marble-w: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='420' height='420'><filter id='b' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='0.045 0.06' numOctaves='4' seed='7'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 80 0 -46.5'/></filter><rect width='100%25' height='100%25' filter='url(%23b)'/></svg>"),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260'><filter id='s' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 80 0 -49'/></filter><rect width='100%25' height='100%25' filter='url(%23s)'/></svg>");
+    --marble-b: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='420' height='420'><filter id='b' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='0.045 0.06' numOctaves='4' seed='7'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 80 0 -46.5'/></filter><rect width='100%25' height='100%25' filter='url(%23b)'/></svg>"),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260'><filter id='s' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 80 0 -49'/></filter><rect width='100%25' height='100%25' filter='url(%23s)'/></svg>");
+  }
+  html, html[data-cover="black"] { --cover: #0e0e0e; --marble: var(--marble-w); --cover-text: #f4ecd4; }
+  html[data-cover="white"]  { --cover: #fbfbf7; --marble: var(--marble-b); --cover-text: #111; }
+  html[data-cover="blue"]   { --cover: #1d2f95; --marble: var(--marble-w); --cover-text: #f4ecd4; }
+  html[data-cover="green"]  { --cover: #1f8b28; --marble: var(--marble-w); --cover-text: #f4ecd4; }
+  html[data-cover="red"]    { --cover: #cf1f27; --marble: var(--marble-w); --cover-text: #f4ecd4; }
+  html[data-cover="yellow"] { --cover: #f2c519; --marble: var(--marble-w); --cover-text: #111; }
+  body[data-view="home"], [data-theme="dark"] body[data-view="home"] {
+    background-color: var(--cover) !important;
+    background-image: var(--marble) !important;
+  }
+  body[data-view="home"] .section-label, body[data-view="home"] .empty-state { color: var(--cover-text); }
+  body[data-view="home"] .status-howto-divider { border-left-color: var(--cover-text); opacity: .5; }
+
+  /* ---- Settings modal ---- */
+  .settings-section { padding: 14px 0; border-top: 1.5px dashed var(--line-strong); }
+  .settings-section:first-of-type { border-top: none; padding-top: 4px; }
+  .settings-h { font-family: var(--hand); font-size: 1.35rem; color: var(--pen); margin-bottom: 8px; }
+  .cover-swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .cover-swatch {
+    position: relative; display: block; width: 100%; height: 58px; border-radius: 3px 6px 6px 3px; cursor: pointer;
+    border: 2px solid transparent; padding: 0;
+    background-size: 160px 160px, 100px 100px;
+    box-shadow: inset 6px 0 0 #111, 0 2px 4px rgba(0,0,0,.25);
+  }
+  .cover-swatch[data-sw="black"] { background-color: #0e0e0e; background-image: var(--marble-w); }
+  .cover-swatch[data-sw="white"] { background-color: #fbfbf7; background-image: var(--marble-b); }
+  .cover-swatch[data-sw="blue"] { background-color: #1d2f95; background-image: var(--marble-w); }
+  .cover-swatch[data-sw="green"] { background-color: #1f8b28; background-image: var(--marble-w); }
+  .cover-swatch[data-sw="red"] { background-color: #cf1f27; background-image: var(--marble-w); }
+  .cover-swatch[data-sw="yellow"] { background-color: #f2c519; background-image: var(--marble-w); }
+  .cover-swatch.selected { border-color: var(--pen); outline: 2px solid var(--pen); outline-offset: 2px; }
+  .cover-swatch-name { display: block; text-align: center; font-family: var(--hand); font-size: .95rem; margin-top: 4px; color: var(--ink); }
+  .seg { display: flex; gap: 8px; }
+  .seg button { flex: 1; padding: 8px; font-family: var(--hand); font-size: 1.1rem; background: transparent; color: var(--ink); border: 1.5px solid var(--ink); border-radius: var(--sketch-radius); cursor: pointer; }
+  .seg button.on { background: var(--pen); color: #fff; border-color: var(--pen-dark); }
+  [data-theme="dark"] .seg button.on { color: #10131c; }
+  #settings-overlay .drive-btn { width: 100%; }
+  .sidebar .settings-btn { display: flex; align-items: center; gap: 8px; }
 </style>
 </head>
 <body>
@@ -3287,7 +3333,6 @@ it).
           <div class="brand-sub" id="brand-sub"></div>
         </div>
       </div>
-      <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme"></button>
     </div>
 
     <div class="search-wrap sidebar-search">
@@ -3305,27 +3350,11 @@ it).
     </div>
 
     <div class="nav-section">
-      <button class="sidebar-action-btn drive-btn" id="drive-connect-btn" onclick="connectGoogleDrive()">
-        <svg width="14" height="12.5" viewBox="0 0 87.3 78" style="flex-shrink:0">
-          <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
-          <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/>
-          <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/>
-          <path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/>
-          <path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/>
-          <path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/>
-        </svg>
-        <span id="drive-btn-label">Connect Google Drive</span>
-      </button>
-      <div id="sync-status" style="font-size:0.7rem;color:var(--slate);padding:4px 4px 0;line-height:1.4"></div>
-    </div>
-
-    <div class="nav-section">
       <div style="display:flex;gap:8px;align-items:stretch;margin-bottom:8px">
         <button class="sidebar-action-btn primary" style="flex:1;margin-bottom:0" onclick="openNewIdeaForm()">+ New idea</button>
         <button class="sidebar-action-btn sidebar-help-btn" onclick="openHowto()" title="How it works">?</button>
       </div>
-      <button class="sidebar-action-btn" onclick="openBackupImport()">Backup / Import your ideas</button>
-      <button class="sidebar-action-btn" onclick="openAiSettings()">AI settings (Gemini)</button>
+      <button class="sidebar-action-btn settings-btn" onclick="openSettings()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
     </div>
 
     <div class="nav-section">
@@ -3435,17 +3464,47 @@ it).
 
 
 <!-- MODAL: AI settings (Gemini key) -->
-<div class="modal-overlay" id="ai-settings-overlay">
-  <div class="modal-box" style="max-width:440px">
+<div class="modal-overlay" id="settings-overlay">
+  <div class="modal-box" style="max-width:480px">
     <div class="modal-head">
-      <div class="modal-title">AI settings</div>
-      <button class="modal-close" onclick="closeAiSettings()">&times;</button>
+      <div class="modal-title">Settings</div>
+      <button class="modal-close" onclick="closeSettings()">&times;</button>
     </div>
-    <div class="form-hint" style="margin-bottom:12px">Add your own free Gemini API key to chat with the AI inside Artdeas. Get one at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--accent)">aistudio.google.com/apikey</a>. If you're connected to Google Drive, it's saved in your own Drive so you don't have to enter it again on other devices. Otherwise it stays only in this browser.</div>
-    <input class="form-input" id="ai-key-input" type="password" autocomplete="off" placeholder="Gemini API key" style="font-size:16px">
+    <div class="settings-section">
+      <div class="settings-h">Notebook cover</div>
+      <div class="cover-swatches" id="cover-swatches"></div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-h">Appearance</div>
+      <div class="seg"><button id="theme-light-btn" onclick="setThemeFromSettings('light')">Day</button><button id="theme-dark-btn" onclick="setThemeFromSettings('dark')">Night</button></div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-h">Sync</div>
+      <button class="sidebar-action-btn drive-btn" id="drive-connect-btn" onclick="connectGoogleDrive()">
+        <svg width="14" height="12.5" viewBox="0 0 87.3 78" style="flex-shrink:0">
+          <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
+          <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/>
+          <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/>
+          <path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/>
+          <path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/>
+          <path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/>
+        </svg>
+        <span id="drive-btn-label">Connect Google Drive</span>
+      </button>
+      <div id="sync-status" style="font-size:0.7rem;color:var(--slate);padding:4px 4px 0;line-height:1.4"></div>
+    </div>
+    <div class="settings-section" id="settings-ai">
+      <div class="settings-h">AI (Gemini)</div>
+      <div class="form-hint" style="margin-bottom:12px">Add your own free Gemini API key to chat with the AI inside Artdeas. Get one at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--accent)">aistudio.google.com/apikey</a>. If you're connected to Google Drive, it's saved in your own Drive so you don't have to enter it again on other devices. Otherwise it stays only in this browser.</div>
+      <input class="form-input" id="ai-key-input" type="password" autocomplete="off" placeholder="Gemini API key" style="font-size:16px">
     <div id="ai-key-status" style="min-height:1.4em;font-size:0.82rem;margin-top:8px;font-weight:600"></div>
     <button class="form-submit" id="ai-key-save-btn" onclick="saveAiKeyFromUI()">Save key</button>
     <div style="text-align:center;margin-top:8px"><button onclick="removeAiKey()" style="background:none;border:none;font-size:0.8rem;color:var(--slate);cursor:pointer;text-decoration:underline">Remove key</button></div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-h">Your ideas</div>
+      <button class="sidebar-action-btn" style="width:100%" onclick="closeSettings();openBackupImport()">Backup / Import your ideas</button>
+    </div>
   </div>
 </div>
 
@@ -4240,6 +4299,7 @@ async function driveLoadSettings() {
       const r = await fetch(`https://www.googleapis.com/drive/v3/files/${driveSettingsFileId}?alt=media`, { headers: { Authorization: `Bearer ${accessToken}` } });
       if (r.ok) {
         const s = await r.json();
+        if (s && s.coverColor) applyCover(s.coverColor);
         if (s && s.geminiKey) {
           if (geminiKey !== s.geminiKey) geminiModel = "";
           geminiKey = s.geminiKey;
@@ -4255,7 +4315,7 @@ async function driveLoadSettings() {
 
 async function driveSaveSettings() {
   if (!driveReady && !accessToken) return;
-  const payload = JSON.stringify({ geminiKey });
+  const payload = JSON.stringify({ geminiKey, coverColor });
   if (driveSettingsFileId) {
     await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveSettingsFileId}?uploadType=media`, {
       method: "PATCH", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: payload });
@@ -4268,12 +4328,51 @@ async function driveSaveSettings() {
   }
 }
 
-function openAiSettings() {
+/* ---------- Settings: cover color, theme, sync, AI, backup ---------- */
+const COVER_KEY = "artdeas_cover_v1";
+const COVERS = [["black","Black"],["white","White"],["blue","Blue"],["green","Green"],["red","Red"],["yellow","Yellow"]];
+let coverColor = "black";
+try { coverColor = localStorage.getItem(COVER_KEY) || "black"; } catch (e) {}
+document.documentElement.setAttribute("data-cover", coverColor);
+
+function applyCover(c) {
+  coverColor = c;
+  document.documentElement.setAttribute("data-cover", c);
+  try { localStorage.setItem(COVER_KEY, c); } catch (e) {}
+  renderCoverSwatches();
+}
+async function setCover(c) {
+  applyCover(c);
+  try { if (driveReady) await driveSaveSettings(); } catch (e) {}
+}
+function renderCoverSwatches() {
+  const box = document.getElementById("cover-swatches");
+  if (!box) return;
+  box.innerHTML = COVERS.map(([k, label]) => `<div><button type="button" class="cover-swatch ${k === coverColor ? "selected" : ""}" data-sw="${k}" onclick="setCover('${k}')" aria-label="${label} cover"></button><span class="cover-swatch-name">${label}</span></div>`).join("");
+}
+function updateThemeButtons() {
+  const dark = document.documentElement.getAttribute("data-theme") === "dark";
+  const l = document.getElementById("theme-light-btn"), d = document.getElementById("theme-dark-btn");
+  if (l) l.classList.toggle("on", !dark);
+  if (d) d.classList.toggle("on", dark);
+}
+function setThemeFromSettings(t) {
+  applyTheme(t);
+  if (STORAGE_OK) { try { localStorage.setItem(THEME_KEY, t); } catch (e) {} }
+  updateThemeButtons();
+}
+function openSettings(section) {
   document.getElementById("ai-key-input").value = geminiKey;
   document.getElementById("ai-key-status").textContent = "";
-  document.getElementById("ai-settings-overlay").classList.add("open");
+  renderCoverSwatches();
+  updateThemeButtons();
+  document.getElementById("settings-overlay").classList.add("open");
+  if (typeof closeMobileMenu === "function") { try { closeMobileMenu(); } catch (e) {} }
+  if (section === "ai") setTimeout(() => { const el = document.getElementById("settings-ai"); if (el) el.scrollIntoView({ block: "start" }); }, 50);
 }
-function closeAiSettings() { document.getElementById("ai-settings-overlay").classList.remove("open"); }
+function closeSettings() { document.getElementById("settings-overlay").classList.remove("open"); }
+function openAiSettings() { openSettings("ai"); }
+function closeAiSettings() { closeSettings(); }
 
 async function saveAiKeyFromUI() {
   const v = document.getElementById("ai-key-input").value.trim();
@@ -4474,7 +4573,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-15 13:32 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-15 13:38 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
