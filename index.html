@@ -23,9 +23,10 @@ NOTES FOR ANY AI OR DEVELOPER EDITING THIS FILE — READ FIRST
 
 NAME
 The app is called Ideary (idea + diary); it used to be called
-"Artdeas". Storage keys ("artdeas_*") and Drive file names
-("artdeas-data.json", "artdeas-settings.json") keep the old prefix ON
-PURPOSE: renaming them would make existing users lose their data.
+"Artdeas". Storage keys ("ideary_*") and Drive files ("ideary-data.json",
+"ideary-settings.json") were renamed from "artdeas_*" / "artdeas-*";
+the app migrates the old names automatically on first load. Never
+rename them again without a migration like that one.
 
 WHAT THIS IS
 A public, single-file web app (this index.html, served by GitHub
@@ -53,12 +54,12 @@ PRODUCT PRINCIPLES
 
 DATA AND PRIVACY
 - Without an account, ideas live in this browser's localStorage
-  ("artdeas_cache_v1"). The default ideas list (IDEAS_DEFAULT) must stay
+  ("ideary_cache_v1"). The default ideas list (IDEAS_DEFAULT) must stay
   empty ([]).
 - With Google Drive connected, ideas live ONLY in the user's own Drive
-  ("artdeas-data.json", created by the app with the drive.file scope) and
+  ("ideary-data.json", created by the app with the drive.file scope) and
   in memory. Settings (cover color, pencil case, Gemini key) live in
-  "artdeas-settings.json" in the same Drive. A cache of the Drive ideas
+  "ideary-settings.json" in the same Drive. A cache of the Drive ideas
   is kept under its own key so the app keeps working while Google's
   hourly token is renewed; it is cleared on explicit disconnect.
 - The Gemini API key belongs to each user: stored in their browser and,
@@ -3348,7 +3349,7 @@ SHIPPING CHANGES
 
     <form id="new-idea-form" onsubmit="submitNewIdea(event)">
       <label class="form-label">Title</label>
-      <input class="form-input" id="nid-titulo" required placeholder="E.g: Mirror — Mask Off" autocomplete="new-password" name="artdeas-title-field">
+      <input class="form-input" id="nid-titulo" required placeholder="E.g: Mirror — Mask Off" autocomplete="new-password" name="ideary-title-field">
 
       <label class="form-label">Category</label>
       <div class="categoria-wrap" style="position:relative">
@@ -3751,11 +3752,26 @@ const IDEAS_DEFAULT = [];
 // TODO(Tomas/Claude): fill in with the real Client ID from Google
 // Cloud Console (OAuth 2.0 Client ID, "Web application" type).
 const GOOGLE_CLIENT_ID = "1024164485431-9h1o8dauc3nrf2o0gbc7hqugkurf57uv.apps.googleusercontent.com";
+// One-time migration of browser storage from the old "Artdeas" keys.
+(function migrateLegacyStorage() {
+  try {
+    const old = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf("artdeas_") === 0) old.push(k);
+    }
+    old.forEach(k => {
+      const nk = "ideary_" + k.slice(8);
+      if (localStorage.getItem(nk) === null) localStorage.setItem(nk, localStorage.getItem(k));
+      localStorage.removeItem(k);
+    });
+  } catch (e) {}
+})();
 const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email";
 const TOMAS_EMAIL = "tomaspcarballes@gmail.com"; // used only to show Tomas the full changelog (internal patches); any other account only sees public versions
-const DRIVE_DATA_FILENAME = "artdeas-data.json";
-const STORAGE_KEY = "artdeas_cache_v1"; // local cache, not the source of truth
-const TOKEN_STORAGE_KEY = "artdeas_gtoken_v1";
+const DRIVE_DATA_FILENAME = "ideary-data.json";
+const STORAGE_KEY = "ideary_cache_v1"; // local cache, not the source of truth
+const TOKEN_STORAGE_KEY = "ideary_gtoken_v1";
 
 let driveFileId = null; // id of the data file in Drive, once located/created
 let accessToken = null;
@@ -3893,20 +3909,38 @@ async function ensureGoogleAuth() {
 
 /* ---------------- Google Drive REST calls ---------------- */
 
+// One-time migration from the old "Artdeas" names (Drive files).
+async function driveFindByName(name, legacyName, fields) {
+  const find = async (n) => {
+    const q = encodeURIComponent(`name='${n}' and trashed=false`);
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(${fields})`, { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (res.status === 401) { handleDriveAuthExpired(); throw new Error("Session expired"); }
+    if (!res.ok) throw new Error("Error finding the file in Drive: " + res.status);
+    const d = await res.json();
+    return d.files && d.files.length ? d.files[0] : null;
+  };
+  let f = await find(name);
+  if (f || !legacyName) return f;
+  f = await find(legacyName);
+  if (f) {
+    try {
+      await fetch(`https://www.googleapis.com/drive/v3/files/${f.id}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ name })
+      });
+    } catch (e) { console.error("Could not rename legacy file", e); }
+  }
+  return f;
+}
+
 async function driveFindDataFile() {
-  const q = encodeURIComponent(`name='${DRIVE_DATA_FILENAME}' and trashed=false`);
-  const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,modifiedTime)`, {
-    headers: { Authorization: `Bearer ${accessToken}` }
-  });
-  if (res.status === 401) { handleDriveAuthExpired(); throw new Error("Session expired"); }
-  if (!res.ok) throw new Error("Error finding the file in Drive: " + res.status);
-  const data = await res.json();
-  return data.files && data.files.length ? data.files[0] : null;
+  return driveFindByName(DRIVE_DATA_FILENAME, "artdeas-data.json", "id,name,modifiedTime");
 }
 
 async function driveCreateDataFile(initialIdeas) {
   const metadata = { name: DRIVE_DATA_FILENAME, mimeType: "application/json" };
-  const boundary = "artdeas-boundary";
+  const boundary = "ideary-boundary";
   const body =
     `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
     `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(initialIdeas)}\r\n--${boundary}--`;
@@ -3954,8 +3988,8 @@ async function driveWriteDataFile(fileId, ideasData) {
    - keep a cache of their Drive ideas under a separate key so the app
      still shows them (and accepts edits) while the token is renewed,
    - renew with one tap (no account picker) and push pending edits. */
-const DRIVE_SESSION_KEY = "artdeas_drive_session_v1";
-const DRIVE_CACHE_KEY = "artdeas_drive_cache_v1";
+const DRIVE_SESSION_KEY = "ideary_drive_session_v1";
+const DRIVE_CACHE_KEY = "ideary_drive_cache_v1";
 let driveExpired = false; // session remembered but token needs renewing
 
 function getDriveSession() {
@@ -4308,7 +4342,7 @@ function toggleTheme() {
    dismissed it before (remembered in localStorage, so it won't show
    again that session or the next ones on that browser).
 ================================================================== */
-const INSTALL_BANNER_DISMISSED_KEY = "artdeas_install_banner_dismissed";
+const INSTALL_BANNER_DISMISSED_KEY = "ideary_install_banner_dismissed";
 
 function dismissInstallBanner() {
   const banner = document.getElementById("install-banner");
@@ -4409,12 +4443,12 @@ function migrateFasesIfNeeded(idea) {
 
 /* ==================================================================
    GEMINI — user's own API key. Cached in localStorage; when Drive
-   is connected it is also stored in "artdeas-settings.json" in the
+   is connected it is also stored in "ideary-settings.json" in the
    user's own Drive so other devices pick it up automatically.
 ================================================================== */
-const GEMINI_KEY_STORAGE = "artdeas_gemini_key_v1";
-const DRIVE_SETTINGS_FILENAME = "artdeas-settings.json";
-const GEMINI_MODEL_STORAGE = "artdeas_gemini_model_v1";
+const GEMINI_KEY_STORAGE = "ideary_gemini_key_v1";
+const DRIVE_SETTINGS_FILENAME = "ideary-settings.json";
+const GEMINI_MODEL_STORAGE = "ideary_gemini_model_v1";
 const GEMINI_FALLBACK_MODEL = "gemini-3.8-flash";
 let geminiModel = "";
 try { geminiModel = localStorage.getItem(GEMINI_MODEL_STORAGE) || ""; } catch (e) {}
@@ -4449,12 +4483,9 @@ try { geminiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || ""; } catch (e) {}
 
 async function driveLoadSettings() {
   try {
-    const q = encodeURIComponent(`name='${DRIVE_SETTINGS_FILENAME}' and trashed=false`);
-    const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`, { headers: { Authorization: `Bearer ${accessToken}` } });
-    if (!res.ok) return;
-    const data = await res.json();
-    if (data.files && data.files.length) {
-      driveSettingsFileId = data.files[0].id;
+    const sf = await driveFindByName(DRIVE_SETTINGS_FILENAME, "artdeas-settings.json", "id");
+    if (sf) {
+      driveSettingsFileId = sf.id;
       const r = await fetch(`https://www.googleapis.com/drive/v3/files/${driveSettingsFileId}?alt=media`, { headers: { Authorization: `Bearer ${accessToken}` } });
       if (r.ok) {
         const s = await r.json();
@@ -4480,7 +4511,7 @@ async function driveSaveSettings() {
     await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveSettingsFileId}?uploadType=media`, {
       method: "PATCH", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: payload });
   } else {
-    const boundary = "artdeas-settings-boundary";
+    const boundary = "ideary-settings-boundary";
     const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name: DRIVE_SETTINGS_FILENAME, mimeType: "application/json" })}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${payload}\r\n--${boundary}--`;
     const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id", {
       method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": `multipart/related; boundary=${boundary}` }, body });
@@ -4489,7 +4520,7 @@ async function driveSaveSettings() {
 }
 
 /* ---------- Settings: cover color, theme, sync, AI, backup ---------- */
-const COVER_KEY = "artdeas_cover_v1";
+const COVER_KEY = "ideary_cover_v1";
 const COVERS = [["black","Black"],["white","White"],["blue","Blue"],["green","Green"],["red","Red"],["purple","Purple"],["yellow","Yellow"]];
 let coverColor = "black";
 try { coverColor = localStorage.getItem(COVER_KEY) || "black"; } catch (e) {}
@@ -4510,7 +4541,7 @@ function renderCoverSwatches() {
   if (!box) return;
   box.innerHTML = COVERS.map(([k, label]) => `<div><button type="button" class="cover-swatch ${k === coverColor ? "selected" : ""}" data-sw="${k}" onclick="setCover('${k}')" aria-label="${label} cover"></button><span class="cover-swatch-name">${label}</span></div>`).join("");
 }
-const CASE_KEY = "artdeas_case_v1";
+const CASE_KEY = "ideary_case_v1";
 const CASES = [["mint","Mint stars"],["checker","Checkers"],["stripes","Rainbow"],["polka","Polka"],["pencils","Pencils"],["coral","Coral doodles"],["black","Low-profile black"],["leather","Brown leather"]];
 let caseStyle = "mint";
 try { caseStyle = localStorage.getItem(CASE_KEY) || "mint"; } catch (e) {}
@@ -4981,7 +5012,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-15 19:09 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-15 19:11 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -5126,7 +5157,7 @@ function resolveDialog(value) {
   }
 }
 
-const HOWTO_SEEN_KEY = "artdeas_howto_seen_v1";
+const HOWTO_SEEN_KEY = "ideary_howto_seen_v1";
 
 function openBackupImport() {
   document.getElementById("backup-import-overlay").classList.add("open");
@@ -5258,7 +5289,7 @@ function filteredIdeas() {
 }
 
 function saveViewState() {
-  try { sessionStorage.setItem("artdeas_view", JSON.stringify({ view, viewParam })); } catch(e) {}
+  try { sessionStorage.setItem("ideary_view", JSON.stringify({ view, viewParam })); } catch(e) {}
 }
 
 function goHome() {
@@ -7399,7 +7430,7 @@ function escapeAttr(str) {
 // Restore the last view from the previous session (survives reload,
 // cleared when the tab closes — sessionStorage, not localStorage).
 try {
-  const saved = sessionStorage.getItem("artdeas_view");
+  const saved = sessionStorage.getItem("ideary_view");
   if (saved) {
     const parsed = JSON.parse(saved);
     if (parsed.view && parsed.view !== "home") {
