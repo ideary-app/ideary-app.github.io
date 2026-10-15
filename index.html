@@ -3172,27 +3172,53 @@ it).
   .sidebar .theme-toggle { background: transparent; border-color: var(--ink); color: var(--ink); }
   .sidebar #sync-status, .sidebar .version-link { color: var(--slate) !important; margin-right: 0; }
 
-  /* ---- Mobile header: top of a spiral notepad ---- */
+  /* ---- Mobile header: a zippered canvas pencil case ---- */
   @media (max-width: 860px) {
-    .mobile-header {
-      background-color: var(--panel) !important;
-      background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 31px, var(--rule) 31px, var(--rule) 32px) !important;
-      border-bottom: 1.5px solid var(--line-strong) !important;
-      box-shadow: 0 4px 10px rgba(60,40,10,.12) !important;
-      padding-top: 18px !important;
+    .mobile-header, [data-theme="dark"] .mobile-header {
+      background-color: #35507c !important;
+      background-image:
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='c' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='0.9 0.35' numOctaves='2' seed='5'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.35 -0.1'/></filter><rect width='100%25' height='100%25' filter='url(%23c)'/></svg>"),
+        repeating-linear-gradient(45deg, rgba(0,0,0,.06) 0 2px, transparent 2px 4px) !important;
+      border-bottom: none !important;
+      box-shadow: 0 6px 12px rgba(0,0,0,.25) !important;
+      padding: 12px 14px 22px !important;
     }
+    [data-theme="dark"] .mobile-header { background-color: #1f2c45 !important; }
+    /* zipper teeth + tape along the bottom */
     .mobile-header::before {
-      content: ""; position: absolute; left: 0; right: 0; top: -2px; height: 18px;
-      background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='18'><circle cx='12' cy='12' r='3.4' fill='%23463c2c' fill-opacity='.55'/><path d='M12 12 C 5 8, 6 1, 12 0' stroke='%23a9adb5' stroke-width='2.4' fill='none' stroke-linecap='round'/><path d='M12 12 C 5 8, 6 1, 12 0' stroke='%23e6e8ec' stroke-width='.9' fill='none' stroke-linecap='round'/></svg>") repeat-x left 6px top 0 / 24px 18px;
+      content: ""; position: absolute; left: 0; right: 0; bottom: 0; top: auto; height: 12px;
+      background:
+        repeating-linear-gradient(90deg, #d9dce2 0 3px, #8f949d 3px 4px, transparent 4px 6px) center 3px / 100% 6px no-repeat,
+        #222b3a;
+      border-top: 1px solid rgba(0,0,0,.4);
       pointer-events: none;
     }
-    .mobile-brand { background: none !important; border: none !important; transform: none !important; color: var(--ink) !important; font-family: var(--hand); font-size: 1.3rem; }
-    .mobile-menu-btn { background: transparent !important; border: 1.5px solid var(--ink) !important; border-radius: var(--sketch-radius) !important; color: var(--ink) !important; }
-    .mobile-icon-btn { border-radius: var(--sketch-radius) !important; }
-    .mobile-header .search-input { background: transparent !important; border: none !important; border-bottom: 1.5px dashed var(--line-strong) !important; border-radius: 0 !important; color: var(--ink) !important; }
-    .mobile-header .search-icon { color: var(--slate) !important; }
-    .sidebar { box-shadow: 6px 0 18px rgba(0,0,0,.3); }
+    /* zipper pull */
+    .mobile-header::after {
+      content: ""; position: absolute; right: 22px; bottom: -14px; width: 16px; height: 26px;
+      background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='26'><rect x='3' y='0' width='10' height='8' rx='2' fill='%23c7cbd2' stroke='%23585d66'/><rect x='4' y='7' width='8' height='18' rx='3' fill='%23dfe2e7' stroke='%23585d66'/><rect x='6.5' y='12' width='3' height='9' rx='1.5' fill='%23585d66'/></svg>") no-repeat;
+      filter: drop-shadow(1px 2px 1px rgba(0,0,0,.35));
+      pointer-events: none;
+    }
+    /* sewn-on patches */
+    .mobile-brand, .mobile-menu-btn, .mobile-header .search-input {
+      background: #f4ecd4 !important; color: #1f2430 !important;
+      border: none !important;
+      outline: 1.5px dashed rgba(31,36,48,.45) !important; outline-offset: -4px;
+      box-shadow: 0 2px 3px rgba(0,0,0,.3);
+    }
+    .mobile-brand { border-radius: 4px !important; padding: 2px 10px 2px 6px !important; transform: rotate(-1.5deg) !important; }
+    .mobile-menu-btn { border-radius: 6px !important; }
+    .mobile-header .search-input { border-radius: 999px !important; outline-offset: -4px; }
+    .mobile-header .search-icon { color: #555 !important; }
+    .mobile-icon-btn {
+      border-radius: 50% !important;
+      background: #f2c94c !important; color: #1f2430 !important; border: none !important;
+      outline: 1.5px dashed rgba(31,36,48,.5) !important; outline-offset: -4px;
+      box-shadow: 0 2px 3px rgba(0,0,0,.3) !important;
+    }
   }
+  @media (max-width: 860px) { .sidebar { box-shadow: 6px 0 18px rgba(0,0,0,.3); } }
 
   /* ---- Real pencil / eraser buttons ---- */
   .tool-btn {
@@ -4448,7 +4474,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-15 13:04 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-15 13:32 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
