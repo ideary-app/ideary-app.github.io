@@ -3940,8 +3940,11 @@ function saveToken(token, expiresInSeconds) {
 }
 
 async function ensureGoogleAuth() {
-  await loadGisScript();
-  const saved = getSavedToken();
+  const saved0 = getSavedToken();
+  // Only wait for the script if it isn't there yet: any await before the
+  // popup makes browsers stop treating it as a response to the tap.
+  if (!(window.google && google.accounts && google.accounts.oauth2)) await loadGisScript();
+  const saved = saved0 || getSavedToken();
   if (saved) {
     accessToken = saved;
     return true;
@@ -4087,7 +4090,7 @@ function enterDriveExpired() {
 
 // Must run from a tap (browsers only allow Google's popup after a user gesture).
 async function reconnectDrive() {
-  await loadGisScript();
+  if (!(window.google && google.accounts && google.accounts.oauth2)) await loadGisScript();
   const sess = getDriveSession() || {};
   const ok = await new Promise((resolve) => {
     const client = google.accounts.oauth2.initTokenClient({
@@ -4827,7 +4830,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-15 17:27 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-15 17:33 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -7168,6 +7171,8 @@ if (getSavedToken()) {
 
 maybeShowInstallBanner();
 maybeShowHowto();
+// Preload Google sign-in so the first tap on "Connect" opens it right away.
+loadGisScript().catch(() => {});
 
 // Close categoria/estado dropdowns when clicking outside them
 document.addEventListener("click", (e) => {
