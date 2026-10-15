@@ -3063,6 +3063,166 @@ it).
     .detail-title { font-size: 2rem; }
     .block-title { font-size: 1.5rem; }
   }
+  /* ==================================================================
+     NOTEBOOK v2 — cream paper, kraft-folder sidebar/header with divider
+     tabs, the home is the notebook cover itself, real pencil/eraser
+     buttons.
+  ================================================================== */
+  :root {
+    --paper: #f4ecd4;
+    --panel: #fbf5e1;
+    --line: #e2d6b4;
+    --line-strong: #cbbb90;
+    --rule: rgba(84, 130, 190, .2);
+    --kraft: #c9a26b;
+    --kraft-dark: #8a6a3c;
+    --kraft-ink: #3b2a14;
+    --kraft-tex: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='k' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='0.9 0.08' numOctaves='3' seed='11'/><feColorMatrix values='0 0 0 0 0.25 0 0 0 0 0.16 0 0 0 0 0.06 0 0 0 0.55 -0.12'/></filter><rect width='100%25' height='100%25' filter='url(%23k)'/></svg>");
+  }
+  [data-theme="dark"] {
+    --kraft: #5b4630;
+    --kraft-dark: #3a2c1c;
+    --kraft-ink: #f3e3c4;
+  }
+
+  /* ---- Home: the whole page is the notebook cover ---- */
+  body[data-view="home"], [data-theme="dark"] body[data-view="home"] {
+    background-color: var(--cover);
+    background-image: linear-gradient(rgba(14,14,14,.28), rgba(14,14,14,.28)), var(--marble);
+    background-attachment: fixed;
+  }
+  body[data-view="home"] .main { background-image: none; }
+  body[data-view="home"] .home-hero {
+    background: none; box-shadow: none; overflow: visible;
+    margin: 26px 0 22px; padding: 0;
+  }
+  body[data-view="home"] .home-hero::before { display: none; }
+  body[data-view="home"] .nb-label { max-width: 460px; }
+  body[data-view="home"] .home-hero-search { max-width: 460px; }
+  body[data-view="home"] .status-howto-divider { border-left-color: rgba(255,255,255,.35); }
+  body[data-view="home"] .section-label, body[data-view="home"] .empty-state { color: #f4ecd4; }
+  body[data-view="home"] .home-create-btn { box-shadow: 3px 4px 0 rgba(0,0,0,.5); }
+  body[data-view="home"] .search-result-idea { background: var(--panel); }
+  body[data-view="home"] .status-card { background: #fbf5e1; }
+  [data-theme="dark"] body[data-view="home"] .status-card { background: #25262e; }
+  .status-card { border-width: 3px !important; }
+
+  /* ---- Sidebar: kraft cardboard folder with divider tabs ---- */
+  .sidebar, [data-theme="dark"] .sidebar {
+    background-color: var(--kraft);
+    background-image: var(--kraft-tex);
+    padding: 16px 0 16px 14px;
+    box-shadow: inset -10px 0 14px -10px rgba(0,0,0,.45);
+  }
+  .sidebar-label, [data-theme="dark"] .sidebar-label {
+    background: none; border: none; outline: none; box-shadow: none;
+    padding: 0; color: var(--kraft-ink);
+  }
+  .sidebar-label .nav-section { border-top: none; padding-top: 6px; }
+  .sidebar .brand-row {
+    background: #fbf5e1; border: 2px solid var(--kraft-ink); border-radius: 3px;
+    padding: 8px 10px; margin: 0 14px 14px 0; transform: rotate(-1deg);
+    box-shadow: 2px 3px 0 rgba(0,0,0,.18);
+  }
+  [data-theme="dark"] .sidebar .brand-row { background: #25262e; border-color: #000; }
+  .sidebar .brand { color: #1f2430 !important; }
+  [data-theme="dark"] .sidebar .brand { color: #e7e4dc !important; }
+  .sidebar .sidebar-search { margin-right: 14px; }
+  .sidebar .search-input { background: #fbf5e1; border-color: var(--kraft-dark); }
+  [data-theme="dark"] .sidebar .search-input { background: #2b2a30; color: #f3e3c4; }
+  .nav-label { color: var(--kraft-ink) !important; opacity: .85; font-size: 1.15rem !important; margin: 4px 0 6px; }
+
+  /* divider tabs */
+  .sidebar .nav-item, .sidebar .nav-item-cat, .sidebar .nav-trash-btn {
+    position: relative;
+    margin: 0 0 6px 0;
+    padding: 8px 14px 8px 12px;
+    border: 1.5px solid rgba(0,0,0,.25) !important;
+    border-right: none !important;
+    border-radius: 10px 0 0 10px !important;
+    background: var(--tab, #e9dcb8) !important;
+    color: #2a2116 !important;
+    font-family: var(--hand); font-size: 1.12rem;
+    box-shadow: -2px 2px 0 rgba(0,0,0,.12);
+    transition: transform .12s ease;
+  }
+  .sidebar .nav-item:hover, .sidebar .nav-item-cat:hover, .sidebar .nav-trash-btn:hover { transform: translateX(-4px); }
+  .sidebar .nav-item.active, .sidebar .nav-item-cat.active, .sidebar .nav-trash-btn.active {
+    background: #fbf5e1 !important;
+    transform: translateX(-8px);
+    font-weight: 400 !important;
+    box-shadow: -3px 3px 0 rgba(0,0,0,.18);
+  }
+  .sidebar .nav-item-cat.parent-active { border-bottom: 1.5px solid rgba(0,0,0,.25) !important; }
+  .sidebar .nav-cat-group:nth-child(5n+1) .nav-item-cat { --tab: #f6c9c9; }
+  .sidebar .nav-cat-group:nth-child(5n+2) .nav-item-cat { --tab: #c9ddf6; }
+  .sidebar .nav-cat-group:nth-child(5n+3) .nav-item-cat { --tab: #d4efc4; }
+  .sidebar .nav-cat-group:nth-child(5n+4) .nav-item-cat { --tab: #f8e3a6; }
+  .sidebar .nav-cat-group:nth-child(5n+5) .nav-item-cat { --tab: #e0d0f2; }
+  .sidebar .nav-trash-btn { --tab: #d8d2c4; width: 100%; text-align: left; }
+  .sidebar .nav-item .count, .sidebar .nav-item-cat .count { color: #2a2116; opacity: .7; }
+  [data-theme="dark"] .sidebar .nav-item, [data-theme="dark"] .sidebar .nav-item-cat, [data-theme="dark"] .sidebar .nav-trash-btn { filter: brightness(.82); }
+  /* ideas listed under a category: handwritten on the tab's page */
+  .sidebar .nav-idea-item {
+    margin: 0 14px 2px 18px; padding: 3px 8px;
+    color: var(--kraft-ink) !important; font-size: .86rem;
+    border-radius: 3px; background: transparent !important;
+  }
+  .sidebar .nav-idea-item:hover { background: rgba(255,255,255,.3) !important; }
+  .sidebar .nav-idea-item.active { background: rgba(255,245,200,.85) !important; color: #2a2116 !important; }
+  [data-theme="dark"] .sidebar .nav-idea-item.active { background: rgba(255,245,200,.2) !important; color: #f3e3c4 !important; }
+
+  /* sidebar buttons as labels/stickers */
+  .sidebar .sidebar-action-btn, .sidebar .drive-btn {
+    margin-right: 14px; width: calc(100% - 14px);
+    background: #fbf5e1 !important; color: #2a2116 !important;
+    border: 1.5px solid var(--kraft-ink) !important;
+  }
+  .sidebar .sidebar-action-btn.primary { background: var(--pen) !important; color: #fff !important; border-color: var(--pen-dark) !important; }
+  .sidebar .sidebar-action-btn.sidebar-help-btn { width: auto; margin-right: 14px; }
+  .sidebar .sidebar-action-btn.primary { width: 100%; margin-right: 0; }
+  [data-theme="dark"] .sidebar .sidebar-action-btn:not(.primary), [data-theme="dark"] .sidebar .drive-btn { background: #2b2a30 !important; color: #f3e3c4 !important; }
+  .sidebar .theme-toggle { background: #fbf5e1; border-color: var(--kraft-ink); }
+  .sidebar #sync-status { color: var(--kraft-ink) !important; }
+  .sidebar .version-link { color: var(--kraft-ink); margin-right: 14px; }
+
+  /* ---- Mobile header: kraft strip, sticker buttons ---- */
+  @media (max-width: 860px) {
+    .mobile-header {
+      background-color: var(--kraft) !important;
+      background-image: var(--kraft-tex) !important;
+      border-bottom: 2px solid var(--kraft-dark) !important;
+      box-shadow: 0 3px 8px rgba(0,0,0,.2);
+    }
+    .mobile-brand { background: #fbf5e1 !important; border-color: var(--kraft-ink) !important; transform: rotate(-1.5deg); }
+    .mobile-menu-btn { background: #fbf5e1 !important; border: 2px solid var(--kraft-ink) !important; border-radius: 50% !important; color: #2a2116 !important; }
+    .mobile-icon-btn { border-radius: 50% !important; }
+    .mobile-header .search-input { background: #fbf5e1 !important; border: 2px solid var(--kraft-ink) !important; border-radius: 999px !important; }
+    .sidebar { padding-top: 16px; }
+  }
+
+  /* ---- Real pencil / eraser buttons ---- */
+  .tool-btn {
+    background: none !important; border: none !important; box-shadow: none !important;
+    padding: 0 !important; cursor: pointer; line-height: 0;
+    transition: transform .12s ease, filter .12s ease;
+    filter: drop-shadow(1px 2px 1px rgba(0,0,0,.25));
+  }
+  .tool-btn svg { display: block; }
+  .tool-btn.pencil:hover { transform: rotate(-4deg) translateY(-2px); }
+  .tool-btn.eraser { transform: rotate(-4deg); }
+  .tool-btn.eraser:hover { transform: rotate(3deg) translateY(-2px); }
+  .tool-btn:active { filter: drop-shadow(0 1px 0 rgba(0,0,0,.25)); }
+  .tool-btn text { font-family: 'Patrick Hand', 'Comic Neue', cursive; }
+
+  @media (max-width: 600px) {
+    .detail-top-row { flex-direction: row !important; flex-wrap: wrap; align-items: center !important; gap: 10px; }
+    .detail-top-row > div { width: 100%; justify-content: flex-start; gap: 10px !important; }
+    .detail-top-row .enrich-btn { flex: 1; }
+    .idea-card { flex-direction: column; align-items: stretch; gap: 10px; }
+    .idea-card-actions { display: flex; gap: 12px; justify-content: flex-end; }
+  }
+  .idea-card-actions { display: flex; gap: 10px; align-items: center; }
 </style>
 </head>
 <body>
@@ -4294,7 +4454,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-15 05:02 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-15 12:49 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -6029,7 +6189,7 @@ function renderTrashView() {
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
           <button class="complete-info-btn" onclick="restoreIdea('${escapeAttr(idea.id)}')">Restore</button>
-          <button class="idea-delete-btn" onclick="deleteForever('${escapeAttr(idea.id)}')"><svg class="nb-icon" viewBox="0 0 28 20" aria-hidden="true"><g transform="rotate(-18 14 10)"><rect x="3" y="5" width="22" height="10" rx="2" fill="#f4a3ae" stroke="currentColor" stroke-width="1.4"/><rect x="3" y="5" width="8" height="10" rx="2" fill="#5b7fd1" stroke="currentColor" stroke-width="1.4"/></g></svg>Erase forever</button>
+          <button class="tool-btn eraser" title="Erase forever" aria-label="Erase forever" onclick="deleteForever('${escapeAttr(idea.id)}')">${eraserSvg("Erase forever")}</button>
         </div>
       </div>`;
   }).join("") : `<div class="empty-state"><div class="big">Trash is empty</div></div>`;
@@ -6049,8 +6209,8 @@ function renderIdeaCards(list, showActions) {
     const cfg = ESTADOS[idea.estado] || ESTADOS["idea"];
     const actions = showActions ? `
       <div class="idea-card-actions" onclick="event.stopPropagation()">
-        <button class="complete-info-btn" onclick="openEditIdeaModal('${escapeAttr(idea.id)}')"><svg class="nb-icon" viewBox="0 0 28 20" aria-hidden="true"><path d="M3 15 L19 3 L24 7 L8 19 L2 19 Z" fill="#f2c94c" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M19 3 L24 7 L26 5.5 L21 1.5 Z" fill="#e9a0a8" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M2 19 L4.5 14.6 L7.6 17.6 Z" fill="currentColor"/></svg>Edit</button>
-        <button class="idea-delete-btn" onclick="deleteIdea('${escapeAttr(idea.id)}')"><svg class="nb-icon" viewBox="0 0 28 20" aria-hidden="true"><g transform="rotate(-18 14 10)"><rect x="3" y="5" width="22" height="10" rx="2" fill="#f4a3ae" stroke="currentColor" stroke-width="1.4"/><rect x="3" y="5" width="8" height="10" rx="2" fill="#5b7fd1" stroke="currentColor" stroke-width="1.4"/></g></svg>Erase</button>
+        <button class="tool-btn pencil" title="Edit" aria-label="Edit" onclick="openEditIdeaModal('${escapeAttr(idea.id)}')">${pencilSvg("Edit")}</button>
+        <button class="tool-btn eraser" title="Erase" aria-label="Erase" onclick="deleteIdea('${escapeAttr(idea.id)}')">${eraserSvg("Erase")}</button>
       </div>` : "";
     return `
     <div class="idea-card" style="border-left:3px solid ${cfg.color}" onclick="openDetail('${idea.id}')">
@@ -6062,16 +6222,6 @@ function renderIdeaCards(list, showActions) {
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:12px">
-        <div class="idea-card-stats">
-          <div class="stat-block">
-            <div class="stat-num">${idea.dificultad ?? '—'}</div>
-            <div class="stat-lbl">Dificult.</div>
-          </div>
-          <div class="stat-block">
-            <div class="stat-num">${idea.tiempo ?? '—'}</div>
-            <div class="stat-lbl">Time</div>
-          </div>
-        </div>
         ${actions}
       </div>
     </div>`;
@@ -6267,13 +6417,11 @@ function renderDetailReadMode(idea) {
       <div class="detail-top-row" style="margin-top:0;padding-top:24px">
         <button class="back-btn" onclick="goHome()">&larr; Back to Home</button>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <button class="complete-info-btn" onclick="startEditIdea('${idea.id}')">
-            <svg class="nb-icon" viewBox="0 0 28 20" aria-hidden="true"><path d="M3 15 L19 3 L24 7 L8 19 L2 19 Z" fill="#f2c94c" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M19 3 L24 7 L26 5.5 L21 1.5 Z" fill="#e9a0a8" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M2 19 L4.5 14.6 L7.6 17.6 Z" fill="currentColor"/></svg>Edit
-          </button>
+          <button class="tool-btn pencil" title="Edit" aria-label="Edit" onclick="startEditIdea('${idea.id}')">${pencilSvg("Edit")}</button>
           <button class="complete-info-btn enrich-btn" onclick="openEvolveModal('${idea.id}')">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:5px"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>Develop idea
           </button>
-          <button class="idea-delete-btn" onclick="deleteIdea('${idea.id}')"><svg class="nb-icon" viewBox="0 0 28 20" aria-hidden="true"><g transform="rotate(-18 14 10)"><rect x="3" y="5" width="22" height="10" rx="2" fill="#f4a3ae" stroke="currentColor" stroke-width="1.4"/><rect x="3" y="5" width="8" height="10" rx="2" fill="#5b7fd1" stroke="currentColor" stroke-width="1.4"/></g></svg>Erase</button>
+          <button class="tool-btn eraser" title="Erase" aria-label="Erase" onclick="deleteIdea('${idea.id}')">${eraserSvg("Erase")}</button>
         </div>
       </div>
 
@@ -6282,8 +6430,6 @@ function renderDetailReadMode(idea) {
         <div class="detail-badges">
           <span class="badge badge-status" style="background:${cfg.soft};color:${cfg.color}">${cfg.label}</span>
           <span class="badge badge-cat" style="background:var(--slate-soft);color:var(--slate)">${escapeHtml(idea.categoria)}</span>
-          <span class="badge badge-metric" style="border-color:var(--rust);color:var(--rust)">Difficulty ${idea.dificultad ?? '—'}/10</span>
-          <span class="badge badge-metric" style="border-color:var(--accent);color:var(--accent)">Time ${idea.tiempo ?? '—'}/10</span>
         </div>
       </div>
     </div>
@@ -6430,6 +6576,30 @@ function renderDetailEditMode(idea) {
 // A phase step can be a string, or an object
 // { texto: "...", explicacion: "..." } when it's worth clarifying a
 // technical term for someone who doesn't know it yet.
+
+/* Pencil / eraser shaped buttons (real objects, label written on them) */
+function pencilSvg(label) {
+  return `<svg width="124" height="34" viewBox="0 0 124 34" aria-hidden="true">
+    <path d="M22 6 L96 6 L96 28 L22 28 Z" fill="#f5c542" stroke="#3a2c10" stroke-width="1.5"/>
+    <path d="M22 13 L96 13 M22 21 L96 21" stroke="#d9a520" stroke-width="1"/>
+    <path d="M96 5 L106 5 L106 29 L96 29 Z" fill="#c9ccd2" stroke="#3a2c10" stroke-width="1.5"/>
+    <path d="M99 5 L99 29 M103 5 L103 29" stroke="#8e939c" stroke-width="1"/>
+    <path d="M106 5 L116 5 Q121 5 121 10 L121 24 Q121 29 116 29 L106 29 Z" fill="#f29aa6" stroke="#3a2c10" stroke-width="1.5"/>
+    <path d="M22 6 L4 17 L22 28 Z" fill="#f0d2a4" stroke="#3a2c10" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="M10 13.4 L4 17 L10 20.6 Z" fill="#2a2a2a"/>
+    <text x="59" y="22.5" text-anchor="middle" font-size="16" fill="#2a1f08">${label}</text>
+  </svg>`;
+}
+function eraserSvg(label) {
+  return `<svg width="${label.length > 6 ? 136 : 98}" height="38" viewBox="0 0 ${label.length > 6 ? 136 : 98} 38" aria-hidden="true">
+    <rect x="3" y="4" width="${label.length > 6 ? 130 : 92}" height="30" rx="5" fill="#f4a1ae" stroke="#5a2430" stroke-width="1.5"/>
+    <path d="M3 9 Q3 4 8 4 L32 4 L32 34 L8 34 Q3 34 3 29 Z" fill="#3f6fd1" stroke="#5a2430" stroke-width="1.5"/>
+    <path d="M32 4 L32 34" stroke="#22408a" stroke-width="2"/>
+    <path d="M${label.length > 6 ? 126 : 88} 6 Q${label.length > 6 ? 131 : 93} 8 ${label.length > 6 ? 131 : 93} 14" stroke="#fff" stroke-opacity=".45" stroke-width="2" fill="none"/>
+    <text x="${label.length > 6 ? 82 : 62}" y="24.5" text-anchor="middle" font-size="16" fill="#5a1422">${label}</text>
+  </svg>`;
+}
+
 function renderStep(step) {
   const txt = typeof step === "string" ? step : step.texto;
   const exp = typeof step === "string" ? "" : (step.explicacion || "");
@@ -6513,6 +6683,7 @@ async function stuckSend() {
    RENDER PRINCIPAL
 ================================================================== */
 function render() {
+  document.body.dataset.view = (view === "detalle" && !IDEAS.find(i => i.id === viewParam)) ? "home" : view;
   renderSidebar();
   const main = document.getElementById("main");
   if (view === "detalle") {
