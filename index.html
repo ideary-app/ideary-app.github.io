@@ -3175,21 +3175,22 @@ it).
   /* ---- Mobile header: a zippered canvas pencil case ---- */
   @media (max-width: 860px) {
     .mobile-header, [data-theme="dark"] .mobile-header {
-      background-color: #3b4a6b !important;
+      background-color: #f0705f !important;
       background-image:
-        linear-gradient(180deg, rgba(255,255,255,.16) 0%, rgba(255,255,255,.04) 38%, rgba(0,0,0,0) 60%, rgba(0,0,0,.18) 100%),
-        linear-gradient(to bottom, transparent calc(100% - 17px), rgba(255,255,255,.35) calc(100% - 17px), rgba(255,255,255,.35) calc(100% - 16px), transparent calc(100% - 16px)) !important;
+        linear-gradient(180deg, rgba(255,255,255,.22) 0%, rgba(255,255,255,.05) 40%, rgba(0,0,0,0) 60%, rgba(0,0,0,.14) 100%),
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='70'><g fill='none' stroke='%23fff' stroke-opacity='.38' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M14 12 l2.5 5 5.5 .8 -4 3.9 .9 5.5 -4.9 -2.6 -4.9 2.6 .9 -5.5 -4 -3.9 5.5 -.8 z'/><path d='M48 52 q5 -8 10 0 t10 0 t10 0'/><circle cx='96' cy='18' r='5'/><path d='M70 22 l10 -10 3 3 -10 10 -4 1 z'/><path d='M30 48 m-4 0 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0' stroke='%23ffe066' stroke-opacity='.7'/><path d='M104 50 l4 4 m0 -4 l-4 4' stroke='%23b8f2e6' stroke-opacity='.8'/></g></svg>") !important;
+      background-size: auto, 120px 70px !important;
       border-bottom: none !important;
       box-shadow: 0 6px 12px rgba(0,0,0,.25) !important;
       padding: 12px 14px 22px !important;
     }
-    [data-theme="dark"] .mobile-header { background-color: #1f2c45 !important; }
+    [data-theme="dark"] .mobile-header { background-color: #b95447 !important; }
     /* zipper teeth + tape along the bottom */
     .mobile-header::before {
       content: ""; position: absolute; left: 0; right: 0; bottom: 0; top: auto; height: 12px;
       background:
-        repeating-linear-gradient(90deg, #d9dce2 0 3px, #8f949d 3px 4px, transparent 4px 6px) center 3px / 100% 6px no-repeat,
-        #222b3a;
+        repeating-linear-gradient(90deg, #eef0f3 0 3px, #9aa0a8 3px 4px, transparent 4px 6px) center 3px / 100% 6px no-repeat,
+        #2fa596;
       border-top: 1px solid rgba(0,0,0,.4);
       pointer-events: none;
     }
@@ -4575,7 +4576,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-15 14:15 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-15 15:42 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
