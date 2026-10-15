@@ -2753,6 +2753,7 @@ it).
         <button class="sidebar-action-btn sidebar-help-btn" onclick="openHowto()" title="How it works">?</button>
       </div>
       <button class="sidebar-action-btn" onclick="openBackupImport()">Backup / Import your ideas</button>
+      <button class="sidebar-action-btn" onclick="openAiSettings()">AI settings (Gemini)</button>
     </div>
 
     <div class="nav-section">
@@ -2841,6 +2842,7 @@ it).
       <div class="evolve-step-label"><span class="evolve-step-num">1</span>Send this to any AI</div>
       <div class="form-hint" style="margin-bottom:10px">Copy the prompt and paste it into any AI (Claude, ChatGPT, Gemini…). The AI will ask you questions one by one to develop the idea. <strong>To stop at any point, just say "stop" or "that's enough"</strong> — the AI will immediately give you the final result without more questions.</div>
       <button class="form-submit" style="margin-top:0" onclick="evolveCopyPrompt()">Copy prompt for AI</button>
+      <button class="form-submit" style="margin-top:8px;background:transparent;color:var(--accent);border:1.5px solid var(--accent)" onclick="openAiChat()">Or chat with Gemini here</button>
       <div id="evolve-copy-feedback" style="min-height:1.4em;font-size:0.82rem;margin-top:8px;font-weight:600"></div>
     </div>
 
@@ -2857,6 +2859,44 @@ it).
   </div>
 </div>
 
+
+
+<!-- MODAL: AI settings (Gemini key) -->
+<div class="modal-overlay" id="ai-settings-overlay">
+  <div class="modal-box" style="max-width:440px">
+    <div class="modal-head">
+      <div class="modal-title">AI settings</div>
+      <button class="modal-close" onclick="closeAiSettings()">&times;</button>
+    </div>
+    <div class="form-hint" style="margin-bottom:12px">Add your own free Gemini API key to chat with the AI inside Artdeas. Get one at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--accent)">aistudio.google.com/apikey</a>. If you're connected to Google Drive, it's saved in your own Drive so you don't have to enter it again on other devices. Otherwise it stays only in this browser.</div>
+    <input class="form-input" id="ai-key-input" type="password" autocomplete="off" placeholder="Gemini API key" style="font-size:16px">
+    <div id="ai-key-status" style="min-height:1.4em;font-size:0.82rem;margin-top:8px;font-weight:600"></div>
+    <button class="form-submit" onclick="saveAiKeyFromUI()">Save key</button>
+    <div style="text-align:center;margin-top:8px"><button onclick="removeAiKey()" style="background:none;border:none;font-size:0.8rem;color:var(--slate);cursor:pointer;text-decoration:underline">Remove key</button></div>
+  </div>
+</div>
+
+<!-- MODAL: AI chat (Gemini) -->
+<div class="modal-overlay" id="ai-chat-overlay">
+  <div class="modal-box" style="max-width:520px;display:flex;flex-direction:column;height:min(85vh,720px)">
+    <div class="modal-head">
+      <div class="modal-title">Chat with Gemini</div>
+      <button class="modal-close" onclick="closeAiChat()">&times;</button>
+    </div>
+    <div id="ai-chat-log" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px 2px 10px"></div>
+    <div id="ai-chat-apply" style="display:none"><button class="form-submit" style="margin-top:0" onclick="aiChatApply()">Apply to idea</button></div>
+    <div id="ai-chat-inputrow" style="display:flex;gap:8px;margin-top:8px">
+      <input class="form-input" id="ai-chat-input" style="flex:1;font-size:16px" placeholder="Your answer…" onkeydown="if(event.key==='Enter'){event.preventDefault();aiChatSend();}">
+      <button class="form-submit" style="margin:0;width:auto;padding:0 16px" onclick="aiChatSend()">Send</button>
+    </div>
+    <div style="text-align:center;margin-top:8px"><button onclick="aiChatStop()" style="background:none;border:none;font-size:0.8rem;color:var(--slate);cursor:pointer;text-decoration:underline">That's enough — give me the plan</button></div>
+  </div>
+</div>
+
+<div id="update-banner" style="display:none;position:fixed;left:12px;right:12px;bottom:12px;z-index:900;background:var(--ink);color:var(--paper);border-radius:12px;padding:12px 14px;align-items:center;gap:12px;box-shadow:0 6px 24px rgba(0,0,0,.3);font-size:0.88rem;max-width:460px;margin:0 auto">
+  <span style="flex:1">New version available</span>
+  <button onclick="applyUpdate()" style="background:var(--paper);color:var(--ink);border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer">Update</button>
+</div>
 
 <!-- MODAL: Opciones de exportación (Copy / Share / Download) -->
 <div class="modal-overlay" id="export-overlay">
@@ -3260,6 +3300,7 @@ async function initDriveSync(ideasParaCrearSiNoExiste) {
     driveReady = true;
     updateDriveButtonUI();
     setSyncStatus("Synced with Google Drive.", false);
+    driveLoadSettings();
   } catch (e) {
     console.error("Could not sync with Drive:", e);
     setSyncStatus("Could not connect to Google Drive. Working in local mode.", true);
@@ -3555,7 +3596,216 @@ function migrateFasesIfNeeded(idea) {
    public:true items written for a general user, not implementation
    details.
 ================================================================== */
-const DEPLOY_TIMESTAMP = "2026-10-15 02:30 UTC"; // auto-updated on each deploy
+
+/* ==================================================================
+   GEMINI — user's own API key. Cached in localStorage; when Drive
+   is connected it is also stored in "artdeas-settings.json" in the
+   user's own Drive so other devices pick it up automatically.
+================================================================== */
+const GEMINI_KEY_STORAGE = "artdeas_gemini_key_v1";
+const DRIVE_SETTINGS_FILENAME = "artdeas-settings.json";
+const GEMINI_MODEL = "gemini-2.5-flash";
+let geminiKey = "";
+let driveSettingsFileId = null;
+try { geminiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || ""; } catch (e) {}
+
+async function driveLoadSettings() {
+  try {
+    const q = encodeURIComponent(`name='${DRIVE_SETTINGS_FILENAME}' and trashed=false`);
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`, { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.files && data.files.length) {
+      driveSettingsFileId = data.files[0].id;
+      const r = await fetch(`https://www.googleapis.com/drive/v3/files/${driveSettingsFileId}?alt=media`, { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (r.ok) {
+        const s = await r.json();
+        if (s && s.geminiKey) {
+          geminiKey = s.geminiKey;
+          try { localStorage.setItem(GEMINI_KEY_STORAGE, geminiKey); } catch (e) {}
+          return;
+        }
+      }
+    }
+    // Drive has no key yet but this browser does: upload it once.
+    if (geminiKey) await driveSaveSettings();
+  } catch (e) { console.error("Settings sync failed", e); }
+}
+
+async function driveSaveSettings() {
+  if (!driveReady && !accessToken) return;
+  const payload = JSON.stringify({ geminiKey });
+  if (driveSettingsFileId) {
+    await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveSettingsFileId}?uploadType=media`, {
+      method: "PATCH", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: payload });
+  } else {
+    const boundary = "artdeas-settings-boundary";
+    const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name: DRIVE_SETTINGS_FILENAME, mimeType: "application/json" })}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${payload}\r\n--${boundary}--`;
+    const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id", {
+      method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": `multipart/related; boundary=${boundary}` }, body });
+    if (res.ok) driveSettingsFileId = (await res.json()).id;
+  }
+}
+
+function openAiSettings() {
+  document.getElementById("ai-key-input").value = geminiKey;
+  document.getElementById("ai-key-status").textContent = "";
+  document.getElementById("ai-settings-overlay").classList.add("open");
+}
+function closeAiSettings() { document.getElementById("ai-settings-overlay").classList.remove("open"); }
+
+async function saveAiKeyFromUI() {
+  const v = document.getElementById("ai-key-input").value.trim();
+  const st = document.getElementById("ai-key-status");
+  if (!v) { st.textContent = "Paste your key first."; st.style.color = "var(--rust)"; return; }
+  geminiKey = v;
+  try { localStorage.setItem(GEMINI_KEY_STORAGE, v); } catch (e) {}
+  try { if (driveReady) await driveSaveSettings(); } catch (e) {}
+  st.textContent = driveReady ? "✓ Saved (also in your Drive)" : "✓ Saved in this browser";
+  st.style.color = "var(--accent)";
+}
+
+async function removeAiKey() {
+  geminiKey = "";
+  try { localStorage.removeItem(GEMINI_KEY_STORAGE); } catch (e) {}
+  try { if (driveReady) await driveSaveSettings(); } catch (e) {}
+  document.getElementById("ai-key-input").value = "";
+  const st = document.getElementById("ai-key-status");
+  st.textContent = "Key removed."; st.style.color = "var(--slate)";
+}
+
+async function geminiGenerate(history) {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(geminiKey)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: DIRECTOR_RULES }] },
+      contents: history.map(m => ({ role: m.role, parts: [{ text: m.text }] })),
+      generationConfig: { temperature: 0.7 }
+    })
+  });
+  if (!res.ok) {
+    let msg = "Gemini error " + res.status;
+    try { const j = await res.json(); if (j.error && j.error.message) msg = j.error.message; } catch (e) {}
+    throw new Error(msg);
+  }
+  const j = await res.json();
+  const parts = j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts;
+  if (!parts) throw new Error("Gemini returned an empty reply.");
+  return parts.map(p => p.text || "").join("");
+}
+
+/* ---------- Chat UI ---------- */
+let aiChatHistory = [];
+let aiChatItem = null;
+let aiChatBusy = false;
+
+function aiChatAddBubble(role, text) {
+  const log = document.getElementById("ai-chat-log");
+  const d = document.createElement("div");
+  d.style.cssText = "max-width:88%;padding:10px 13px;border-radius:12px;white-space:pre-wrap;line-height:1.45;font-size:0.92rem;" +
+    (role === "user" ? "align-self:flex-end;background:var(--accent);color:#fff" : "align-self:flex-start;background:var(--card, rgba(128,128,128,.12));color:var(--ink)");
+  d.textContent = text;
+  log.appendChild(d);
+  log.scrollTop = log.scrollHeight;
+  return d;
+}
+
+async function openAiChat() {
+  const idea = IDEAS.find(i => i.id === pendingEvolveIdeaId);
+  if (!idea) return;
+  if (!geminiKey) {
+    await showAlert("Add your Gemini API key first (it's free).", { title: "No key yet" });
+    openAiSettings();
+    return;
+  }
+  const ideaId = idea.id;
+  closeEvolveModal();
+  pendingEvolveIdeaId = ideaId;
+  aiChatHistory = [];
+  aiChatItem = null;
+  document.getElementById("ai-chat-log").innerHTML = "";
+  document.getElementById("ai-chat-apply").style.display = "none";
+  document.getElementById("ai-chat-inputrow").style.display = "flex";
+  document.getElementById("ai-chat-overlay").classList.add("open");
+  aiChatHistory.push({ role: "user", text: buildEnrichMessage(idea) });
+  await aiChatRun();
+}
+
+function closeAiChat() {
+  document.getElementById("ai-chat-overlay").classList.remove("open");
+  pendingEvolveIdeaId = null;
+}
+
+async function aiChatRun() {
+  aiChatBusy = true;
+  const wait = aiChatAddBubble("model", "…");
+  try {
+    const reply = await geminiGenerate(aiChatHistory);
+    aiChatHistory.push({ role: "model", text: reply });
+    const cleaned = stripJsonFences(reply).trim();
+    let parsed = null;
+    if (cleaned.indexOf("{") !== -1 && /"(fases|descripcion|cosasAResolver)"/.test(cleaned)) {
+      try { parsed = parseJsonLenient(cleaned); } catch (e) {}
+    }
+    if (parsed && typeof parsed === "object") {
+      aiChatItem = parsed;
+      wait.textContent = "Plan ready. Tap \"Apply to idea\" to save it.";
+      document.getElementById("ai-chat-apply").style.display = "block";
+      document.getElementById("ai-chat-inputrow").style.display = "none";
+    } else {
+      wait.textContent = reply;
+    }
+  } catch (e) {
+    wait.textContent = "⚠ " + e.message;
+    aiChatHistory.pop(); // drop the failed user turn so the user can retry
+  }
+  aiChatBusy = false;
+  document.getElementById("ai-chat-log").scrollTop = 1e9;
+}
+
+async function aiChatSend(textOverride) {
+  if (aiChatBusy) return;
+  const inp = document.getElementById("ai-chat-input");
+  const text = (textOverride || inp.value).trim();
+  if (!text) return;
+  inp.value = "";
+  aiChatAddBubble("user", text);
+  aiChatHistory.push({ role: "user", text });
+  await aiChatRun();
+}
+
+function aiChatStop() { aiChatSend("stop — that's enough, give me the final JSON now."); }
+
+function aiChatApply() {
+  const idea = IDEAS.find(i => i.id === pendingEvolveIdeaId);
+  if (!idea || !aiChatItem) return;
+  applyEvolveItem(idea, aiChatItem);
+  saveIdeas();
+  const id = idea.id;
+  closeAiChat();
+  openDetail(id);
+}
+
+/* ==================================================================
+   UPDATE CHECK — compares the deployed DEPLOY_TIMESTAMP with the
+   one in this running copy and offers a reload when they differ.
+================================================================== */
+async function checkForUpdate() {
+  try {
+    if (location.protocol === "file:") return;
+    const res = await fetch(location.pathname + "?_v=" + Date.now(), { cache: "no-store" });
+    if (!res.ok) return;
+    const m = (await res.text()).match(/DEPLOY_TIMESTAMP = "(\d{4}-\d\d-\d\d [^"]+)"/);
+    if (m && m[1] !== DEPLOY_TIMESTAMP) document.getElementById("update-banner").style.display = "flex";
+  } catch (e) {}
+}
+function applyUpdate() { location.replace(location.pathname + "?_u=" + Date.now()); }
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") checkForUpdate(); });
+setInterval(checkForUpdate, 5 * 60 * 1000);
+setTimeout(checkForUpdate, 4000);
+
+const DEPLOY_TIMESTAMP = "2026-10-15 04:25 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -4604,17 +4854,32 @@ async function submitImport() {
    to the user to paste themselves — same Copy/Share/Download
    mechanism as the rest of the page.
 ================================================================== */
+
+/* ==================================================================
+   DIRECTOR MODE — shared persona/rules used by the copy-paste
+   prompt AND by the in-app Gemini chat.
+================================================================== */
+const DIRECTOR_RULES = `You are acting as a veteran expert in whatever field this idea belongs to (for a short film: a film director with decades of experience; for a recipe: a head chef; for a game: a lead game designer; and so on). I know little or nothing about how to do this. Your job is to be my mentor: tell me exactly where to start, what order things go in, where it ends, and explain every step clearly enough that a beginner can do it.
+
+FLOW RULES:
+- Ask me ONE question at a time (maximum 5 questions in total), only about things that change the plan. Wait for my answer before the next one.
+- At any point I can say "stop" or "that's enough": skip straight to the final JSON.
+- Answer in the same language as the idea.
+- When done, output ONLY the raw JSON — no explanation, no backticks, no text before or after.
+
+QUALITY RULES FOR THE PLAN:
+- Order the phases the way a real professional would, from the very first thing to do until the thing is finished and shared.
+- Every step needs "texto" (short action) AND "explicacion" (how to do it concretely, why it matters, typical beginner mistakes, rough time/cost when useful).
+- In "cosasAResolver" put the real unknowns/decisions I must settle, each with an English search hint in "busqueda".
+- "descripcion" = a clear paragraph of what the final result is. "notas" = key decisions and creative choices we agreed on.`;
+
 function buildEnrichMessage(idea) {
   const fasesArray = Array.isArray(idea.fases) ? idea.fases.filter(f => f.pasos && f.pasos.length) : [];
 
   // Use a helper to ensure no curly/typographic quotes sneak in
   const q = (s) => s.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"');
 
-  let msg = q(`I want to develop this idea from my Artdeas backlog. Ask me ONE question at a time — no lists of questions at once. For anything I don't know how to solve, give me a short English search hint.\n\n`);
-  msg += q(`IMPORTANT FLOW RULES:\n`);
-  msg += q(`- Ask one question, wait for my answer, then ask the next.\n`);
-  msg += q(`- At any point I can say "stop" or "that's enough" and you should immediately skip to giving me the final JSON without asking more questions.\n`);
-  msg += q(`- When we're done (either naturally or because I said stop), output ONLY the raw JSON — no explanation, no backticks, no text before or after it.\n\n`);
+  let msg = q(DIRECTOR_RULES + `\n\n`);
   msg += q(`IDEA:\n`);
   msg += q(`TITLE: ${idea.titulo}\n`);
   msg += q(`CATEGORY: ${idea.categoria}\n`);
@@ -4646,14 +4911,13 @@ function buildEnrichMessage(idea) {
     msg += "\n";
   }
 
-  msg += q(`Help me expand this idea: fill in the production plan, suggest things to figure out.\n\n`);
-  msg += q(`(If you are Claude with Google Drive access in this chat, also update "artdeas-data.json" directly — but still output the JSON below.)\n\n`);
+  msg += q(`Now start: ask your first question.\n\n`);
   msg += q(`FINAL OUTPUT FORMAT — output this and nothing else when done:\n`);
   msg += '{\n';
   msg += '  "descripcion": "...",\n';
   msg += '  "notas": ["...", "..."],\n';
   msg += '  "fases": [\n';
-  msg += '    { "nombre": "Phase name", "pasos": ["step 1", { "texto": "step 2", "explicacion": "clarification" }] }\n';
+  msg += '    { "nombre": "Phase name", "pasos": [{ "texto": "short action", "explicacion": "how to do it, why, common mistakes" }] }\n';
   msg += '  ],\n';
   msg += '  "cosasAResolver": [\n';
   msg += '    { "texto": "...", "resuelto": false, "busqueda": ["hint 1"] }\n';
@@ -4729,23 +4993,7 @@ async function evolveCopyPrompt() {
   }
 }
 
-async function submitEvolve() {
-  const raw = stripJsonFences(document.getElementById("evolve-textarea").value);
-  if (!raw || !pendingEvolveIdeaId) return;
-  let item;
-  try {
-    item = parseJsonLenient(raw);
-  } catch (e) {
-    await showAlert("Paste exactly the JSON block the AI gave you, without adding or removing anything.", { title: "That's not valid JSON" });
-    return;
-  }
-  const idea = IDEAS.find(i => i.id === pendingEvolveIdeaId);
-  if (!idea) {
-    await showAlert("Could not find the idea to update.", { title: "Error" });
-    closeEvolveModal();
-    return;
-  }
-
+function applyEvolveItem(idea, item) {
   const simpleFields = ["titulo", "categoria", "estado", "dificultad", "tiempo", "descripcion"];
   simpleFields.forEach(f => {
     if (item[f] !== undefined && item[f] !== null) idea[f] = item[f];
@@ -4766,6 +5014,26 @@ async function submitEvolve() {
     idea.cosasAResolver = idea.cosasAResolver || [];
     idea.cosasAResolver.push(...item.cosasAResolver);
   }
+}
+
+async function submitEvolve() {
+  const raw = stripJsonFences(document.getElementById("evolve-textarea").value);
+  if (!raw || !pendingEvolveIdeaId) return;
+  let item;
+  try {
+    item = parseJsonLenient(raw);
+  } catch (e) {
+    await showAlert("Paste exactly the JSON block the AI gave you, without adding or removing anything.", { title: "That's not valid JSON" });
+    return;
+  }
+  const idea = IDEAS.find(i => i.id === pendingEvolveIdeaId);
+  if (!idea) {
+    await showAlert("Could not find the idea to update.", { title: "Error" });
+    closeEvolveModal();
+    return;
+  }
+
+  applyEvolveItem(idea, item);
 
   saveIdeas();
   closeEvolveModal();
