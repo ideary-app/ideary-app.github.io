@@ -3175,10 +3175,10 @@ it).
   /* ---- Mobile header: a zippered canvas pencil case ---- */
   @media (max-width: 860px) {
     .mobile-header, [data-theme="dark"] .mobile-header {
-      background-color: #35507c !important;
+      background-color: #3b4a6b !important;
       background-image:
-        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='c' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='0.9 0.35' numOctaves='2' seed='5'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.35 -0.1'/></filter><rect width='100%25' height='100%25' filter='url(%23c)'/></svg>"),
-        repeating-linear-gradient(45deg, rgba(0,0,0,.06) 0 2px, transparent 2px 4px) !important;
+        linear-gradient(180deg, rgba(255,255,255,.16) 0%, rgba(255,255,255,.04) 38%, rgba(0,0,0,0) 60%, rgba(0,0,0,.18) 100%),
+        linear-gradient(to bottom, transparent calc(100% - 17px), rgba(255,255,255,.35) calc(100% - 17px), rgba(255,255,255,.35) calc(100% - 16px), transparent calc(100% - 16px)) !important;
       border-bottom: none !important;
       box-shadow: 0 6px 12px rgba(0,0,0,.25) !important;
       padding: 12px 14px 22px !important;
@@ -4575,7 +4575,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-15 14:06 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-15 14:15 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
