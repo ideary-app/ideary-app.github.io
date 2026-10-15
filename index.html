@@ -3292,6 +3292,37 @@ it).
   [data-theme="dark"] .seg button.on { color: #10131c; }
   #settings-overlay .drive-btn { width: 100%; }
   .sidebar .settings-btn { display: flex; align-items: center; gap: 8px; }
+
+  #reconnect-banner {
+    display: none; position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 899;
+    max-width: 480px; margin: 0 auto; align-items: center; gap: 12px;
+    background: var(--postit); color: var(--postit-ink);
+    border-radius: 2px 2px 16px 2px; padding: 12px 14px;
+    box-shadow: 0 10px 18px -8px rgba(0,0,0,.4);
+    font-family: var(--hand); font-size: 1.1rem;
+  }
+  #reconnect-banner button { background: var(--pen); color: #fff; border: none; border-radius: var(--sketch-radius); padding: 8px 14px; font-family: var(--hand); font-size: 1.05rem; cursor: pointer; }
+
+  /* ---- Review fixes ---- */
+  body[data-view="home"] .section-label {
+    display: inline-block; background: #fbf5e1; color: #1f2430 !important;
+    padding: 4px 12px; border-radius: 3px; transform: rotate(-1deg);
+    box-shadow: 0 2px 4px rgba(0,0,0,.3); margin-bottom: 12px;
+  }
+  [data-theme="dark"] body[data-view="home"] .section-label { background: #25262e; color: #e7e4dc !important; }
+  .install-banner {
+    background: var(--postit) !important; color: var(--postit-ink) !important;
+    border: none !important; border-radius: 2px 2px 16px 2px !important;
+    box-shadow: 0 10px 18px -8px rgba(0,0,0,.4) !important;
+    font-family: var(--hand); font-size: 1.02rem;
+  }
+  #ie-titulo { font-family: var(--hand) !important; font-size: 1.8rem !important; font-weight: 400 !important; }
+  @media (max-width: 600px) {
+    .ie-toolbar { width: 100%; justify-content: space-between; flex-direction: row !important; }
+    .ie-toolbar .new-idea-tabs { display: flex; flex-direction: row; }
+    .ie-toolbar .new-idea-tab { white-space: nowrap; }
+    .ie-toolbar .enrich-btn { width: auto !important; }
+  }
 </style>
 </head>
 <body>
@@ -3365,7 +3396,7 @@ it).
       <div id="nav-categorias"></div>
     </div>
 
-    <div class="version-link" onclick="openChangelog()">v0.7.0 · What's new</div>
+    <div class="version-link" onclick="openChangelog()">v0.8.0 · What's new</div>
   </div>
   </aside>
 
@@ -3812,7 +3843,7 @@ function loadGisScript() {
     script.async = true;
     script.defer = true;
     script.onload = resolve;
-    script.onerror = () => reject(new Error("No se pudo cargar Google Identity Services"));
+    script.onerror = () => reject(new Error("Could not load Google sign-in"));
     document.head.appendChild(script);
   });
 }
@@ -3837,7 +3868,7 @@ function saveToken(token, expiresInSeconds) {
     const expiresAt = Date.now() + (expiresInSeconds - 60) * 1000; // margen de 60s
     localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify({ token, expiresAt }));
   } catch (e) {
-    console.error("No se pudo guardar el token:", e);
+    console.error("Could not save the token:", e);
   }
 }
 
@@ -3874,7 +3905,7 @@ async function driveFindDataFile() {
     headers: { Authorization: `Bearer ${accessToken}` }
   });
   if (res.status === 401) { handleDriveAuthExpired(); throw new Error("Session expired"); }
-  if (!res.ok) throw new Error("Error buscando archivo en Drive: " + res.status);
+  if (!res.ok) throw new Error("Error finding the file in Drive: " + res.status);
   const data = await res.json();
   return data.files && data.files.length ? data.files[0] : null;
 }
@@ -3893,7 +3924,7 @@ async function driveCreateDataFile(initialIdeas) {
     },
     body
   });
-  if (!res.ok) throw new Error("Error creando archivo en Drive: " + res.status);
+  if (!res.ok) throw new Error("Error creating the file in Drive: " + res.status);
   const data = await res.json();
   return data.id;
 }
@@ -3902,7 +3933,7 @@ async function driveReadDataFile(fileId) {
   const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
     headers: { Authorization: `Bearer ${accessToken}` }
   });
-  if (!res.ok) throw new Error("Error leyendo archivo de Drive: " + res.status);
+  if (!res.ok) throw new Error("Error reading the file from Drive: " + res.status);
   return res.json();
 }
 
@@ -3915,10 +3946,127 @@ async function driveWriteDataFile(fileId, ideasData) {
     },
     body: JSON.stringify(ideasData)
   });
-  if (!res.ok) throw new Error("Error guardando en Drive: " + res.status);
+  if (res.status === 401) { handleDriveAuthExpired(); throw new Error("Session expired"); }
+  if (!res.ok) throw new Error("Error saving to Drive: " + res.status);
+  writeDriveCache(false);
 }
 
 /* ---------------- Orchestration: init + save ---------------- */
+
+/* ---------------- Staying signed in ----------------
+   Google access tokens only last ~1 hour and the browser library has no
+   refresh token, so instead of logging the user out when it expires we:
+   - remember the session (email) until they explicitly disconnect,
+   - keep a cache of their Drive ideas under a separate key so the app
+     still shows them (and accepts edits) while the token is renewed,
+   - renew with one tap (no account picker) and push pending edits. */
+const DRIVE_SESSION_KEY = "artdeas_drive_session_v1";
+const DRIVE_CACHE_KEY = "artdeas_drive_cache_v1";
+let driveExpired = false; // session remembered but token needs renewing
+
+function getDriveSession() {
+  try { return JSON.parse(localStorage.getItem(DRIVE_SESSION_KEY) || "null"); } catch (e) { return null; }
+}
+function setDriveSession(email) {
+  try { localStorage.setItem(DRIVE_SESSION_KEY, JSON.stringify({ email: email || null })); } catch (e) {}
+}
+function readDriveCache() {
+  try { return JSON.parse(localStorage.getItem(DRIVE_CACHE_KEY) || "null"); } catch (e) { return null; }
+}
+function writeDriveCache(pending) {
+  if (!STORAGE_OK) return;
+  const prev = readDriveCache();
+  try {
+    localStorage.setItem(DRIVE_CACHE_KEY, JSON.stringify({
+      email: currentUserEmail || (prev && prev.email) || null,
+      fileId: driveFileId || (prev && prev.fileId) || null,
+      ideas: IDEAS,
+      pending: !!pending || (pending === undefined && prev && prev.pending)
+    }));
+  } catch (e) {}
+}
+function clearDriveSessionData() {
+  try { localStorage.removeItem(DRIVE_SESSION_KEY); localStorage.removeItem(DRIVE_CACHE_KEY); } catch (e) {}
+}
+
+function showReconnectBanner(show) {
+  let el = document.getElementById("reconnect-banner");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "reconnect-banner";
+    el.innerHTML = `<span style="flex:1">Your Google session paused. Your ideas are safe.</span><button onclick="reconnectDrive()">Reconnect</button>`;
+    document.body.appendChild(el);
+  }
+  el.style.display = show ? "flex" : "none";
+}
+
+function enterDriveExpired() {
+  driveExpired = true;
+  driveReady = false;
+  accessToken = null;
+  try { localStorage.removeItem(TOKEN_STORAGE_KEY); } catch (e) {}
+  const cache = readDriveCache();
+  if (cache && Array.isArray(cache.ideas)) {
+    IDEAS = cache.ideas;
+    IDEAS.forEach(migrateFasesIfNeeded);
+    if (cache.email) currentUserEmail = cache.email;
+    if (cache.fileId) driveFileId = cache.fileId;
+  }
+  updateDriveButtonUI();
+  setSyncStatus("Session paused — tap Reconnect to keep syncing.", true);
+  showReconnectBanner(true);
+  render();
+}
+
+// Must run from a tap (browsers only allow Google's popup after a user gesture).
+async function reconnectDrive() {
+  await loadGisScript();
+  const sess = getDriveSession() || {};
+  const ok = await new Promise((resolve) => {
+    const client = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: DRIVE_SCOPE,
+      callback: (resp) => {
+        if (resp.error) { resolve(false); return; }
+        saveToken(resp.access_token, resp.expires_in);
+        resolve(true);
+      },
+      error_callback: () => resolve(false)
+    });
+    client.requestAccessToken({ prompt: "", login_hint: sess.email || undefined });
+  });
+  if (!ok) { setSyncStatus("Couldn't reconnect. Try again.", true); return; }
+  showReconnectBanner(false);
+  driveExpired = false;
+  const cache = readDriveCache();
+  if (cache && cache.pending && Array.isArray(cache.ideas)) {
+    // Push edits made while the session was paused.
+    try {
+      currentUserEmail = await fetchCurrentUserEmail();
+      const file = await driveFindDataFile();
+      if (file) {
+        driveFileId = file.id;
+        IDEAS = cache.ideas;
+        await driveWriteDataFile(driveFileId, IDEAS);
+        driveReady = true;
+        setDriveSession(currentUserEmail);
+        updateDriveButtonUI();
+        setSyncStatus("Reconnected. Your changes were saved to Drive.", false);
+        driveLoadSettings();
+        render();
+        return;
+      }
+    } catch (e) { console.error(e); }
+  }
+  await initDriveSync();
+}
+
+// Token ran out while the app was open: pause instead of logging out.
+function checkTokenStillValid() {
+  if (driveReady && !getSavedToken() && getDriveSession()) enterDriveExpired();
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") checkTokenStillValid(); });
+setInterval(checkTokenStillValid, 60 * 1000);
 
 async function initDriveSync(ideasParaCrearSiNoExiste) {
   try {
@@ -3952,6 +4100,10 @@ async function initDriveSync(ideasParaCrearSiNoExiste) {
       render();
     }
     driveReady = true;
+    driveExpired = false;
+    showReconnectBanner(false);
+    setDriveSession(currentUserEmail);
+    writeDriveCache(false);
     updateDriveButtonUI();
     setSyncStatus("Synced with Google Drive.", false);
     driveLoadSettings();
@@ -3962,6 +4114,7 @@ async function initDriveSync(ideasParaCrearSiNoExiste) {
 }
 
 function handleDriveAuthExpired() {
+  if (getDriveSession()) { writeDriveCache(); enterDriveExpired(); return; }
   // Token expired mid-session — drop Drive ideas from memory.
   // Don't touch STORAGE_KEY: local anonymous ideas stay safe.
   driveReady = false;
@@ -4017,6 +4170,11 @@ function setSyncStatus(msg, isWarning) {
 // never waits on the network), and also attempts to write to Drive
 // in the background if a session is already active.
 function saveIdeas() {
+  if (driveExpired) {
+    // Session paused: keep edits in the Drive cache until reconnect.
+    writeDriveCache(true);
+    return;
+  }
   if (driveReady && driveFileId && accessToken) {
     // Drive mode: ideas live only in Drive + memory.
     // Never write to localStorage so they don't leak to the next
@@ -4043,6 +4201,7 @@ async function connectGoogleDrive() {
     disconnectGoogleDrive();
     return;
   }
+  if (driveExpired) { reconnectDrive(); return; }
   const hayIdeasLocales = IDEAS.length > 0;
   if (hayIdeasLocales) {
     const confirmado = await showConfirm(
@@ -4073,12 +4232,15 @@ async function disconnectGoogleDrive() {
   const confirmado = await showConfirm("You'll go back to local-only mode on this device. Your ideas from this account will be cleared from the screen (they stay safe in your Drive — just reconnect to see them again).", { title: "Disconnect Google Drive?", confirmLabel: "Disconnect", danger: true });
   if (!confirmado) return;
   driveReady = false;
+  driveExpired = false;
+  showReconnectBanner(false);
   driveFileId = null;
   accessToken = null;
   currentUserEmail = null;
   if (STORAGE_OK) {
     try {
       localStorage.removeItem(TOKEN_STORAGE_KEY);
+      clearDriveSessionData();
       // Don't touch STORAGE_KEY — local anonymous ideas should survive a disconnect.
     } catch(e) {}
   }
@@ -4107,7 +4269,7 @@ function updateDriveButtonUI() {
     }
   } else {
     btn.classList.remove("connected");
-    label.textContent = "Connect Google Drive";
+    label.textContent = driveExpired ? "Reconnect Google Drive" : "Connect Google Drive";
     if (sub) sub.textContent = "";
   }
 }
@@ -4576,9 +4738,21 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-15 15:42 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-15 15:48 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
+  {
+    version: "0.8.0",
+    public: true,
+    items: [
+      "You stay signed in: when Google's session runs out, your ideas stay on screen and one tap reconnects",
+      "Pick your notebook cover color in the new Settings (cover, day/night, sync, AI, backup)",
+      "The sidebar is now the notebook's index page and the mobile header a pencil case",
+      "Pencil, marker and eraser buttons for Edit, Develop and Erase",
+      "Restoring an idea from Trash brings back its previous status",
+      "Fixed: night mode, the phase status menu staying open, and the edit toolbar on phones"
+    ]
+  },
   {
     version: "0.7.0",
     public: true,
@@ -4936,10 +5110,11 @@ async function deleteIdea(ideaId) {
   if (!idea) return;
   const confirmado = await showConfirm(`"${idea.titulo}" will be moved to Trash. You can restore it within 30 days.`, { title: "Move to Trash?", confirmLabel: "Move to Trash", danger: false });
   if (!confirmado) return;
+  idea._prevEstado = idea.estado;
   idea.estado = "eliminada";
   idea._deletedAt = Date.now();
   saveIdeas();
-  goHome();
+  if (view === "detalle") goHome(); else render();
 }
 
 async function deleteForever(ideaId) {
@@ -4955,8 +5130,9 @@ async function deleteForever(ideaId) {
 async function restoreIdea(ideaId) {
   const idea = IDEAS.find(i => i.id === ideaId);
   if (!idea) return;
-  idea.estado = "idea";
+  idea.estado = (idea._prevEstado && ESTADOS[idea._prevEstado] && idea._prevEstado !== "eliminada") ? idea._prevEstado : "idea";
   delete idea._deletedAt;
+  delete idea._prevEstado;
   saveIdeas();
   goTrash();
 }
@@ -6243,7 +6419,7 @@ function renderSearchResults(query) {
     return `<div class="empty-state"><div class="big">No results for "${escapeHtml(query)}"</div>Try a different word.</div>`;
   }
   return `
-    <div class="section-label">Resultados para "${escapeHtml(query)}" (${results.length} idea${results.length === 1 ? '' : 's'})</div>
+    <div class="section-label">Results for "${escapeHtml(query)}" (${results.length} idea${results.length === 1 ? '' : 's'})</div>
     <div class="search-results-wrap">
       ${results.map(r => `
         <div class="search-result-idea">
@@ -6677,7 +6853,7 @@ function renderDetailEditMode(idea) {
   return `
     <div class="detail-top-row" style="position:sticky;top:0;background:var(--paper);z-index:10;padding:8px 0;margin-bottom:0">
       <button class="back-btn" onclick="cancelEditIdea()">← Cancel</button>
-      <div style="display:flex;gap:8px;align-items:center">
+      <div class="ie-toolbar" style="display:flex;gap:8px;align-items:center">
         <div class="new-idea-tabs" style="margin:0">
           <button class="new-idea-tab active" id="ie-tab-fields" onclick="switchInlineEditTab('fields')">Fields</button>
           <button class="new-idea-tab" id="ie-tab-json" onclick="switchInlineEditTab('json')">JSON</button>
@@ -6812,7 +6988,14 @@ async function stuckSend() {
 /* ==================================================================
    RENDER PRINCIPAL
 ================================================================== */
+function closePhasePicker() {
+  const portal = document.getElementById("phase-picker-portal");
+  if (portal) { portal.style.display = "none"; portal.innerHTML = ""; }
+  if (typeof openPhasePickerId !== "undefined") openPhasePickerId = null;
+}
+window.addEventListener("scroll", () => { if (openPhasePickerId) closePhasePicker(); }, { passive: true });
 function render() {
+  closePhasePicker();
   document.body.dataset.view = (view === "detalle" && !IDEAS.find(i => i.id === viewParam)) ? "home" : view;
   renderSidebar();
   const main = document.getElementById("main");
@@ -6888,6 +7071,10 @@ render();
 if (getSavedToken()) {
   showDriveLoadingOverlay();
   initDriveSync().finally(() => hideDriveLoadingOverlay());
+} else if (getDriveSession()) {
+  // Remembered session with an expired token: show cached Drive ideas
+  // and offer a one-tap reconnect instead of looking logged out.
+  enterDriveExpired();
 }
 
 maybeShowInstallBanner();
