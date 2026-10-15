@@ -2129,6 +2129,8 @@ it).
   }
 
   /* ============ MODALS ============ */
+  .ai-chip { text-align:left; font-size:0.88rem; padding:10px 14px; border-radius:12px; border:1.5px solid var(--accent); background:transparent; color:var(--accent); cursor:pointer; font-weight:600; }
+  .ai-chip:hover { background: rgba(128,128,128,.12); }
   .stuck-btn { margin-top:6px; font-size:0.74rem; font-weight:600; color:var(--accent); background:none; border:1px solid var(--accent); border-radius:999px; padding:3px 10px; cursor:pointer; opacity:.85; }
   .stuck-btn:hover { opacity:1; }
   .stuck-out { white-space:pre-wrap; font-size:0.85rem; line-height:1.5; margin-top:6px; color:var(--ink); }
@@ -2892,6 +2894,7 @@ it).
       <button class="modal-close" onclick="closeAiChat()">&times;</button>
     </div>
     <div id="ai-chat-log" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px 2px 10px"></div>
+    <div id="ai-chat-suggestions" style="display:none;flex-direction:column;gap:8px;margin-bottom:8px"></div>
     <div id="ai-chat-apply" style="display:none"><button class="form-submit" style="margin-top:0" onclick="aiChatApply()">Apply to idea</button></div>
     <div id="ai-chat-inputrow" style="display:flex;gap:8px;margin-top:8px">
       <input class="form-input" id="ai-chat-input" style="flex:1;font-size:16px" placeholder="Your answer…" onkeydown="if(event.key==='Enter'){event.preventDefault();aiChatSend();}">
@@ -3805,8 +3808,22 @@ async function openAiChat() {
   document.getElementById("ai-chat-apply").style.display = "none";
   document.getElementById("ai-chat-inputrow").style.display = "flex";
   document.getElementById("ai-chat-overlay").classList.add("open");
-  aiChatHistory.push({ role: "user", text: buildEnrichMessage(idea) });
-  await aiChatRun();
+  aiChatAddBubble("model", "Hi! I'm your mentor for \"" + idea.titulo + "\". How do you want to improve this idea? Pick one below or write your own request.");
+  const hasPlan = (idea.fases || []).some(f => f.pasos && f.pasos.length);
+  const opts = [
+    hasPlan ? "Improve and expand my current plan" : "Build the full plan from scratch",
+    "Interview me to refine the idea first",
+    "Find what I still need to figure out"
+  ];
+  const box = document.getElementById("ai-chat-suggestions");
+  box.innerHTML = "";
+  opts.forEach(o => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "ai-chip"; b.textContent = o;
+    b.onclick = () => aiChatSend(o);
+    box.appendChild(b);
+  });
+  box.style.display = "flex";
 }
 
 function aiChatOtherAi() {
@@ -3853,12 +3870,18 @@ async function aiChatSend(textOverride) {
   const text = (textOverride || inp.value).trim();
   if (!text) return;
   inp.value = "";
+  document.getElementById("ai-chat-suggestions").style.display = "none";
   aiChatAddBubble("user", text);
-  aiChatHistory.push({ role: "user", text });
+  if (!aiChatHistory.length) {
+    const idea = IDEAS.find(i => i.id === pendingEvolveIdeaId);
+    aiChatHistory.push({ role: "user", text: buildEnrichMessage(idea, text) });
+  } else {
+    aiChatHistory.push({ role: "user", text });
+  }
   await aiChatRun();
 }
 
-function aiChatStop() { aiChatSend("stop — that's enough, give me the final JSON now."); }
+function aiChatStop() { if (!aiChatHistory.length) return; aiChatSend("stop — that's enough, give me the final JSON now."); }
 
 function aiChatApply() {
   const idea = IDEAS.find(i => i.id === pendingEvolveIdeaId);
@@ -3888,7 +3911,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-15 04:49 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-15 04:53 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -4956,7 +4979,7 @@ QUALITY RULES FOR THE PLAN:
 - In "cosasAResolver" put the real unknowns/decisions I must settle, each with an English search hint in "busqueda".
 - "descripcion" = a clear paragraph of what the final result is. "notas" = key decisions and creative choices we agreed on.`;
 
-function buildEnrichMessage(idea) {
+function buildEnrichMessage(idea, request) {
   const fasesArray = Array.isArray(idea.fases) ? idea.fases.filter(f => f.pasos && f.pasos.length) : [];
 
   // Use a helper to ensure no curly/typographic quotes sneak in
@@ -4994,7 +5017,7 @@ function buildEnrichMessage(idea) {
     msg += "\n";
   }
 
-  msg += q(`Now start: ask your first question.\n\n`);
+  msg += q(request ? `MY REQUEST: ${request}\n\n` : `Now start: ask your first question.\n\n`);
   msg += q(`FINAL OUTPUT FORMAT — output this and nothing else when done:\n`);
   msg += '{\n';
   msg += '  "descripcion": "...",\n';
