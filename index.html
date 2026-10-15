@@ -3262,6 +3262,10 @@ it).
   body[data-view="home"] .section-label, body[data-view="home"] .empty-state { color: var(--cover-text); }
   body[data-view="home"] .status-howto-divider { border-left-color: var(--cover-text); opacity: .5; }
 
+  @media (max-width: 600px) {
+    body[data-view="home"], [data-theme="dark"] body[data-view="home"] { background-size: 250px 250px !important; }
+  }
+
   /* ---- Settings modal ---- */
   .settings-section { padding: 14px 0; border-top: 1.5px dashed var(--line-strong); }
   .settings-section:first-of-type { border-top: none; padding-top: 4px; }
@@ -4571,7 +4575,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-15 14:03 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-15 14:06 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
