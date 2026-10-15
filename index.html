@@ -2879,7 +2879,7 @@ it).
     <div class="form-hint" style="margin-bottom:12px">Add your own free Gemini API key to chat with the AI inside Artdeas. Get one at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--accent)">aistudio.google.com/apikey</a>. If you're connected to Google Drive, it's saved in your own Drive so you don't have to enter it again on other devices. Otherwise it stays only in this browser.</div>
     <input class="form-input" id="ai-key-input" type="password" autocomplete="off" placeholder="Gemini API key" style="font-size:16px">
     <div id="ai-key-status" style="min-height:1.4em;font-size:0.82rem;margin-top:8px;font-weight:600"></div>
-    <button class="form-submit" onclick="saveAiKeyFromUI()">Save key</button>
+    <button class="form-submit" id="ai-key-save-btn" onclick="saveAiKeyFromUI()">Save key</button>
     <div style="text-align:center;margin-top:8px"><button onclick="removeAiKey()" style="background:none;border:none;font-size:0.8rem;color:var(--slate);cursor:pointer;text-decoration:underline">Remove key</button></div>
   </div>
 </div>
@@ -3630,7 +3630,35 @@ function migrateFasesIfNeeded(idea) {
 ================================================================== */
 const GEMINI_KEY_STORAGE = "artdeas_gemini_key_v1";
 const DRIVE_SETTINGS_FILENAME = "artdeas-settings.json";
-const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL_STORAGE = "artdeas_gemini_model_v1";
+const GEMINI_FALLBACK_MODEL = "gemini-3.8-flash";
+let geminiModel = "";
+try { geminiModel = localStorage.getItem(GEMINI_MODEL_STORAGE) || ""; } catch (e) {}
+
+// Asks Google which models this key can use and picks the newest plain
+// "flash" one, so the app doesn't break each time a model is retired.
+async function geminiListModels(key) {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=${encodeURIComponent(key)}`);
+  if (!res.ok) {
+    let msg = "Error " + res.status;
+    try { const j = await res.json(); if (j.error && j.error.message) msg = j.error.message; } catch (e) {}
+    const err = new Error(msg); err.status = res.status; throw err;
+  }
+  const j = await res.json();
+  return (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent")).map(m => m.name.replace(/^models\//, ""));
+}
+function geminiPickModel(names) {
+  const plain = names.map(n => { const m = n.match(/^gemini-(\d+(?:\.\d+)?)-flash$/); return m ? { n, v: parseFloat(m[1]) } : null; }).filter(Boolean).sort((a, b) => b.v - a.v);
+  if (plain.length) return plain[0].n;
+  const any = names.find(n => /flash/.test(n) && !/image|tts|live|audio|embed|thinking|exp|preview/.test(n));
+  return any || names.find(n => /^gemini-/.test(n)) || GEMINI_FALLBACK_MODEL;
+}
+async function geminiResolveModel(force) {
+  if (geminiModel && !force) return geminiModel;
+  geminiModel = geminiPickModel(await geminiListModels(geminiKey));
+  try { localStorage.setItem(GEMINI_MODEL_STORAGE, geminiModel); } catch (e) {}
+  return geminiModel;
+}
 let geminiKey = "";
 let driveSettingsFileId = null;
 try { geminiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || ""; } catch (e) {}
@@ -3647,6 +3675,7 @@ async function driveLoadSettings() {
       if (r.ok) {
         const s = await r.json();
         if (s && s.geminiKey) {
+          if (geminiKey !== s.geminiKey) geminiModel = "";
           geminiKey = s.geminiKey;
           try { localStorage.setItem(GEMINI_KEY_STORAGE, geminiKey); } catch (e) {}
           return;
@@ -3683,25 +3712,40 @@ function closeAiSettings() { document.getElementById("ai-settings-overlay").clas
 async function saveAiKeyFromUI() {
   const v = document.getElementById("ai-key-input").value.trim();
   const st = document.getElementById("ai-key-status");
+  const btn = document.getElementById("ai-key-save-btn");
   if (!v) { st.textContent = "Paste your key first."; st.style.color = "var(--rust)"; return; }
-  geminiKey = v;
-  try { localStorage.setItem(GEMINI_KEY_STORAGE, v); } catch (e) {}
-  try { if (driveReady) await driveSaveSettings(); } catch (e) {}
-  st.textContent = driveReady ? "✓ Saved (also in your Drive)" : "✓ Saved in this browser";
-  st.style.color = "var(--accent)";
+  st.textContent = "Checking key…"; st.style.color = "var(--slate)";
+  btn.disabled = true;
+  try {
+    const names = await geminiListModels(v);
+    if (!names.length) throw new Error("This key has no models available.");
+    geminiKey = v;
+    geminiModel = geminiPickModel(names);
+    try { localStorage.setItem(GEMINI_KEY_STORAGE, v); localStorage.setItem(GEMINI_MODEL_STORAGE, geminiModel); } catch (e) {}
+    let drive = false;
+    try { if (driveReady) { await driveSaveSettings(); drive = true; } } catch (e) {}
+    st.textContent = "✓ Key is valid and saved" + (drive ? " (also in your Drive)" : " in this browser") + ". Using " + geminiModel + ".";
+    st.style.color = "var(--accent)";
+  } catch (e) {
+    const bad = e.status === 400 || e.status === 403 || /api key/i.test(e.message);
+    st.textContent = bad ? "✗ That key isn't valid. Check you copied all of it." : "✗ Couldn't check the key: " + e.message;
+    st.style.color = "var(--rust)";
+  }
+  btn.disabled = false;
 }
 
 async function removeAiKey() {
-  geminiKey = "";
-  try { localStorage.removeItem(GEMINI_KEY_STORAGE); } catch (e) {}
+  geminiKey = ""; geminiModel = "";
+  try { localStorage.removeItem(GEMINI_KEY_STORAGE); localStorage.removeItem(GEMINI_MODEL_STORAGE); } catch (e) {}
   try { if (driveReady) await driveSaveSettings(); } catch (e) {}
   document.getElementById("ai-key-input").value = "";
   const st = document.getElementById("ai-key-status");
   st.textContent = "Key removed."; st.style.color = "var(--slate)";
 }
 
-async function geminiGenerate(history, system) {
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(geminiKey)}`, {
+async function geminiGenerate(history, system, retried) {
+  const model = await geminiResolveModel(false);
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(geminiKey)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -3713,6 +3757,13 @@ async function geminiGenerate(history, system) {
   if (!res.ok) {
     let msg = "Gemini error " + res.status;
     try { const j = await res.json(); if (j.error && j.error.message) msg = j.error.message; } catch (e) {}
+    // Model retired or not found: pick a fresh one and retry once.
+    if (!retried && (res.status === 404 || /no longer available|not found|not supported/i.test(msg))) {
+      await geminiResolveModel(true);
+      return geminiGenerate(history, system, true);
+    }
+    if (res.status === 400 && /api key/i.test(msg)) msg = "Your Gemini API key isn't valid. Check it in AI settings.";
+    if (res.status === 429) msg = "Gemini's free limit was hit. Wait a minute and try again.";
     throw new Error(msg);
   }
   const j = await res.json();
@@ -3831,7 +3882,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-15 04:32 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-15 04:38 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
