@@ -3255,6 +3255,7 @@ it).
   html[data-cover="blue"]   { --cover: #3d4f8c; --marble: var(--marble-w); --cover-text: #f4ecd4; }
   html[data-cover="green"]  { --cover: #477a4c; --marble: var(--marble-w); --cover-text: #f4ecd4; }
   html[data-cover="red"]    { --cover: #a8494a; --marble: var(--marble-w); --cover-text: #f4ecd4; }
+  html[data-cover="purple"] { --cover: #6b5a94; --marble: var(--marble-w); --cover-text: #f4ecd4; }
   html[data-cover="yellow"] { --cover: #d4b456; --marble: var(--marble-w); --cover-text: #111; }
   body[data-view="home"], [data-theme="dark"] body[data-view="home"] {
     background-color: var(--cover) !important;
@@ -3271,7 +3272,7 @@ it).
   .settings-section { padding: 14px 0; border-top: 1.5px dashed var(--line-strong); }
   .settings-section:first-of-type { border-top: none; padding-top: 4px; }
   .settings-h { font-family: var(--hand); font-size: 1.35rem; color: var(--pen); margin-bottom: 8px; }
-  .cover-swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .cover-swatches { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
   .cover-swatch {
     position: relative; display: block; width: 100%; height: 58px; border-radius: 3px 6px 6px 3px; cursor: pointer;
     border: 2px solid transparent; padding: 0;
@@ -3283,6 +3284,7 @@ it).
   .cover-swatch[data-sw="blue"] { background-color: #3d4f8c; background-image: var(--marble-w); }
   .cover-swatch[data-sw="green"] { background-color: #477a4c; background-image: var(--marble-w); }
   .cover-swatch[data-sw="red"] { background-color: #a8494a; background-image: var(--marble-w); }
+  .cover-swatch[data-sw="purple"] { background-color: #6b5a94; background-image: var(--marble-w); }
   .cover-swatch[data-sw="yellow"] { background-color: #d4b456; background-image: var(--marble-w); }
   .cover-swatch.selected { border-color: var(--pen); outline: 2px solid var(--pen); outline-offset: 2px; }
   .cover-swatch-name { display: block; text-align: center; font-family: var(--hand); font-size: .95rem; margin-top: 4px; color: var(--ink); }
@@ -3362,6 +3364,28 @@ it).
   .case-swatch[data-case-sw="polka"] { background-color: #2f3f73; background-image: radial-gradient(circle, #f6efe0 0 3.2px, transparent 3.7px), radial-gradient(circle, #f6efe0 0 3.2px, transparent 3.7px); background-size: 22px 22px; --zt: #e8505b; }
   .case-swatch[data-case-sw="pencils"] { background-color: #fdf3dc; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='60'><g transform='rotate(-35 40 30)'><rect x='4' y='26' width='44' height='7' fill='%23f2c94c' stroke='%233a2c10' stroke-width='1'/><path d='M48 26 L56 29.5 L48 33 Z' fill='%23f0d2a4' stroke='%233a2c10' stroke-width='1'/><rect x='0' y='26' width='5' height='7' fill='%23f29aa6' stroke='%233a2c10' stroke-width='1'/></g><g transform='rotate(-35 40 30) translate(26 22)'><rect x='4' y='26' width='44' height='7' fill='%235b8def' stroke='%233a2c10' stroke-width='1'/><path d='M48 26 L56 29.5 L48 33 Z' fill='%23f0d2a4' stroke='%233a2c10' stroke-width='1'/></g></svg>"); background-size: 80px 60px; --zt: #5b8def; }
   .case-swatch[data-case-sw="coral"] { background-color: #f0705f; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='70'><g fill='none' stroke='%23fff' stroke-opacity='.38' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M14 12 l2.5 5 5.5 .8 -4 3.9 .9 5.5 -4.9 -2.6 -4.9 2.6 .9 -5.5 -4 -3.9 5.5 -.8 z'/><path d='M48 52 q5 -8 10 0 t10 0 t10 0'/><circle cx='96' cy='18' r='5'/><path d='M70 22 l10 -10 3 3 -10 10 -4 1 z'/><path d='M30 48 m-4 0 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0' stroke='%23ffe066' stroke-opacity='.7'/><path d='M104 50 l4 4 m0 -4 l-4 4' stroke='%23b8f2e6' stroke-opacity='.8'/></g></svg>"); background-size: 120px 70px; --zt: #2fa596; }
+  html[data-case="black"] { --case-bg: #1f1f21; --case-img: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,0)); --case-size: auto; --case-btn: #ecebe6; --zip-tape: #0c0c0d; }
+  html[data-case="leather"] { --case-bg: #7b4a2b; --case-img: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='g' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='0.55' numOctaves='3' seed='4'/><feColorMatrix values='0 0 0 0 0.12 0 0 0 0 0.06 0 0 0 0 0.02 0 0 0 0.5 -0.18'/></filter><rect width='100%25' height='100%25' filter='url(%23g)'/></svg>"); --case-size: 120px 120px; --case-btn: #e9c46a; --zip-tape: #3b2416; }
+  @media (max-width: 860px) {
+    html[data-case="black"] .mobile-header .mobile-brand, html[data-case="black"] .mobile-header .mobile-menu-btn, html[data-case="black"] .mobile-header .search-input { background: #2c2c2f !important; color: #ecebe6 !important; outline-color: rgba(255,255,255,.18) !important; box-shadow: none !important; }
+    html[data-case="black"] .mobile-header .search-icon { color: #9a9a9f !important; }
+    html[data-case="black"] .mobile-icon-btn { color: #1f1f21 !important; outline-color: rgba(0,0,0,.25) !important; }
+    html[data-case="black"] .mobile-header { box-shadow: 0 3px 8px rgba(0,0,0,.25) !important; }
+    html[data-case="leather"] .mobile-header::after { filter: sepia(.6) drop-shadow(1px 2px 1px rgba(0,0,0,.35)); }
+    html[data-case="leather"] .mobile-header { box-shadow: inset 0 -16px 0 -14px rgba(0,0,0,0), 0 6px 12px rgba(0,0,0,.3) !important; }
+  }
+  .case-swatch[data-case-sw="black"] { background-color: #1f1f21; --zt: #0c0c0d; }
+  .case-swatch[data-case-sw="leather"] { background-color: #7b4a2b; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='g' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='0.55' numOctaves='3' seed='4'/><feColorMatrix values='0 0 0 0 0.12 0 0 0 0 0.06 0 0 0 0 0.02 0 0 0 0.5 -0.18'/></filter><rect width='100%25' height='100%25' filter='url(%23g)'/></svg>"); background-size: 120px 120px; --zt: #3b2416; }
+  /* leather: stitched seam above the zipper */
+  @media (max-width: 860px) {
+    html[data-case="leather"] .mobile-header { background-image:
+      linear-gradient(180deg, rgba(255,255,255,.14) 0%, rgba(255,255,255,0) 45%, rgba(0,0,0,.16) 100%),
+      repeating-linear-gradient(90deg, rgba(240,210,160,.85) 0 7px, transparent 7px 12px),
+      var(--case-img) !important;
+      background-size: auto, 100% 1.5px, var(--case-size) !important;
+      background-position: 0 0, 0 calc(100% - 17px), 0 0 !important;
+      background-repeat: no-repeat, no-repeat, repeat !important; }
+  }
 </style>
 </head>
 <body>
@@ -4539,7 +4563,7 @@ async function driveSaveSettings() {
 
 /* ---------- Settings: cover color, theme, sync, AI, backup ---------- */
 const COVER_KEY = "artdeas_cover_v1";
-const COVERS = [["black","Black"],["white","White"],["blue","Blue"],["green","Green"],["red","Red"],["yellow","Yellow"]];
+const COVERS = [["black","Black"],["white","White"],["blue","Blue"],["green","Green"],["red","Red"],["purple","Purple"],["yellow","Yellow"]];
 let coverColor = "black";
 try { coverColor = localStorage.getItem(COVER_KEY) || "black"; } catch (e) {}
 document.documentElement.setAttribute("data-cover", coverColor);
@@ -4560,7 +4584,7 @@ function renderCoverSwatches() {
   box.innerHTML = COVERS.map(([k, label]) => `<div><button type="button" class="cover-swatch ${k === coverColor ? "selected" : ""}" data-sw="${k}" onclick="setCover('${k}')" aria-label="${label} cover"></button><span class="cover-swatch-name">${label}</span></div>`).join("");
 }
 const CASE_KEY = "artdeas_case_v1";
-const CASES = [["mint","Mint stars"],["checker","Checkers"],["stripes","Rainbow"],["polka","Polka"],["pencils","Pencils"],["coral","Coral doodles"]];
+const CASES = [["mint","Mint stars"],["checker","Checkers"],["stripes","Rainbow"],["polka","Polka"],["pencils","Pencils"],["coral","Coral doodles"],["black","Low-profile black"],["leather","Brown leather"]];
 let caseStyle = "mint";
 try { caseStyle = localStorage.getItem(CASE_KEY) || "mint"; } catch (e) {}
 document.documentElement.setAttribute("data-case", caseStyle);
@@ -4803,7 +4827,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-15 16:34 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-15 17:27 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
