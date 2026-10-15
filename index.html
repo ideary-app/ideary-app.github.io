@@ -2127,6 +2127,12 @@ it).
   }
 
   /* ============ MODALS ============ */
+  .stuck-btn { margin-top:6px; font-size:0.74rem; font-weight:600; color:var(--accent); background:none; border:1px solid var(--accent); border-radius:999px; padding:3px 10px; cursor:pointer; opacity:.85; }
+  .stuck-btn:hover { opacity:1; }
+  .stuck-out { white-space:pre-wrap; font-size:0.85rem; line-height:1.5; margin-top:6px; color:var(--ink); }
+  .stuck-out:empty { display:none; }
+  .stuck-out { background: rgba(128,128,128,.1); border-radius:8px; padding:8px 10px; }
+  .stuck-out:empty { padding:0; }
   .modal-overlay {
     display: none;
     position: fixed;
@@ -3674,12 +3680,12 @@ async function removeAiKey() {
   st.textContent = "Key removed."; st.style.color = "var(--slate)";
 }
 
-async function geminiGenerate(history) {
+async function geminiGenerate(history, system) {
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(geminiKey)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: DIRECTOR_RULES }] },
+      systemInstruction: { parts: [{ text: system || DIRECTOR_RULES }] },
       contents: history.map(m => ({ role: m.role, parts: [{ text: m.text }] })),
       generationConfig: { temperature: 0.7 }
     })
@@ -3805,7 +3811,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-15 04:25 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-15 04:27 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -5716,7 +5722,7 @@ function renderDetailReadMode(idea) {
             <span class="phase-name" style="color:var(--accent)">${escapeHtml(fase.nombre)}</span>
           </div>
           <ul class="phase-steps">
-            ${(fase.pasos || []).map(step => renderStep(step)).join("")}
+            ${(fase.pasos || []).map((step, sIdx) => renderStep(step, idea.id, idea.fases.indexOf(fase), sIdx)).join("")}
           </ul>
         </div>
       `).join("")}
@@ -5925,11 +5931,37 @@ function renderDetailEditMode(idea) {
 // A phase step can be a string, or an object
 // { texto: "...", explicacion: "..." } when it's worth clarifying a
 // technical term for someone who doesn't know it yet.
-function renderStep(step) {
-  if (typeof step === "string") {
-    return `<li>${escapeHtml(step)}</li>`;
+function renderStep(step, ideaId, faseIdx, stepIdx) {
+  const txt = typeof step === "string" ? step : step.texto;
+  const exp = typeof step === "string" ? "" : (step.explicacion || "");
+  const stuck = ideaId !== undefined && faseIdx >= 0
+    ? `<button type="button" class="stuck-btn" onclick="stuckHelp(this,'${escapeAttr(ideaId)}',${faseIdx},${stepIdx})">I'm stuck</button><div class="stuck-out"></div>` : "";
+  return `<li>${escapeHtml(txt)}${exp ? `<div class="phase-desc">${escapeHtml(exp)}</div>` : ""}${stuck}</li>`;
+}
+
+const STUCK_SYSTEM = `You are a veteran expert mentor in the field of the project below. The user is a beginner stuck on ONE step of their plan. Explain that step in a different, simpler way than the plan did: break it into 3-6 tiny concrete sub-steps, give a quick example, and name the most common beginner mistake. Be practical and warm, no fluff, under 200 words, plain text (no markdown symbols), same language as the step.`;
+
+async function stuckHelp(btn, ideaId, faseIdx, stepIdx) {
+  const idea = IDEAS.find(i => i.id === ideaId);
+  const fase = idea && idea.fases[faseIdx];
+  const step = fase && fase.pasos[stepIdx];
+  if (!step) return;
+  const out = btn.parentElement.querySelector(".stuck-out");
+  const prompt = `PROJECT: ${idea.titulo} (${idea.categoria})\nDESCRIPTION: ${idea.descripcion}\nPHASE: ${fase.nombre}\nSTEP I'M STUCK ON: ${stepText(step)}`;
+  if (!geminiKey) {
+    try { await navigator.clipboard.writeText(STUCK_SYSTEM + "\n\n" + prompt); } catch (e) {}
+    out.textContent = "No Gemini key yet — I copied a help prompt; paste it into any AI. (Add a key in AI settings to get the answer here.)";
+    return;
   }
-  return `<li>${escapeHtml(step.texto)}${step.explicacion ? `<div class="phase-desc">${escapeHtml(step.explicacion)}</div>` : ""}</li>`;
+  out.textContent = "Thinking…";
+  btn.disabled = true;
+  try {
+    const reply = await geminiGenerate([{ role: "user", text: prompt }], STUCK_SYSTEM);
+    out.textContent = reply.trim();
+  } catch (e) {
+    out.textContent = "⚠ " + e.message;
+  }
+  btn.disabled = false;
 }
 
 /* ==================================================================
