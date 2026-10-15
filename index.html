@@ -3323,6 +3323,45 @@ it).
     .ie-toolbar .new-idea-tab { white-space: nowrap; }
     .ie-toolbar .enrich-btn { width: auto !important; }
   }
+
+  /* ---- Pencil cases (mobile header) — chosen in Settings ---- */
+  html, html[data-case="mint"] { --case-bg: #8fd3c1; --case-img: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='56' height='40'><g fill='%23fff7c2'><path d='M12 4 l2 4.5 4.8.6 -3.5 3.3 .9 4.8 -4.2 -2.3 -4.2 2.3 .9 -4.8 -3.5 -3.3 4.8 -.6z'/><path d='M44 26 l1.3 2.8 3 .4 -2.2 2 .6 3 -2.7 -1.5 -2.7 1.5 .6 -3 -2.2 -2 3-.4z'/></g><circle cx='34' cy='9' r='1.6' fill='%23fff'/><circle cx='8' cy='30' r='1.3' fill='%23fff'/></svg>"); --case-size: 56px 40px; --case-btn: #f2c94c; --zip-tape: #e86f8f; }
+  html[data-case="checker"] { --case-bg: #c9b6ec; --case-img: repeating-conic-gradient(#c9b6ec 0 25%, #f6efe0 0 50%); --case-size: 26px 26px; --case-btn: #7c5cc4; --zip-tape: #2b2b3a; }
+  html[data-case="stripes"] { --case-bg: #f6efe0; --case-img: repeating-linear-gradient(180deg, #ff9aa2 0 6px, #ffdac1 6px 12px, #fff1a8 12px 18px, #c7f0bd 18px 24px, #b5d8ff 24px 30px, #d7c4f2 30px 36px); --case-size: auto; --case-btn: #f2c94c; --zip-tape: #2b2b3a; }
+  html[data-case="polka"] { --case-bg: #2f3f73; --case-img: radial-gradient(circle, #f6efe0 0 3.2px, transparent 3.7px), radial-gradient(circle, #f6efe0 0 3.2px, transparent 3.7px); --case-size: 22px 22px; --case-btn: #f2c94c; --zip-tape: #e8505b; }
+  html[data-case="pencils"] { --case-bg: #fdf3dc; --case-img: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='60'><g transform='rotate(-35 40 30)'><rect x='4' y='26' width='44' height='7' fill='%23f2c94c' stroke='%233a2c10' stroke-width='1'/><path d='M48 26 L56 29.5 L48 33 Z' fill='%23f0d2a4' stroke='%233a2c10' stroke-width='1'/><rect x='0' y='26' width='5' height='7' fill='%23f29aa6' stroke='%233a2c10' stroke-width='1'/></g><g transform='rotate(-35 40 30) translate(26 22)'><rect x='4' y='26' width='44' height='7' fill='%235b8def' stroke='%233a2c10' stroke-width='1'/><path d='M48 26 L56 29.5 L48 33 Z' fill='%23f0d2a4' stroke='%233a2c10' stroke-width='1'/></g></svg>"); --case-size: 80px 60px; --case-btn: #f2c94c; --zip-tape: #5b8def; }
+  html[data-case="coral"] { --case-bg: #f0705f; --case-img: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='70'><g fill='none' stroke='%23fff' stroke-opacity='.38' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M14 12 l2.5 5 5.5 .8 -4 3.9 .9 5.5 -4.9 -2.6 -4.9 2.6 .9 -5.5 -4 -3.9 5.5 -.8 z'/><path d='M48 52 q5 -8 10 0 t10 0 t10 0'/><circle cx='96' cy='18' r='5'/><path d='M70 22 l10 -10 3 3 -10 10 -4 1 z'/><path d='M30 48 m-4 0 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0' stroke='%23ffe066' stroke-opacity='.7'/><path d='M104 50 l4 4 m0 -4 l-4 4' stroke='%23b8f2e6' stroke-opacity='.8'/></g></svg>"); --case-size: 120px 70px; --case-btn: #f2c94c; --zip-tape: #2fa596; }
+  @media (max-width: 860px) {
+    .mobile-header, [data-theme="dark"] .mobile-header {
+      background-color: var(--case-bg) !important;
+      background-image:
+        linear-gradient(180deg, rgba(255,255,255,.22) 0%, rgba(255,255,255,.04) 40%, rgba(0,0,0,0) 60%, rgba(0,0,0,.14) 100%),
+        var(--case-img) !important;
+      background-size: auto, var(--case-size) !important;
+    }
+    [data-theme="dark"] .mobile-header { filter: brightness(.85) saturate(.9); }
+    .mobile-header::before {
+      background:
+        repeating-linear-gradient(90deg, #eef0f3 0 3px, #9aa0a8 3px 4px, transparent 4px 6px) center 3px / 100% 6px no-repeat,
+        var(--zip-tape) !important;
+    }
+    .mobile-icon-btn { background: var(--case-btn) !important; }
+  }
+  .case-swatches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .case-swatch {
+    display: block; width: 100%; height: 44px; border-radius: 8px; cursor: pointer; padding: 0;
+    border: 2px solid transparent; position: relative; overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,.25);
+  }
+  .case-swatch::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 9px;
+    background: repeating-linear-gradient(90deg, #eef0f3 0 3px, #9aa0a8 3px 4px, transparent 4px 6px) center 2px / 100% 5px no-repeat, var(--zt); }
+  .case-swatch.selected { border-color: var(--pen); outline: 2px solid var(--pen); outline-offset: 2px; }
+  .case-swatch[data-case-sw="mint"] { background-color: #8fd3c1; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='56' height='40'><g fill='%23fff7c2'><path d='M12 4 l2 4.5 4.8.6 -3.5 3.3 .9 4.8 -4.2 -2.3 -4.2 2.3 .9 -4.8 -3.5 -3.3 4.8 -.6z'/><path d='M44 26 l1.3 2.8 3 .4 -2.2 2 .6 3 -2.7 -1.5 -2.7 1.5 .6 -3 -2.2 -2 3-.4z'/></g><circle cx='34' cy='9' r='1.6' fill='%23fff'/><circle cx='8' cy='30' r='1.3' fill='%23fff'/></svg>"); background-size: 56px 40px; --zt: #e86f8f; }
+  .case-swatch[data-case-sw="checker"] { background-color: #c9b6ec; background-image: repeating-conic-gradient(#c9b6ec 0 25%, #f6efe0 0 50%); background-size: 26px 26px; --zt: #2b2b3a; }
+  .case-swatch[data-case-sw="stripes"] { background-color: #f6efe0; background-image: repeating-linear-gradient(180deg, #ff9aa2 0 6px, #ffdac1 6px 12px, #fff1a8 12px 18px, #c7f0bd 18px 24px, #b5d8ff 24px 30px, #d7c4f2 30px 36px); background-size: auto; --zt: #2b2b3a; }
+  .case-swatch[data-case-sw="polka"] { background-color: #2f3f73; background-image: radial-gradient(circle, #f6efe0 0 3.2px, transparent 3.7px), radial-gradient(circle, #f6efe0 0 3.2px, transparent 3.7px); background-size: 22px 22px; --zt: #e8505b; }
+  .case-swatch[data-case-sw="pencils"] { background-color: #fdf3dc; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='60'><g transform='rotate(-35 40 30)'><rect x='4' y='26' width='44' height='7' fill='%23f2c94c' stroke='%233a2c10' stroke-width='1'/><path d='M48 26 L56 29.5 L48 33 Z' fill='%23f0d2a4' stroke='%233a2c10' stroke-width='1'/><rect x='0' y='26' width='5' height='7' fill='%23f29aa6' stroke='%233a2c10' stroke-width='1'/></g><g transform='rotate(-35 40 30) translate(26 22)'><rect x='4' y='26' width='44' height='7' fill='%235b8def' stroke='%233a2c10' stroke-width='1'/><path d='M48 26 L56 29.5 L48 33 Z' fill='%23f0d2a4' stroke='%233a2c10' stroke-width='1'/></g></svg>"); background-size: 80px 60px; --zt: #5b8def; }
+  .case-swatch[data-case-sw="coral"] { background-color: #f0705f; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='70'><g fill='none' stroke='%23fff' stroke-opacity='.38' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M14 12 l2.5 5 5.5 .8 -4 3.9 .9 5.5 -4.9 -2.6 -4.9 2.6 .9 -5.5 -4 -3.9 5.5 -.8 z'/><path d='M48 52 q5 -8 10 0 t10 0 t10 0'/><circle cx='96' cy='18' r='5'/><path d='M70 22 l10 -10 3 3 -10 10 -4 1 z'/><path d='M30 48 m-4 0 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0' stroke='%23ffe066' stroke-opacity='.7'/><path d='M104 50 l4 4 m0 -4 l-4 4' stroke='%23b8f2e6' stroke-opacity='.8'/></g></svg>"); background-size: 120px 70px; --zt: #2fa596; }
 </style>
 </head>
 <body>
@@ -3507,6 +3546,10 @@ it).
     <div class="settings-section">
       <div class="settings-h">Notebook cover</div>
       <div class="cover-swatches" id="cover-swatches"></div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-h">Pencil case <span style="font-size:.95rem;color:var(--slate)">(top bar on phones)</span></div>
+      <div class="case-swatches" id="case-swatches"></div>
     </div>
     <div class="settings-section">
       <div class="settings-h">Appearance</div>
@@ -4465,6 +4508,7 @@ async function driveLoadSettings() {
       if (r.ok) {
         const s = await r.json();
         if (s && s.coverColor) applyCover(s.coverColor);
+        if (s && s.caseStyle) applyCase(s.caseStyle);
         if (s && s.geminiKey) {
           if (geminiKey !== s.geminiKey) geminiModel = "";
           geminiKey = s.geminiKey;
@@ -4480,7 +4524,7 @@ async function driveLoadSettings() {
 
 async function driveSaveSettings() {
   if (!driveReady && !accessToken) return;
-  const payload = JSON.stringify({ geminiKey, coverColor });
+  const payload = JSON.stringify({ geminiKey, coverColor, caseStyle });
   if (driveSettingsFileId) {
     await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveSettingsFileId}?uploadType=media`, {
       method: "PATCH", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: payload });
@@ -4515,6 +4559,26 @@ function renderCoverSwatches() {
   if (!box) return;
   box.innerHTML = COVERS.map(([k, label]) => `<div><button type="button" class="cover-swatch ${k === coverColor ? "selected" : ""}" data-sw="${k}" onclick="setCover('${k}')" aria-label="${label} cover"></button><span class="cover-swatch-name">${label}</span></div>`).join("");
 }
+const CASE_KEY = "artdeas_case_v1";
+const CASES = [["mint","Mint stars"],["checker","Checkers"],["stripes","Rainbow"],["polka","Polka"],["pencils","Pencils"],["coral","Coral doodles"]];
+let caseStyle = "mint";
+try { caseStyle = localStorage.getItem(CASE_KEY) || "mint"; } catch (e) {}
+document.documentElement.setAttribute("data-case", caseStyle);
+function applyCase(c) {
+  caseStyle = c;
+  document.documentElement.setAttribute("data-case", c);
+  try { localStorage.setItem(CASE_KEY, c); } catch (e) {}
+  renderCaseSwatches();
+}
+async function setCase(c) {
+  applyCase(c);
+  try { if (driveReady) await driveSaveSettings(); } catch (e) {}
+}
+function renderCaseSwatches() {
+  const box = document.getElementById("case-swatches");
+  if (!box) return;
+  box.innerHTML = CASES.map(([k, label]) => `<div><button type="button" class="case-swatch ${k === caseStyle ? "selected" : ""}" data-case-sw="${k}" onclick="setCase('${k}')" aria-label="${label}"></button><span class="cover-swatch-name">${label}</span></div>`).join("");
+}
 function updateThemeButtons() {
   const dark = document.documentElement.getAttribute("data-theme") === "dark";
   const l = document.getElementById("theme-light-btn"), d = document.getElementById("theme-dark-btn");
@@ -4530,6 +4594,7 @@ function openSettings(section) {
   document.getElementById("ai-key-input").value = geminiKey;
   document.getElementById("ai-key-status").textContent = "";
   renderCoverSwatches();
+  renderCaseSwatches();
   updateThemeButtons();
   document.getElementById("settings-overlay").classList.add("open");
   if (typeof closeMobileMenu === "function") { try { closeMobileMenu(); } catch (e) {} }
@@ -4738,7 +4803,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-15 15:48 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-15 16:34 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
