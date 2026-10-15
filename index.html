@@ -2832,7 +2832,7 @@ SHIPPING CHANGES
   /* ---- Modals: a torn-out sheet ---- */
   .modal-box {
     position: relative;
-    overflow: visible;
+    overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; background-attachment: local;
     background-color: var(--panel);
     background-image:
       linear-gradient(to right, transparent 10px, var(--margin-line) 10px, var(--margin-line) 11.5px, transparent 11.5px),
@@ -2842,6 +2842,7 @@ SHIPPING CHANGES
   }
   .modal-box > * { position: relative; }
   .modal-box[style*="height"] { overflow: hidden; }
+  .modal-box::after { top: 0 !important; }
   .modal-overlay { background: rgba(20, 18, 14, .45); }
 
   /* ---- Plan / tags / misc ---- */
@@ -5044,7 +5045,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-15 19:24 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-15 19:26 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
