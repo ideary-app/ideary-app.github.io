@@ -2897,7 +2897,7 @@ it).
       <input class="form-input" id="ai-chat-input" style="flex:1;font-size:16px" placeholder="Your answer…" onkeydown="if(event.key==='Enter'){event.preventDefault();aiChatSend();}">
       <button class="form-submit" style="margin:0;width:auto;padding:0 16px" onclick="aiChatSend()">Send</button>
     </div>
-    <div style="text-align:center;margin-top:8px"><button onclick="aiChatStop()" style="background:none;border:none;font-size:0.8rem;color:var(--slate);cursor:pointer;text-decoration:underline">That's enough — give me the plan</button></div>
+    <div style="text-align:center;margin-top:8px;display:flex;justify-content:center;gap:16px;flex-wrap:wrap"><button onclick="aiChatStop()" style="background:none;border:none;font-size:0.8rem;color:var(--slate);cursor:pointer;text-decoration:underline">That's enough — give me the plan</button><button onclick="aiChatOtherAi()" style="background:none;border:none;font-size:0.8rem;color:var(--slate);cursor:pointer;text-decoration:underline">Use another AI</button></div>
   </div>
 </div>
 
@@ -3809,6 +3809,12 @@ async function openAiChat() {
   await aiChatRun();
 }
 
+function aiChatOtherAi() {
+  const id = pendingEvolveIdeaId;
+  document.getElementById("ai-chat-overlay").classList.remove("open");
+  if (id) openEvolveModal(id, true);
+}
+
 function closeAiChat() {
   document.getElementById("ai-chat-overlay").classList.remove("open");
   pendingEvolveIdeaId = null;
@@ -3882,7 +3888,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-15 04:38 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-15 04:49 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -5019,10 +5025,12 @@ function buildEnrichMessage(idea) {
 ================================================================== */
 let pendingEvolveIdeaId = null;
 
-function openEvolveModal(ideaId) {
+function openEvolveModal(ideaId, forceManual) {
   const idea = IDEAS.find(i => i.id === ideaId);
   if (!idea) return;
   pendingEvolveIdeaId = ideaId;
+  // With a Gemini key saved, go straight to the in-app chat.
+  if (geminiKey && !forceManual) { openAiChat(); return; }
   document.getElementById("evolve-idea-title").textContent = idea.titulo;
   document.getElementById("evolve-textarea").value = "";
   document.getElementById("evolve-overlay").classList.add("open");
