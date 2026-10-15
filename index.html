@@ -381,13 +381,13 @@ it).
   /* ============ LAYOUT ============ */
   .app {
     display: grid;
-    grid-template-columns: 260px 1fr;
+    grid-template-columns: 260px minmax(0, 1fr);
     min-height: 100vh;
     overflow-x: clip;
   }
 
   @media (max-width: 860px) {
-    .app { grid-template-columns: 1fr; }
+    .app { grid-template-columns: minmax(0, 1fr); }
     .sidebar { position: static; border-right: none; border-bottom: 1px solid var(--line); }
   }
 
@@ -796,6 +796,8 @@ it).
 
   /* ============ MAIN ============ */
   .main {
+    min-width: 0;
+    overflow-wrap: anywhere;
     padding: 0 40px;
     max-width: 1400px;
     width: 100%;
@@ -2904,6 +2906,24 @@ it).
   <button onclick="applyUpdate()" style="background:var(--paper);color:var(--ink);border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer">Update</button>
 </div>
 
+
+<!-- MODAL: I'm stuck -->
+<div class="modal-overlay" id="stuck-overlay">
+  <div class="modal-box" style="max-width:520px;display:flex;flex-direction:column;height:min(85vh,680px)">
+    <div class="modal-head">
+      <div class="modal-title">I'm stuck</div>
+      <button class="modal-close" onclick="closeStuck()">&times;</button>
+    </div>
+    <div class="form-hint" style="margin-bottom:8px">Pick the step (optional) and tell me where you got stuck.</div>
+    <select class="form-input" id="stuck-step" style="font-size:16px;margin-bottom:8px"></select>
+    <div id="stuck-log" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px 2px 10px"></div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <input class="form-input" id="stuck-input" style="flex:1;font-size:16px" placeholder="I don't know how to…" onkeydown="if(event.key==='Enter'){event.preventDefault();stuckSend();}">
+      <button class="form-submit" style="margin:0;width:auto;padding:0 16px" onclick="stuckSend()">Send</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: Opciones de exportación (Copy / Share / Download) -->
 <div class="modal-overlay" id="export-overlay">
   <div class="modal-box">
@@ -3811,7 +3831,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-15 04:27 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-15 04:32 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -5714,7 +5734,7 @@ function renderDetailReadMode(idea) {
 
   const fasesHtml = fasesArray.length ? `
     <div class="detail-block">
-      <div class="block-title c-plan"><span class="dot" style="background:var(--accent)"></span>Production plan</div>
+      <div class="block-title c-plan" style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="display:flex;align-items:center;gap:8px"><span class="dot" style="background:var(--accent)"></span>Production plan</span><button type="button" class="stuck-btn" style="margin:0" onclick="openStuck('${escapeAttr(idea.id)}')">I'm stuck</button></div>
       ${fasesArray.map((fase, idx) => `
         <div class="phase">
           <div class="phase-head">
@@ -5722,7 +5742,7 @@ function renderDetailReadMode(idea) {
             <span class="phase-name" style="color:var(--accent)">${escapeHtml(fase.nombre)}</span>
           </div>
           <ul class="phase-steps">
-            ${(fase.pasos || []).map((step, sIdx) => renderStep(step, idea.id, idea.fases.indexOf(fase), sIdx)).join("")}
+            ${(fase.pasos || []).map(step => renderStep(step)).join("")}
           </ul>
         </div>
       `).join("")}
@@ -5931,37 +5951,83 @@ function renderDetailEditMode(idea) {
 // A phase step can be a string, or an object
 // { texto: "...", explicacion: "..." } when it's worth clarifying a
 // technical term for someone who doesn't know it yet.
-function renderStep(step, ideaId, faseIdx, stepIdx) {
+function renderStep(step) {
   const txt = typeof step === "string" ? step : step.texto;
   const exp = typeof step === "string" ? "" : (step.explicacion || "");
-  const stuck = ideaId !== undefined && faseIdx >= 0
-    ? `<button type="button" class="stuck-btn" onclick="stuckHelp(this,'${escapeAttr(ideaId)}',${faseIdx},${stepIdx})">I'm stuck</button><div class="stuck-out"></div>` : "";
-  return `<li>${escapeHtml(txt)}${exp ? `<div class="phase-desc">${escapeHtml(exp)}</div>` : ""}${stuck}</li>`;
+  return `<li>${escapeHtml(txt)}${exp ? `<div class="phase-desc">${escapeHtml(exp)}</div>` : ""}</li>`;
 }
 
 const STUCK_SYSTEM = `You are a veteran expert mentor in the field of the project below. The user is a beginner stuck on ONE step of their plan. Explain that step in a different, simpler way than the plan did: break it into 3-6 tiny concrete sub-steps, give a quick example, and name the most common beginner mistake. Be practical and warm, no fluff, under 200 words, plain text (no markdown symbols), same language as the step.`;
 
-async function stuckHelp(btn, ideaId, faseIdx, stepIdx) {
+let stuckIdeaId = null;
+let stuckHistory = [];
+let stuckBusy = false;
+
+function openStuck(ideaId) {
   const idea = IDEAS.find(i => i.id === ideaId);
-  const fase = idea && idea.fases[faseIdx];
-  const step = fase && fase.pasos[stepIdx];
-  if (!step) return;
-  const out = btn.parentElement.querySelector(".stuck-out");
-  const prompt = `PROJECT: ${idea.titulo} (${idea.categoria})\nDESCRIPTION: ${idea.descripcion}\nPHASE: ${fase.nombre}\nSTEP I'M STUCK ON: ${stepText(step)}`;
+  if (!idea) return;
+  stuckIdeaId = ideaId;
+  stuckHistory = [];
+  const sel = document.getElementById("stuck-step");
+  let opts = '<option value="">Not sure / general</option>';
+  (idea.fases || []).forEach((f, fi) => (f.pasos || []).forEach((s, si) => {
+    const t = (typeof s === "string" ? s : s.texto) || "";
+    opts += `<option value="${fi}:${si}">${escapeHtml((fi + 1) + "." + (si + 1) + " " + t.slice(0, 70))}</option>`;
+  }));
+  sel.innerHTML = opts;
+  document.getElementById("stuck-log").innerHTML = "";
+  document.getElementById("stuck-input").value = "";
+  document.getElementById("stuck-overlay").classList.add("open");
+}
+function closeStuck() { document.getElementById("stuck-overlay").classList.remove("open"); stuckIdeaId = null; }
+
+function stuckBubble(role, text) {
+  const log = document.getElementById("stuck-log");
+  const d = document.createElement("div");
+  d.style.cssText = "max-width:90%;padding:10px 13px;border-radius:12px;white-space:pre-wrap;line-height:1.45;font-size:0.92rem;" +
+    (role === "user" ? "align-self:flex-end;background:var(--accent);color:#fff" : "align-self:flex-start;background:rgba(128,128,128,.12);color:var(--ink)");
+  d.textContent = text;
+  log.appendChild(d);
+  log.scrollTop = log.scrollHeight;
+  return d;
+}
+
+async function stuckSend() {
+  if (stuckBusy) return;
+  const idea = IDEAS.find(i => i.id === stuckIdeaId);
+  const inp = document.getElementById("stuck-input");
+  const text = inp.value.trim();
+  if (!idea || !text) return;
+  const selVal = document.getElementById("stuck-step").value;
+  let ctx = `PROJECT: ${idea.titulo} (${idea.categoria})\nDESCRIPTION: ${idea.descripcion}\n`;
+  if (selVal) {
+    const [fi, si] = selVal.split(":").map(Number);
+    const f = idea.fases[fi];
+    ctx += `PHASE: ${f.nombre}\nSTEP: ${stepText(f.pasos[si])}\n`;
+  } else {
+    ctx += "PLAN:\n" + (idea.fases || []).map(f => f.nombre + ": " + (f.pasos || []).map(stepText).join(" | ")).join("\n") + "\n";
+  }
+  const userMsg = stuckHistory.length ? text : ctx + "\nWHERE I'M STUCK: " + text;
+  inp.value = "";
+  stuckBubble("user", text);
+  stuckHistory.push({ role: "user", text: userMsg });
   if (!geminiKey) {
-    try { await navigator.clipboard.writeText(STUCK_SYSTEM + "\n\n" + prompt); } catch (e) {}
-    out.textContent = "No Gemini key yet — I copied a help prompt; paste it into any AI. (Add a key in AI settings to get the answer here.)";
+    try { await navigator.clipboard.writeText(STUCK_SYSTEM + "\n\n" + userMsg); } catch (e) {}
+    stuckBubble("model", "No Gemini key yet, so I copied a help prompt to your clipboard. Paste it into any AI, or add a key in AI settings to get answers here.");
+    stuckHistory.pop();
     return;
   }
-  out.textContent = "Thinking…";
-  btn.disabled = true;
+  stuckBusy = true;
+  const wait = stuckBubble("model", "…");
   try {
-    const reply = await geminiGenerate([{ role: "user", text: prompt }], STUCK_SYSTEM);
-    out.textContent = reply.trim();
+    const reply = (await geminiGenerate(stuckHistory, STUCK_SYSTEM)).trim();
+    stuckHistory.push({ role: "model", text: reply });
+    wait.textContent = reply;
   } catch (e) {
-    out.textContent = "⚠ " + e.message;
+    wait.textContent = "⚠ " + e.message;
+    stuckHistory.pop();
   }
-  btn.disabled = false;
+  stuckBusy = false;
 }
 
 /* ==================================================================
