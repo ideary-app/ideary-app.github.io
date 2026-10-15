@@ -18,278 +18,88 @@
 
 <!--
 ====================================================================
-INSTRUCTIONS FOR CLAUDE — READ BEFORE MODIFYING THIS FILE
+NOTES FOR ANY AI OR DEVELOPER EDITING THIS FILE — READ FIRST
 ====================================================================
 
-This file is Tomas's living backlog of 3D project ideas (shorts,
-reels, video games, etc). The data lives in the `IDEAS` array inside
-the <script> at the end of the file. Edit it there.
+WHAT THIS IS
+A public, single-file web app (this index.html, served by GitHub
+Pages) where anyone can capture creative ideas (a short film, a recipe,
+a game, a drawing…), turn each one into a step-by-step plan with the
+help of AI acting as an experienced mentor in that field, and track
+their progress until it's done. It is used by many people, not one
+person: never hard-code anyone's personal data, ideas or preferences.
 
-STRUCTURE OF EACH IDEA (JS object):
+PRODUCT PRINCIPLES
+- The app's job is to make someone who knows nothing about a craft
+  understand exactly what to do, in what order, and why. The AI plays
+  a veteran of the field (a film director for a short film, a chef for
+  a recipe…). Every step should say what to do AND explain how.
+- Notebook practices (inspired by makers like Adam Savage): lists with
+  checkboxes that fill in instead of crossing out, sketching to think,
+  dated notes as a process log, and a wrap-up when a project ends.
+- Visual language: a composition notebook. Ruled cream paper, the
+  marbled cover on the home, index-page sidebar, pencil-case header on
+  phones, index cards / sticky notes / washi tape as surfaces, pencil
+  and eraser shaped buttons. New UI must follow this look in light
+  (Day) and dark (Night) themes and must work at 390px width with no
+  horizontal scroll. The desktop idea view keeps its two-column layout.
+- All UI text is in English. The AI answers in the language of each idea.
+
+DATA AND PRIVACY
+- Without an account, ideas live in this browser's localStorage
+  ("artdeas_cache_v1"). The default ideas list (IDEAS_DEFAULT) must stay
+  empty ([]).
+- With Google Drive connected, ideas live ONLY in the user's own Drive
+  ("artdeas-data.json", created by the app with the drive.file scope) and
+  in memory. Settings (cover color, pencil case, Gemini key) live in
+  "artdeas-settings.json" in the same Drive. A cache of the Drive ideas
+  is kept under its own key so the app keeps working while Google's
+  hourly token is renewed; it is cleared on explicit disconnect.
+- The Gemini API key belongs to each user: stored in their browser and,
+  if connected, in their own Drive. Never log it, send it anywhere but
+  Google's API, or commit one to this file.
+- There is no backend. Nothing about users is collected.
+
+IDEA DATA MODEL (JSON; field names are Spanish for historical reasons
+and must not be renamed — existing user data depends on them)
 {
-  id: unique string (slug, e.g. "espejo-mask-off"),
+  id: unique string,
   titulo: string,
-  categoria: string (e.g. "Corto / Reel Instagram", "Videojuego"),
-  estado: one of "idea" | "en-curso" | "pausada" | "descartada" | "completada",
-  dificultad: number 1-10 or null if not defined,
-  tiempo: number 1-10 or null if not defined,
-  descripcion: string (can have line breaks with \n, rendered as paragraphs),
-  notas: array of strings,
-  fases: {
-    preproduccion: array of steps,
-    pruebasTecnicas: array of steps,
-    filmacion: array of steps,
-    produccion3d: array of steps,
-    postproduccion: array of steps,
-    distribucion: array of steps
-  },
-  cosasAResolver: array of { texto: string, resuelto: boolean, busqueda: array of strings or null }
+  categoria: string,
+  estado: "idea" | "en-curso" | "pausada" | "descartada" | "completada"
+          | "eliminada" (in Trash; with _deletedAt and _prevEstado),
+  descripcion: string,
+  notas: [ string | { texto, fecha (ISO) } ],
+  fases: [ { nombre, estado?: "pending"|"in-progress"|"done",
+             pasos: [ string | { texto, explicacion?, hecho?: 1|2 } ] } ],
+             // hecho: 1 = started (half-filled box), 2 = done
+  cosasAResolver: [ { texto, resuelto: bool, busqueda?: [string] } ],
+  bocetos?: [ { src (data URL), fecha } ],
+  cierre?: { funciono, noFunciono, distinto, fecha },
+  dificultad?, tiempo?   // legacy, no longer shown
 }
 
-Each "step" inside a phase can be:
-  - a plain string: "Model/texture each asset."
-  - or an object with an extra explanation when the step uses a
-    technical term Tomas might not know:
-    { texto: "Storyboard the fragment.",
-      explicacion: "A storyboard is a series of simple drawings
-      showing each shot in order, like a comic. It's used to plan
-      camera and composition before filming or modeling anything." }
-  Use the object-with-explanation form when the step mentions a
-  filmmaking/VFX technique or concept someone without directing/VFX
-  experience might not know (storyboard, compositing, timestamps,
-  rigging, retopology, etc). No need to explain terms Tomas already
-  knows as a 3D artist (blocking, UV, shading, high poly, etc).
+AI FLOWS
+- Develop idea: with a Gemini key it opens an in-app chat (welcome
+  message + suggested requests); without one it builds a prompt to
+  paste into any AI and accepts the JSON reply back.
+- Pasted JSON from any AI is repaired by parseJsonLenient() (curly
+  quotes, fences, trailing commas, stray text). Users must never have
+  to fix JSON by hand: keep that function robust and use it everywhere
+  JSON is pasted.
+- "I'm stuck" explains one step differently; "Brain dump" turns messy
+  text into ordered phases. When the AI replaces fases, step
+  checkboxes and phase status are carried over by matching text.
+- The Gemini model is picked at runtime from the models the key can
+  use (newest plain "flash"), so retired models don't break the app.
 
-Not every phase applies to every idea (e.g. a video game has no
-"filming"). If a phase doesn't apply, leave it as an empty array
-[] and that section just won't render.
-
-IMPORTANT: don't use emojis anywhere in the text (titles, steps,
-notes, etc). The design uses color to differentiate sections, not
-icons.
-
-====================================================================
-HOW PERSISTENCE WORKS (two modes: anonymous and Google Drive)
-====================================================================
-This app is meant to eventually be used by people other than Tomas
-too, not just him, so it has two modes:
-
-ANONYMOUS MODE (no login): opening the page without connecting
-Google Drive starts with an empty IDEAS_DEFAULT ([]) — nobody sees
-Tomas's data or anyone else's. The user can freely create/edit
-ideas, and everything is saved to that browser's localStorage. It's
-fully functional end-to-end with no account needed.
-
-CONNECTED MODE (with Google Drive): using the "Connect Google
-Drive" button in the sidebar, the page authenticates via OAuth and
-looks for (or creates, the first time for that account) an
-"artdeas-data.json" file in THAT account's Drive. That file becomes
-the source of truth for the session — it replaces whatever was
-showing in anonymous mode. If there were ideas created without
-logging in, the user gets a confirmation modal (showConfirm(), not
-the browser's native confirm()) before connecting, so they don't
-lose them without noticing (they can cancel and export to .json as
-a backup first).
-
-Each Google account only sees its own ideas (its own file in its
-own Drive) — no data mixing between users.
-
-IMPORTANT FOR CLAUDE: regarding Tomas's own Drive specifically,
-since Claude has access via a connector in the chat, when Tomas
-asks to "expand idea X" Claude can read and write the
-"artdeas-data.json" file in Tomas's Drive DIRECTLY (find it with
-search_files, read it with read_file_content, and update it by
-re-uploading the full JSON) — without Tomas needing to upload or
-download anything from the page. IDEAS_DEFAULT inside this HTML
-must stay empty ([]) — don't restore Tomas's or any particular
-user's ideas there, that would break anonymous mode for anyone else
-who opens the page without logging in.
-
-If Drive isn't available for some reason and you need to work on
-the HTML directly, you can still use "Download updated file" or
-"Export just the data (.json)" as a manual backup, same as before.
-
-====================================================================
-FLOW FOR "CREATE NEW IDEA" — with import into the page
-====================================================================
-When Tomas finishes the process of creating a new idea in chat (the
-step-by-step questions described above), IN ADDITION to updating
-IDEAS_DEFAULT in this file if you're regenerating it, generate a
-JSON block with the complete idea object, in a code block, so Tomas
-can copy it and paste it into the "New idea" modal → "Import from
-Claude" tab on the page (without having to replace the whole file).
-
-The JSON must have exactly this shape (a single object, not an
-array, unless it's several ideas at once):
-
-{
-  "titulo": "...",
-  "categoria": "...",
-  "estado": "idea",
-  "dificultad": null,
-  "tiempo": null,
-  "descripcion": "...",
-  "notas": ["...", "..."],
-  "fases": {
-    "preproduccion": ["...", { "texto": "...", "explicacion": "..." }],
-    "pruebasTecnicas": [],
-    "filmacion": [],
-    "produccion3d": [],
-    "postproduccion": [],
-    "distribucion": []
-  },
-  "cosasAResolver": [
-    { "texto": "...", "resuelto": false, "busqueda": ["...", "..."] }
-  ]
-}
-
-No need to include "id" — the page generates it on its own from the
-title. Same field rules as the section above (phases that don't
-apply stay as empty arrays, steps can be a string or an object with
-an explanation, etc).
-
-====================================================================
-"EVOLVE IDEA" FLOW — single entry point for Tomas to ask Claude
-for help on a specific idea from the page itself
-(unifies what used to be two separate buttons: "Enrich idea" and
-"Complete info")
-====================================================================
-The page has an "Evolve idea" button (amber colored) in the header
-of each idea's detail view. Using it opens a modal with two steps:
-
-STEP 1 (top of the modal): "Copy prompt for AI" — automatically
-builds a text message with all the current info for that idea
-(title, description, notes, production plan, things to figure out)
-plus instructions for the AI, and offers it to Tomas to copy (via
-the same Copy/Share/Download modal used elsewhere on the page).
-
-STEP 2 (bottom of the modal): a textarea where Tomas pastes the
-final reply (a JSON block) and an "Update idea" button that UPDATES
-that specific idea in the file (merging field by field, without
-creating a new idea).
-
-Tomas copies the Step 1 message and pastes it into a chat with
-Claude (this one or a new one). When Claude receives a message in
-this format, it should:
-1. Follow the normal one-question-at-a-time flow (see GOLDEN RULE
-   below), using the info already included in the message as a
-   starting point — don't re-ask things that are already there.
-2. Once done, there are TWO ways to hand off the result, depending
-   on context:
-   a) If Claude already has access to Google Drive via a connector
-      in the chat (Tomas's case), the most direct thing is to
-      update the "artdeas-data.json" file in his Drive DIRECTLY
-      (find it with search_files, read it, modify that specific
-      idea's object, re-upload it in full) — so Tomas doesn't need
-      to do anything else, the change will already be there next
-      time he opens the page.
-   b) If there's no Drive access (another user, or another chat
-      without the connector), Claude builds the JSON for the
-      updated idea and gives it to Tomas to paste into Step 2 of
-      the "Evolve idea" modal (the textarea below), which applies
-      it locally.
-
-The JSON for Step 2 (or for Claude to apply directly to Drive using
-the same rules) has this shape:
-
-{
-  "descripcion": "...",
-  "notas": ["...", "..."],
-  "fases": {
-    "preproduccion": ["...", { "texto": "...", "explicacion": "..." }],
-    "pruebasTecnicas": [],
-    "filmacion": [],
-    "produccion3d": [],
-    "postproduccion": [],
-    "distribucion": []
-  },
-  "cosasAResolver": [
-    { "texto": "...", "resuelto": false, "busqueda": ["...", "..."] }
-  ]
-}
-
-Merge rules (important for building the JSON correctly):
-  - Only include fields you actually want to update. A field left
-    out of the JSON leaves the idea's current value untouched.
-  - "fases": replaced phase by phase. If the JSON includes content
-    for "preproduccion", that whole phase gets replaced; phases left
-    as an empty array [] are NOT touched (whatever was already there
-    is kept).
-  - "cosasAResolver": items in the JSON get ADDED to the existing
-    list, they don't replace it — so items Tomas already checked off
-    don't get lost.
-  - "titulo", "categoria", "estado", "dificultad", "tiempo" can also
-    be updated with this same JSON if something needs correcting, by
-    including that field.
-
-For "modify idea" (change a specific field) or "check off a
-resolved item": the simplest approach is still for Tomas to do it
-directly on the page (check a box, use "+ Add thing to figure out",
-edit fields), unless it's a big change that warrants going through
-"Evolve idea". The chat with Claude is mainly for defining a
-complete production plan for an idea (new or existing) or for
-rewriting the whole file when a big restructuring is needed.
-
-COMMANDS TOMAS CAN USE IN CHAT (if he uploads this file to a
-conversation with Claude, Claude should recognize and act on
-these):
-
-- "create new idea" → Ask ONE AT A TIME (never all together):
-    1. Title
-    2. Category
-    3. Short description
-    4. Then, depending on the type of project, ask discovery
-       questions one at a time (like was done with the mirror idea:
-       needed technical effects, visual style, available equipment,
-       etc.), noting each answer before moving to the next question.
-    5. For each "thing to figure out" Tomas doesn't know how to
-       solve, offer a short search hint in English (exact terms to
-       search on YouTube/Google), without over-explaining unless
-       Tomas explicitly asks for more.
-    6. Build the phase-based production plan (see template below),
-       adapting which phases apply.
-    7. Add the new object to the IDEAS array and confirm with Tomas.
-
-- "modify idea" → Ask which idea (by title), which field they want
-    to change, apply the change directly in the IDEAS array.
-
-- "check off" / "mark resolved" → Ask which idea and which item in
-    cosasAResolver, mark resuelto: true.
-
-- "show ideas" / "list ideas" → List in plain text: title, category,
-    status, difficulty, time. No need to regenerate the HTML for
-    this, it's just reading in chat.
-
-- "delete idea" → Confirm with Tomas before removing the object from
-    the array.
-
-- "change status" → Ask which idea and the new status
-    (idea / en-curso / pausada / descartada / completada).
-
-PRODUCTION PHASE TEMPLATE (use as a reference, adapt to the type of
-project — a video game has no "filming" but might have a
-"playable prototype" phase, for example. Use judgment):
-
-  PREPRODUCTION: define the WHAT (script/storyboard/design, map out
-    needs, moodboard, define visual style).
-  TECHNICAL TESTS: figure out the HOW before committing a lot of
-    time (tutorials, short tests, validate effects/techniques).
-  FILMING: if it applies, actual shooting.
-  3D PRODUCTION: modeling, texturing, animation, rendering.
-  POSTPRODUCTION: compositing, editing, color, sound.
-  DISTRIBUTION: content breakdown for Instagram following the
-    already-defined capture-by-stage workflow (numbered folders
-    /social/01_blocking/ etc, split large projects into 4-6
-    separate posts spread across 3-4 weeks).
-
-GOLDEN RULE: always ask Tomas one thing at a time, never dump a
-long list of questions together. If Tomas doesn't know how to solve
-something technical, it's Claude's job to research it and suggest a
-concrete search hint, not leave it as an open question for Tomas.
-
-After any edit, update the object and keep the HTML/CSS/JS below
-intact (don't touch the design unless Tomas explicitly asks for
-it).
+SHIPPING CHANGES
+- Update DEPLOY_TIMESTAMP on every deploy: the app compares it with
+  the live file to show the "New version available" banner.
+- Add user-facing changes to CHANGELOG_DATA (public: true) and bump the
+  version shown in the sidebar.
+- Check the result at phone width and desktop, in Day and Night, before
+  shipping.
 ====================================================================
 -->
 
