@@ -3555,7 +3555,7 @@ function migrateFasesIfNeeded(idea) {
    public:true items written for a general user, not implementation
    details.
 ================================================================== */
-const DEPLOY_TIMESTAMP = "2026-10-06 17:37 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-15 02:30 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -4392,45 +4392,91 @@ function stripJsonFences(str) {
 // description). So this tries several strategies, from safest to most
 // aggressive, and uses the first one that actually parses.
 function parseJsonLenient(raw) {
-  // 1. Try as-is — maybe it's already valid
+  // Normalize non-breaking spaces (some chat UIs insert them)
+  raw = raw.replace(/ /g, ' ');
+
+  // If the AI wrapped the JSON in extra text or code fences, keep only
+  // the outermost {...} or [...]
+  const firstOpen = raw.search(/[\[{]/);
+  const lastClose = Math.max(raw.lastIndexOf('}'), raw.lastIndexOf(']'));
+  if (firstOpen !== -1 && lastClose > firstOpen) {
+    raw = raw.slice(firstOpen, lastClose + 1);
+  }
+
+  // Rebuilds valid JSON from a "dirty" document. Handles: typographic or
+  // straight quotes as delimiters, unescaped quotes inside text values,
+  // literal line breaks inside strings, and trailing commas.
+  // A string opens on any quote char sitting in an "opening" position
+  // (start, or right after { [ , :) and only closes on a quote that is
+  // followed by a real JSON structure (: } ] end, or a comma followed by
+  // the start of another value). Every other quote is literal text.
+  function rebuildJson(src) {
+    const QUOTES = '"“”‘’';
+    const isQuote = c => QUOTES.indexOf(c) !== -1;
+    const closesHere = idx => {
+      const rest = src.slice(idx + 1);
+      const m = rest.match(/^\s*(.)/);
+      if (!m) return true;
+      const next = m[1];
+      if (next === ':' || next === '}' || next === ']') return true;
+      if (next === ',') {
+        if (!/^\s*,\s*\S/.test(rest)) return true;
+        return /^\s*,\s*(?:[\]}]|["“”‘’{\[]|-?\d|true\b|false\b|null\b)/.test(rest);
+      }
+      return false;
+    };
+
+    let out = '';
+    let lastSig = '';
+    let i = 0;
+    const len = src.length;
+    while (i < len) {
+      const ch = src[i];
+      const opening = lastSig === '' || lastSig === '{' || lastSig === '[' || lastSig === ',' || lastSig === ':';
+      if (isQuote(ch) && opening) {
+        i++;
+        let inner = '';
+        while (i < len) {
+          const c = src[i];
+          if (c === '\\' && i + 1 < len) {
+            const nx = src[i + 1];
+            inner += ('"\\/bfnrtu'.indexOf(nx) !== -1) ? (c + nx) : ('\\\\' + nx);
+            i += 2;
+            continue;
+          }
+          if (isQuote(c) && closesHere(i)) { i++; break; }
+          if (c === '"') inner += '\\"';
+          else if (c === '\n') inner += '\\n';
+          else if (c === '\r') inner += '\\r';
+          else if (c === '\t') inner += '\\t';
+          else inner += c;
+          i++;
+        }
+        out += '"' + inner + '"';
+        lastSig = '"';
+        continue;
+      }
+      if ((ch === '}' || ch === ']') && lastSig === ',') {
+        out = out.replace(/,\s*$/, '');
+      }
+      out += ch;
+      if (!/\s/.test(ch)) lastSig = ch;
+      i++;
+    }
+    return out;
+  }
+
+  // 1. Already valid? Done.
   try { return JSON.parse(raw); } catch (e) {}
 
-  // 2. Replace ALL curly quotes with straight ones. Works when the
-  // content itself has no legitimate curly quotes, which is the common case.
-  const allStraight = raw
-    .replace(/[\u201C\u201D]/g, '"')
-    .replace(/[\u2018\u2019]/g, "'");
-  try { return JSON.parse(allStraight); } catch (e) {}
+  // 2. Tolerant rebuild
+  try { return JSON.parse(rebuildJson(raw)); } catch (e) {}
 
-  // 3. Smarter pass: walk the string and only convert a curly quote to a
-  // straight one when it is acting as a JSON delimiter — i.e. it sits right
-  // after a structural character (, : [ { or whitespace following those)
-  // or right before one (, : ] } ), rather than in the middle of a word.
-  // This preserves curly quotes used as real punctuation inside text values.
-  let result = '';
-  const n = raw.length;
-  for (let i = 0; i < n; i++) {
-    const ch = raw[i];
-    const isCurlyDouble = ch === '\u201C' || ch === '\u201D';
-    const isCurlySingle = ch === '\u2018' || ch === '\u2019';
-    if (!isCurlyDouble && !isCurlySingle) { result += ch; continue; }
+  // 3. Last resort: blind curly -> straight replacement
+  try {
+    return JSON.parse(raw.replace(/[“”]/g, '"').replace(/[‘’]/g, "'"));
+  } catch (e) {}
 
-    const prevNonSpace = raw.slice(0, i).trimEnd().slice(-1);
-    const nextNonSpace = raw.slice(i + 1).trimStart().slice(0, 1);
-    const looksLikeDelimiter =
-      ['{', '[', ',', ':'].includes(prevNonSpace) ||
-      [':', ',', '}', ']'].includes(nextNonSpace) ||
-      prevNonSpace === '' || nextNonSpace === '';
-
-    if (looksLikeDelimiter) {
-      result += isCurlyDouble ? '"' : "'";
-    } else {
-      result += ch; // keep as literal punctuation inside the text
-    }
-  }
-  try { return JSON.parse(result); } catch (e) {}
-
-  // 4. Give up — let the caller show its own "invalid JSON" message.
   throw new Error("Could not parse JSON even after quote repair");
 }
 
