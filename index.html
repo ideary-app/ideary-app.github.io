@@ -1362,6 +1362,8 @@ it).
     .detail-order-plan    { order: 3; }
     .detail-order-notes   { order: 4; }
     .detail-order-resolve { order: 5; }
+    .detail-order-sketch  { order: 6; }
+    .detail-order-wrap    { order: 7; }
   }
 
   .complete-info-btn {
@@ -3386,6 +3388,42 @@ it).
       background-position: 0 0, 0 calc(100% - 17px), 0 0 !important;
       background-repeat: no-repeat, no-repeat, repeat !important; }
   }
+
+  /* ---- Savage-style checkboxes ---- */
+  .phase-steps li.step-row { display: flex; align-items: flex-start; gap: 8px; list-style: none; }
+  .phase-steps li.step-row::before { display: none !important; }
+  .step-box { flex-shrink: 0; width: 24px; height: 24px; padding: 1px; margin-top: 1px; background: none; border: none; color: var(--pen); cursor: pointer; }
+  .step-box svg { width: 100%; height: 100%; display: block; }
+  .step-box:hover { transform: scale(1.1); }
+  .step-body { flex: 1; min-width: 0; }
+  .step-row.s2 .step-body { color: var(--slate); }
+  .step-row.s2 .phase-desc { opacity: .7; }
+  /* ---- Notes: dates + quick add ---- */
+  .note-date { display: inline-block; font-family: var(--hand); font-size: .95rem; color: #8a5a00; margin-right: 8px; opacity: .85; }
+  [data-theme="dark"] .note-date { color: #f0c860; }
+  .note-quick-add { width: 100%; margin-top: 8px; background: transparent; border: none; border-bottom: 1.5px dashed rgba(138,90,0,.45); padding: 6px 2px; font-family: var(--hand); font-size: 1.1rem; color: var(--postit-ink); outline: none; }
+  .note-quick-add::placeholder { color: rgba(138,90,0,.6); }
+  [data-theme="dark"] .note-quick-add::placeholder { color: rgba(240,200,96,.6); }
+  /* ---- Sketches ---- */
+  .sketch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+  .sketch-thumb { padding: 4px 4px 2px; background: #fff; border: none; box-shadow: 0 2px 5px rgba(0,0,0,.2); cursor: pointer; transform: rotate(-1.2deg); }
+  .sketch-thumb:nth-child(2n) { transform: rotate(1.4deg); }
+  .sketch-thumb img { width: 100%; aspect-ratio: 4/3; object-fit: contain; background: #fbf5e1; display: block; }
+  .sketch-thumb span { display: block; font-family: var(--hand); font-size: .85rem; color: #555; text-align: center; }
+  .sk-toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+  .sk-tool { font-family: var(--hand); font-size: 1rem; padding: 4px 10px; background: transparent; border: 1.5px solid var(--line-strong); border-radius: var(--sketch-radius); color: var(--ink); cursor: pointer; }
+  .sk-tool.on { border-color: var(--pen); background: var(--accent-soft); }
+  .sk-color { width: 28px; height: 28px; padding: 0; border-radius: 50% !important; background: var(--c); border: 2px solid transparent; }
+  .sk-color.on { outline: 2px solid var(--pen); outline-offset: 2px; background: var(--c); }
+  .sk-sep { width: 1px; height: 22px; background: var(--line-strong); margin: 0 2px; }
+  .sk-paper { flex: 1; min-height: 0; position: relative; border: 1px solid var(--line-strong); border-radius: 3px; touch-action: none;
+    background-color: #fbf5e1; background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 27px, rgba(84,130,190,.25) 27px, rgba(84,130,190,.25) 28px); }
+  .sk-paper canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+  /* ---- misc ---- */
+  .empty-plan { font-size: .9rem; color: var(--slate); margin: 0 0 10px; }
+  .wrap-row { margin-bottom: 10px; }
+  .wrap-q { font-family: var(--hand); font-size: 1.1rem; color: var(--pen); }
+  .wrap-a { font-size: .92rem; }
 </style>
 </head>
 <body>
@@ -3459,7 +3497,7 @@ it).
       <div id="nav-categorias"></div>
     </div>
 
-    <div class="version-link" onclick="openChangelog()">v0.8.0 · What's new</div>
+    <div class="version-link" onclick="openChangelog()">v0.9.0 · What's new</div>
   </div>
   </aside>
 
@@ -3647,6 +3685,76 @@ it).
       <input class="form-input" id="stuck-input" style="flex:1;font-size:16px" placeholder="I don't know how to…" onkeydown="if(event.key==='Enter'){event.preventDefault();stuckSend();}">
       <button class="form-submit" style="margin:0;width:auto;padding:0 16px" onclick="stuckSend()">Send</button>
     </div>
+  </div>
+</div>
+
+
+<!-- MODAL: Sketch pad -->
+<div class="modal-overlay" id="sketch-overlay">
+  <div class="modal-box sketch-box" style="max-width:720px;width:100%;display:flex;flex-direction:column;height:min(88vh,760px)">
+    <div class="modal-head">
+      <div class="modal-title">Sketch</div>
+      <button class="modal-close" onclick="closeSketchPad()">&times;</button>
+    </div>
+    <div class="sk-toolbar">
+      <button class="sk-tool sk-color" data-color="#2b4fa8" style="--c:#2b4fa8" onclick="setSketchTool({color:'#2b4fa8',erase:false})" aria-label="Blue pen"></button>
+      <button class="sk-tool sk-color" data-color="#1f2430" style="--c:#1f2430" onclick="setSketchTool({color:'#1f2430',erase:false})" aria-label="Black pen"></button>
+      <button class="sk-tool sk-color" data-color="#c0392b" style="--c:#c0392b" onclick="setSketchTool({color:'#c0392b',erase:false})" aria-label="Red pen"></button>
+      <button class="sk-tool sk-color" data-color="#2f8a52" style="--c:#2f8a52" onclick="setSketchTool({color:'#2f8a52',erase:false})" aria-label="Green pen"></button>
+      <span class="sk-sep"></span>
+      <button class="sk-tool sk-size" data-size="3" onclick="setSketchTool({size:3,erase:false})">thin</button>
+      <button class="sk-tool sk-size" data-size="5" onclick="setSketchTool({size:5,erase:false})">thick</button>
+      <button class="sk-tool" data-erase="1" onclick="setSketchTool({erase:true})">eraser</button>
+      <span class="sk-sep"></span>
+      <button class="sk-tool" onclick="sketchUndo()">undo</button>
+      <button class="sk-tool" onclick="sketchClear()">clear</button>
+    </div>
+    <div class="sk-paper"><canvas id="sketch-canvas" onpointerdown="skDown(event)" onpointermove="skMove(event)" onpointerup="skUp(event)" onpointercancel="skUp(event)" onpointerleave="skUp(event)"></canvas></div>
+    <button class="form-submit" onclick="sketchSave()">Save sketch</button>
+  </div>
+</div>
+
+<!-- MODAL: Sketch viewer -->
+<div class="modal-overlay" id="sketch-view-overlay">
+  <div class="modal-box" style="max-width:760px">
+    <div class="modal-head">
+      <div class="modal-title">Sketch</div>
+      <button class="modal-close" onclick="closeSketchView()">&times;</button>
+    </div>
+    <img id="sketch-view-img" alt="Sketch" style="width:100%;border-radius:3px;box-shadow:0 2px 6px rgba(0,0,0,.2)">
+    <div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="tool-btn eraser" id="sketch-erase-btn" onclick="deleteSketch()" title="Erase sketch" aria-label="Erase sketch"></button></div>
+  </div>
+</div>
+
+<!-- MODAL: Brain dump -->
+<div class="modal-overlay" id="brain-dump-overlay">
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-head">
+      <div class="modal-title">Brain dump</div>
+      <button class="modal-close" onclick="closeBrainDump()">&times;</button>
+    </div>
+    <div class="form-hint" style="margin-bottom:10px">Write everything in your head about this project — messy, in any order. The AI will turn it into ordered phases and steps and merge it with your plan.</div>
+    <textarea class="form-input form-textarea" id="brain-dump-text" style="min-height:220px;font-size:16px" placeholder="I need a character… maybe 3D… music? deadline in a month…"></textarea>
+    <div id="brain-dump-status" style="min-height:1.4em;font-size:0.85rem;margin-top:8px"></div>
+    <button class="form-submit" onclick="submitBrainDump()">Organize it</button>
+  </div>
+</div>
+
+<!-- MODAL: Wrap-up -->
+<div class="modal-overlay" id="wrap-overlay">
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-head">
+      <div class="modal-title">Wrap-up</div>
+      <button class="modal-close" onclick="closeWrapUp()">&times;</button>
+    </div>
+    <div class="form-hint" style="margin-bottom:10px">A quick look back so the next project goes better.</div>
+    <label class="form-label">What worked?</label>
+    <textarea class="form-input form-textarea" id="wrap-worked" style="min-height:70px;font-size:16px"></textarea>
+    <label class="form-label">What didn't?</label>
+    <textarea class="form-input form-textarea" id="wrap-didnt" style="min-height:70px;font-size:16px"></textarea>
+    <label class="form-label">Next time I'd…</label>
+    <textarea class="form-input form-textarea" id="wrap-next" style="min-height:70px;font-size:16px"></textarea>
+    <button class="form-submit" onclick="saveWrapUp()">Save wrap-up</button>
   </div>
 </div>
 
@@ -4812,6 +4920,233 @@ function aiChatApply() {
   openDetail(id);
 }
 
+
+/* ==================================================================
+   NOTEBOOK PRACTICES (Adam Savage-style): quick dated notes, sketches,
+   brain dump → plan, and a wrap-up when an idea is completed.
+================================================================== */
+function quickAddNote(ideaId, text) {
+  const idea = IDEAS.find(i => i.id === ideaId);
+  const t = (text || "").trim();
+  if (!idea || !t) return;
+  idea.notas = idea.notas || [];
+  idea.notas.push({ texto: t, fecha: new Date().toISOString() });
+  saveIdeas();
+  const y = window.scrollY;
+  document.getElementById("main").innerHTML = renderDetailReadMode(idea);
+  window.scrollTo(0, y);
+  const inp = document.querySelector(".note-quick-add");
+  if (inp) inp.focus();
+}
+
+/* ---------- Sketches ---------- */
+function renderSketchBlock(idea) {
+  const list = idea.bocetos || [];
+  return `
+    <div class="detail-block sketch-block">
+      <div class="block-title c-plan" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>Sketches</span>
+        <span style="display:flex;gap:6px">
+          <button type="button" class="stuck-btn" style="margin:0" onclick="openSketchPad('${escapeAttr(idea.id)}')">Draw</button>
+          <label class="stuck-btn" style="margin:0;cursor:pointer">Photo<input type="file" accept="image/*" style="display:none" onchange="addSketchPhoto('${escapeAttr(idea.id)}', this)"></label>
+        </span>
+      </div>
+      ${list.length ? `<div class="sketch-grid">${list.map((b, i) => `<button type="button" class="sketch-thumb" onclick="viewSketch('${escapeAttr(idea.id)}',${i})"><img src="${b.src}" alt="Sketch ${i + 1}"><span>${escapeHtml(fmtShortDate(b.fecha))}</span></button>`).join("")}</div>`
+        : `<p class="empty-plan">Draw to think it through — ugly is fine. Or snap a photo of a paper sketch.</p>`}
+    </div>`;
+}
+
+let sketchIdeaId = null, sketchCtx = null, sketchDrawing = false, sketchHistory = [], sketchTool = { color: "#2b4fa8", size: 3, erase: false };
+function openSketchPad(ideaId) {
+  sketchIdeaId = ideaId;
+  document.getElementById("sketch-overlay").classList.add("open");
+  const cv = document.getElementById("sketch-canvas");
+  const box = cv.parentElement.getBoundingClientRect();
+  const ratio = window.devicePixelRatio || 1;
+  cv.width = Math.round(box.width * ratio);
+  cv.height = Math.round(box.height * ratio);
+  sketchCtx = cv.getContext("2d");
+  sketchCtx.scale(ratio, ratio);
+  sketchCtx.lineCap = "round"; sketchCtx.lineJoin = "round";
+  sketchHistory = [];
+  setSketchTool({});
+}
+function closeSketchPad() { document.getElementById("sketch-overlay").classList.remove("open"); sketchIdeaId = null; }
+function setSketchTool(t) {
+  Object.assign(sketchTool, t);
+  document.querySelectorAll(".sk-tool").forEach(b => {
+    const on = (b.dataset.color && !sketchTool.erase && b.dataset.color === sketchTool.color) || (b.dataset.erase && sketchTool.erase) || (b.dataset.size && +b.dataset.size === sketchTool.size);
+    b.classList.toggle("on", !!on);
+  });
+}
+function skPos(e) {
+  const r = e.target.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+function skDown(e) {
+  if (!sketchCtx) return;
+  e.preventDefault();
+  e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId);
+  const cv = e.target;
+  try { sketchHistory.push(sketchCtx.getImageData(0, 0, cv.width, cv.height)); if (sketchHistory.length > 30) sketchHistory.shift(); } catch (err) {}
+  sketchDrawing = true;
+  const p = skPos(e);
+  sketchCtx.globalCompositeOperation = sketchTool.erase ? "destination-out" : "source-over";
+  sketchCtx.strokeStyle = sketchTool.color;
+  sketchCtx.lineWidth = sketchTool.erase ? 18 : sketchTool.size;
+  sketchCtx.beginPath(); sketchCtx.moveTo(p.x, p.y); sketchCtx.lineTo(p.x + .01, p.y + .01); sketchCtx.stroke();
+}
+function skMove(e) {
+  if (!sketchDrawing) return;
+  e.preventDefault();
+  const p = skPos(e);
+  sketchCtx.lineTo(p.x, p.y); sketchCtx.stroke();
+}
+function skUp() { sketchDrawing = false; }
+function sketchUndo() {
+  const last = sketchHistory.pop();
+  if (last) sketchCtx.putImageData(last, 0, 0);
+}
+function sketchClear() {
+  const cv = document.getElementById("sketch-canvas");
+  try { sketchHistory.push(sketchCtx.getImageData(0, 0, cv.width, cv.height)); } catch (e) {}
+  sketchCtx.save(); sketchCtx.setTransform(1, 0, 0, 1, 0, 0); sketchCtx.clearRect(0, 0, cv.width, cv.height); sketchCtx.restore();
+}
+function sketchSave() {
+  const cv = document.getElementById("sketch-canvas");
+  // Compose on ruled paper, scaled down to keep Drive light
+  const maxW = 900, scale = Math.min(1, maxW / cv.width);
+  const out = document.createElement("canvas");
+  out.width = Math.round(cv.width * scale); out.height = Math.round(cv.height * scale);
+  const o = out.getContext("2d");
+  o.fillStyle = "#fbf5e1"; o.fillRect(0, 0, out.width, out.height);
+  o.strokeStyle = "rgba(84,130,190,.25)"; o.lineWidth = 1;
+  const step = 28 * scale * (window.devicePixelRatio || 1);
+  for (let y = step; y < out.height; y += step) { o.beginPath(); o.moveTo(0, y); o.lineTo(out.width, y); o.stroke(); }
+  o.drawImage(cv, 0, 0, out.width, out.height);
+  const src = out.toDataURL("image/jpeg", 0.8);
+  const idea = IDEAS.find(i => i.id === sketchIdeaId);
+  if (idea) {
+    idea.bocetos = idea.bocetos || [];
+    idea.bocetos.push({ src, fecha: new Date().toISOString() });
+    saveIdeas();
+  }
+  closeSketchPad();
+  if (idea) openDetail(idea.id);
+}
+function addSketchPhoto(ideaId, input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const img = new Image();
+  const url = URL.createObjectURL(file);
+  img.onload = () => {
+    const maxSide = 1100, s = Math.min(1, maxSide / Math.max(img.width, img.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    URL.revokeObjectURL(url);
+    const idea = IDEAS.find(i => i.id === ideaId);
+    if (!idea) return;
+    idea.bocetos = idea.bocetos || [];
+    idea.bocetos.push({ src: c.toDataURL("image/jpeg", 0.72), fecha: new Date().toISOString() });
+    saveIdeas();
+    openDetail(ideaId);
+  };
+  img.src = url;
+}
+let viewingSketch = null;
+function viewSketch(ideaId, idx) {
+  const idea = IDEAS.find(i => i.id === ideaId);
+  if (!idea || !idea.bocetos[idx]) return;
+  viewingSketch = { ideaId, idx };
+  document.getElementById("sketch-view-img").src = idea.bocetos[idx].src;
+  document.getElementById("sketch-erase-btn").innerHTML = eraserSvg("Erase");
+  document.getElementById("sketch-view-overlay").classList.add("open");
+}
+function closeSketchView() { document.getElementById("sketch-view-overlay").classList.remove("open"); viewingSketch = null; }
+async function deleteSketch() {
+  if (!viewingSketch) return;
+  const ok = await showConfirm("Erase this sketch?", { title: "Erase sketch", confirmLabel: "Erase", danger: true });
+  if (!ok) return;
+  const idea = IDEAS.find(i => i.id === viewingSketch.ideaId);
+  if (idea) { idea.bocetos.splice(viewingSketch.idx, 1); saveIdeas(); }
+  closeSketchView();
+  if (idea) openDetail(idea.id);
+}
+
+/* ---------- Brain dump ---------- */
+let brainDumpIdeaId = null;
+const BRAIN_DUMP_RULES = `You are a veteran expert mentor in the field of the project below. The user dumped everything in their head about the project, messy and unordered. Turn it into a clear production plan in the order a professional would do it, merging it with the current plan (keep existing steps that still make sense, add what's new, remove duplicates). Every step needs "texto" (short action) and "explicacion" (how to do it, why, beginner mistakes). Put open questions/decisions in "cosasAResolver" with an English search hint in "busqueda". Answer in the same language as the dump. Output ONLY raw JSON: {"fases":[{"nombre":"...","pasos":[{"texto":"...","explicacion":"..."}]}],"cosasAResolver":[{"texto":"...","resuelto":false,"busqueda":["..."]}]}`;
+function openBrainDump(ideaId) {
+  brainDumpIdeaId = ideaId;
+  document.getElementById("brain-dump-text").value = "";
+  document.getElementById("brain-dump-status").textContent = "";
+  document.getElementById("brain-dump-overlay").classList.add("open");
+  setTimeout(() => document.getElementById("brain-dump-text").focus(), 50);
+}
+function closeBrainDump() { document.getElementById("brain-dump-overlay").classList.remove("open"); brainDumpIdeaId = null; }
+async function submitBrainDump() {
+  const idea = IDEAS.find(i => i.id === brainDumpIdeaId);
+  const dump = document.getElementById("brain-dump-text").value.trim();
+  const st = document.getElementById("brain-dump-status");
+  if (!idea || !dump) return;
+  const current = (idea.fases || []).map(f => f.nombre + ": " + (f.pasos || []).map(stepText).join(" | ")).join("\n") || "(none)";
+  const prompt = `PROJECT: ${idea.titulo} (${idea.categoria})\nDESCRIPTION: ${idea.descripcion}\nCURRENT PLAN:\n${current}\n\nMY BRAIN DUMP:\n${dump}`;
+  if (!geminiKey) {
+    try { await navigator.clipboard.writeText(BRAIN_DUMP_RULES + "\n\n" + prompt); } catch (e) {}
+    st.textContent = "No Gemini key, so I copied a prompt. Paste it into any AI, then paste its reply in Develop idea → step 2.";
+    st.style.color = "var(--slate)";
+    return;
+  }
+  st.textContent = "Organizing your thoughts…"; st.style.color = "var(--slate)";
+  try {
+    const reply = await geminiGenerate([{ role: "user", text: prompt }], BRAIN_DUMP_RULES);
+    const item = parseJsonLenient(stripJsonFences(reply));
+    applyEvolveItem(idea, item);
+    saveIdeas();
+    closeBrainDump();
+    openDetail(idea.id);
+  } catch (e) {
+    st.textContent = "⚠ " + e.message; st.style.color = "var(--rust)";
+  }
+}
+
+/* ---------- Wrap-up ---------- */
+let wrapIdeaId = null;
+function openWrapUp(ideaId) {
+  const idea = IDEAS.find(i => i.id === ideaId);
+  if (!idea) return;
+  wrapIdeaId = ideaId;
+  const c = idea.cierre || {};
+  document.getElementById("wrap-worked").value = c.funciono || "";
+  document.getElementById("wrap-didnt").value = c.noFunciono || "";
+  document.getElementById("wrap-next").value = c.distinto || "";
+  document.getElementById("wrap-overlay").classList.add("open");
+}
+function closeWrapUp() { document.getElementById("wrap-overlay").classList.remove("open"); wrapIdeaId = null; }
+function saveWrapUp() {
+  const idea = IDEAS.find(i => i.id === wrapIdeaId);
+  if (!idea) return;
+  idea.cierre = {
+    funciono: document.getElementById("wrap-worked").value.trim(),
+    noFunciono: document.getElementById("wrap-didnt").value.trim(),
+    distinto: document.getElementById("wrap-next").value.trim(),
+    fecha: new Date().toISOString()
+  };
+  saveIdeas();
+  const id = idea.id;
+  closeWrapUp();
+  openDetail(id);
+}
+function renderWrapBlock(idea) {
+  const c = idea.cierre;
+  if (!c && idea.estado !== "completada") return "";
+  if (!c) return `<div class="detail-block"><div class="block-title c-plan">Wrap-up</div><p class="empty-plan">What worked, what didn't, what you'd do differently. Future you will thank you.</p><button type="button" class="stuck-btn" onclick="openWrapUp('${escapeAttr(idea.id)}')">Write wrap-up</button></div>`;
+  const row = (t, v) => v ? `<div class="wrap-row"><div class="wrap-q">${t}</div><div class="wrap-a">${escapeHtml(v).replace(/\n/g, "<br>")}</div></div>` : "";
+  return `<div class="detail-block"><div class="block-title c-plan" style="display:flex;justify-content:space-between;align-items:center">Wrap-up <button type="button" class="stuck-btn" style="margin:0" onclick="openWrapUp('${escapeAttr(idea.id)}')">Edit</button></div>
+    ${row("What worked", c.funciono)}${row("What didn't", c.noFunciono)}${row("Next time I'd…", c.distinto)}
+    <div class="note-date" style="margin-top:6px">${escapeHtml(fmtShortDate(c.fecha))}</div></div>`;
+}
+
 /* ==================================================================
    UPDATE CHECK — compares the deployed DEPLOY_TIMESTAMP with the
    one in this running copy and offers a reload when they differ.
@@ -4830,9 +5165,20 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-15 17:33 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-15 19:01 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
+  {
+    version: "0.9.0",
+    public: true,
+    items: [
+      "Checkboxes on every step: tap once for started, twice for done — the phase updates itself",
+      "Sketches: draw with your finger or add a photo of a paper sketch to any idea",
+      "Notes now get a date, and you can jot one straight from the sticky note",
+      "Brain dump: write everything messy and the AI turns it into ordered steps",
+      "Wrap-up: when an idea is completed, note what worked and what you'd change"
+    ]
+  },
   {
     version: "0.8.0",
     public: true,
@@ -5566,10 +5912,12 @@ async function saveInlineEdit() {
   }
 
   const idx = IDEAS.findIndex(i => i.id === editingIdeaId);
+  const wasCompleted = idx !== -1 && IDEAS[idx].estado === "completada";
   if (idx !== -1) IDEAS[idx] = updated;
   editingIdeaId = null;
   saveIdeas(); // saves to local cache + Drive in background
   openDetail(updated.id);
+  if (!wasCompleted && updated.estado === "completada" && !updated.cierre) openWrapUp(updated.id);
 }
 
 // Inline add/delete helpers for Notes
@@ -5583,14 +5931,14 @@ function ieToggleExp(btn) {
 function ieAddNote() {
   const idea = IDEAS.find(i => i.id === editingIdeaId);
   if (!idea) return;
-  idea.notas = Array.from(document.querySelectorAll(".ie-note")).map(el => el.value.trim()).filter(v => v);
+  idea.notas = collectNotesFromInputs();
   idea.notas.push("");
   render();
 }
 function ieDeleteNote(idx) {
   const idea = IDEAS.find(i => i.id === editingIdeaId);
   if (!idea) return;
-  idea.notas = Array.from(document.querySelectorAll(".ie-note")).map(el => el.value.trim()).filter(v => v);
+  idea.notas = collectNotesFromInputs();
   idea.notas.splice(idx, 1);
   render();
 }
@@ -5605,9 +5953,17 @@ function ieCollectFases() {
       const expEl = row.querySelector(".ie-step-exp");
       const exp = expEl?.style.display !== "none" ? expEl?.value.trim() : "";
       if (!txt) return null;
-      return exp ? { texto: txt, explicacion: exp } : txt;
+      const hecho = parseInt(row.dataset.hecho || "0") || 0;
+      if (!exp && !hecho) return txt;
+      const o = { texto: txt };
+      if (exp) o.explicacion = exp;
+      if (hecho) o.hecho = hecho;
+      return o;
     }).filter(s => s !== null);
-    return { nombre, pasos };
+    const orig = (IDEAS.find(i => i.id === editingIdeaId) || {}).fases?.[parseInt(phaseEl.dataset.faseIdx)];
+    const f = { nombre, pasos };
+    if (orig && orig.estado) f.estado = orig.estado;
+    return f;
   }).filter(f => f.nombre); // keep phases even if empty
 }
 
@@ -5620,8 +5976,7 @@ function ieCollectFields() {
   const estado = document.getElementById("ie-estado").value;
   const descripcion = document.getElementById("ie-descripcion").value.trim();
 
-  const notas = Array.from(document.querySelectorAll(".ie-note"))
-    .map(el => el.value.trim()).filter(v => v);
+  const notas = collectNotesFromInputs();
 
   const fases = document.getElementById("ie-plan-container")
     ? ieCollectFases()
@@ -5938,7 +6293,7 @@ function buildEnrichMessage(idea, request) {
   msg += q(`CURRENT DESCRIPTION:\n${idea.descripcion}\n\n`);
 
   if (idea.notas && idea.notas.length) {
-    msg += q(`CURRENT NOTES:\n${idea.notas.map(n => "- " + n).join("\n")}\n\n`);
+    msg += q(`CURRENT NOTES:\n${idea.notas.map(n => "- " + noteText(n)).join("\n")}\n\n`);
   }
 
   if (fasesArray.length) {
@@ -6055,7 +6410,22 @@ function applyEvolveItem(idea, item) {
   if (item.notas !== undefined) idea.notas = item.notas;
 
   if (Array.isArray(item.fases)) {
-    // New format: replace entirely
+    // New format: replace entirely, but keep checkboxes/status of steps
+    // and phases that survive with the same text/name.
+    const oldSteps = {}, oldPhases = {};
+    (idea.fases || []).forEach(f => {
+      if (f.estado) oldPhases[(f.nombre || "").trim().toLowerCase()] = f.estado;
+      (f.pasos || []).forEach(s => { if (typeof s === "object" && s.hecho) oldSteps[(s.texto || "").trim().toLowerCase()] = s.hecho; });
+    });
+    item.fases.forEach(f => {
+      const pe = oldPhases[(f.nombre || "").trim().toLowerCase()];
+      if (pe && !f.estado) f.estado = pe;
+      f.pasos = (f.pasos || []).map(s => {
+        const t = (typeof s === "string" ? s : s.texto || "").trim().toLowerCase();
+        if (oldSteps[t]) { s = typeof s === "string" ? { texto: s } : s; s.hecho = oldSteps[t]; }
+        return s;
+      });
+    });
     idea.fases = item.fases;
   } else if (item.fases && typeof item.fases === "object") {
     // Legacy format from old Claude responses: migrate on the fly
@@ -6320,6 +6690,18 @@ function onSearchInput(e) {
    Devuelve, por idea, la lista de matches con su sección de origen
    y el fragmento de texto (para mostrar con resaltado).
 ================================================================== */
+function noteText(n) { return typeof n === "string" ? n : (n && n.texto) || ""; }
+function noteDate(n) { return (n && typeof n === "object" && n.fecha) ? n.fecha : null; }
+function fmtShortDate(iso) {
+  try { return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" }); } catch (e) { return ""; }
+}
+function collectNotesFromInputs() {
+  return Array.from(document.querySelectorAll(".ie-note")).map(el => {
+    const t = el.value.trim();
+    if (!t) return null;
+    return el.dataset.fecha ? { texto: t, fecha: el.dataset.fecha } : t;
+  }).filter(v => v !== null);
+}
 function stepText(step) {
   return typeof step === "string" ? step : step.texto + (step.explicacion ? " " + step.explicacion : "");
 }
@@ -6341,7 +6723,8 @@ function deepSearch(query) {
       matches.push({ seccion: "Description", texto: excerptAround(idea.descripcion, q) });
     }
     idea.notas.forEach(n => {
-      if (n.toLowerCase().includes(q)) matches.push({ seccion: "Notes", texto: n });
+      const nt = noteText(n);
+      if (nt.toLowerCase().includes(q)) matches.push({ seccion: "Notes", texto: nt });
     });
 
     (Array.isArray(idea.fases) ? idea.fases : []).forEach(fase => {
@@ -6727,6 +7110,7 @@ function setPhaseStatus(ideaId, phaseIdx, status) {
   if (portal) { portal.style.display = "none"; portal.innerHTML = ""; }
   saveIdeas();
   document.getElementById("main").innerHTML = renderDetailReadMode(idea);
+  maybeOfferCompletion(idea);
 }
 
 // Close picker when clicking outside
@@ -6753,7 +7137,7 @@ function renderDetailReadMode(idea) {
 
   const fasesHtml = fasesArray.length ? `
     <div class="detail-block">
-      <div class="block-title c-plan" style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="display:flex;align-items:center;gap:8px"><span class="dot" style="background:var(--accent)"></span>Production plan</span><button type="button" class="stuck-btn" style="margin:0" onclick="openStuck('${escapeAttr(idea.id)}')">I'm stuck</button></div>
+      <div class="block-title c-plan" style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="display:flex;align-items:center;gap:8px"><span class="dot" style="background:var(--accent)"></span>Production plan</span><span style="display:flex;gap:6px"><button type="button" class="stuck-btn" style="margin:0" onclick="openBrainDump('${escapeAttr(idea.id)}')">Brain dump</button><button type="button" class="stuck-btn" style="margin:0" onclick="openStuck('${escapeAttr(idea.id)}')">I'm stuck</button></span></div>
       ${fasesArray.map((fase, idx) => `
         <div class="phase">
           <div class="phase-head">
@@ -6761,11 +7145,16 @@ function renderDetailReadMode(idea) {
             <span class="phase-name" style="color:var(--accent)">${escapeHtml(fase.nombre)}</span>
           </div>
           <ul class="phase-steps">
-            ${(fase.pasos || []).map(step => renderStep(step)).join("")}
+            ${(fase.pasos || []).map((step, sIdx) => renderStep(step, idea.id, idea.fases.indexOf(fase), sIdx)).join("")}
           </ul>
         </div>
       `).join("")}
-    </div>` : "";
+    </div>` : `
+    <div class="detail-block">
+      <div class="block-title c-plan"><span class="dot" style="background:var(--accent)"></span>Production plan</div>
+      <p class="empty-plan">No plan yet. Dump everything you have in your head and let the AI turn it into steps, or use Develop idea.</p>
+      <button type="button" class="stuck-btn" onclick="openBrainDump('${escapeAttr(idea.id)}')">Brain dump</button>
+    </div>`;
 
   const resolverHtml = `
     <div class="detail-block">
@@ -6796,11 +7185,12 @@ function renderDetailReadMode(idea) {
 
   // Notes get their own internal scroll on desktop (capped height) so a long
   // list doesn't push the sticky header taller than the viewport.
-  const notasStickyHtml = idea.notas.length ? `
+  const notasStickyHtml = `
     <div class="detail-block">
       <div class="block-title c-notes"><span class="dot" style="background:var(--amber)"></span>Notes</div>
-      <ul class="notes-list">${idea.notas.map(n => `<li>${escapeHtml(n)}</li>`).join("")}</ul>
-    </div>` : "";
+      <ul class="notes-list">${idea.notas.map(n => `<li>${noteDate(n) ? `<span class="note-date">${escapeHtml(fmtShortDate(noteDate(n)))}</span>` : ""}${escapeHtml(noteText(n))}</li>`).join("")}</ul>
+      <input class="note-quick-add" placeholder="+ Jot a note… (Enter)" onkeydown="if(event.key==='Enter'){event.preventDefault();quickAddNote('${escapeAttr(idea.id)}',this.value)}">
+    </div>`;
 
   return `
     <div class="detail-sticky-top" id="detail-sticky-header">
@@ -6827,11 +7217,13 @@ function renderDetailReadMode(idea) {
         <div class="detail-order-progress">${idea.fases && idea.fases.length > 0 ? renderPhaseTimeline(idea) : ""}</div>
         <div class="detail-order-plan">${fasesHtml}</div>
         <div class="detail-order-resolve">${resolverHtml}</div>
+        <div class="detail-order-wrap">${renderWrapBlock(idea)}</div>
       </div>
 
       <div class="detail-dashboard-sidecol" id="detail-sticky-sidecol">
         <div class="detail-order-desc">${descBlockHtml}</div>
         <div class="detail-order-notes">${notasStickyHtml}</div>
+        <div class="detail-order-sketch">${renderSketchBlock(idea)}</div>
       </div>
     </div>
   `;
@@ -6865,7 +7257,7 @@ function renderDetailEditMode(idea) {
             const txt = typeof step === "string" ? step : step.texto;
             const exp = typeof step === "object" ? (step.explicacion || "") : "";
             return `
-              <li class="ie-step-item">
+              <li class="ie-step-item" data-hecho="${typeof step === 'object' && step.hecho ? step.hecho : 0}">
                 <div style="display:flex;align-items:flex-start;gap:8px">
                   <span class="ie-step-num">${stepIdx + 1}</span>
                   <div style="flex:1">
@@ -6909,7 +7301,7 @@ function renderDetailEditMode(idea) {
         ${(idea.notas || []).map((n, idx) => `
           <li style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
             <span style="color:var(--slate);font-size:0.8rem">·</span>
-            <input class="form-input ie-note" value="${escapeAttr(n)}" placeholder="Note" style="flex:1">
+            <input class="form-input ie-note" value="${escapeAttr(noteText(n))}" data-fecha="${escapeAttr(noteDate(n) || "")}" placeholder="Note" style="flex:1">
             <button type="button" class="edit-plan-del-btn" onclick="ieDeleteNote(${idx})">&times;</button>
           </li>`).join("")}
       </ul>
@@ -6998,10 +7390,48 @@ function eraserSvg(label) {
   </svg>`;
 }
 
-function renderStep(step) {
+const BOX_SVG = [
+  `<svg viewBox="0 0 22 22"><path d="M3.5 4 L18.6 3.4 L18.2 18.7 L3.2 18.3 Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
+  `<svg viewBox="0 0 22 22"><path d="M3.5 18.3 L18.6 3.4 L18.2 18.7 Z" fill="currentColor" opacity=".55"/><path d="M3.5 4 L18.6 3.4 L18.2 18.7 L3.2 18.3 Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
+  `<svg viewBox="0 0 22 22"><path d="M3.5 4 L18.6 3.4 L18.2 18.7 L3.2 18.3 Z" fill="currentColor" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`
+];
+function renderStep(step, ideaId, faseIdx, stepIdx) {
   const txt = typeof step === "string" ? step : step.texto;
   const exp = typeof step === "string" ? "" : (step.explicacion || "");
-  return `<li>${escapeHtml(txt)}${exp ? `<div class="phase-desc">${escapeHtml(exp)}</div>` : ""}</li>`;
+  const hecho = typeof step === "object" && step.hecho ? step.hecho : 0;
+  const box = ideaId !== undefined
+    ? `<button type="button" class="step-box s${hecho}" title="${["Not started", "Started", "Done"][hecho]} — tap to change" onclick="cycleStep('${escapeAttr(ideaId)}',${faseIdx},${stepIdx})">${BOX_SVG[hecho]}</button>`
+    : "";
+  return `<li class="step-row s${hecho}">${box}<div class="step-body">${escapeHtml(txt)}${exp ? `<div class="phase-desc">${escapeHtml(exp)}</div>` : ""}</div></li>`;
+}
+async function cycleStep(ideaId, faseIdx, stepIdx) {
+  const idea = IDEAS.find(i => i.id === ideaId);
+  const fase = idea && idea.fases[faseIdx];
+  if (!fase || fase.pasos[stepIdx] === undefined) return;
+  let s = fase.pasos[stepIdx];
+  if (typeof s === "string") s = { texto: s };
+  s.hecho = ((s.hecho || 0) + 1) % 3;
+  if (!s.hecho) delete s.hecho;
+  fase.pasos[stepIdx] = s;
+  // Phase status follows its boxes
+  const vals = fase.pasos.map(x => (typeof x === "object" && x.hecho) || 0);
+  fase.estado = vals.every(v => v === 2) ? "done" : vals.some(v => v > 0) ? "in-progress" : "pending";
+  saveIdeas();
+  const y = window.scrollY;
+  document.getElementById("main").innerHTML = renderDetailReadMode(idea);
+  window.scrollTo(0, y);
+  maybeOfferCompletion(idea);
+}
+async function maybeOfferCompletion(idea) {
+  const fases = (idea.fases || []).filter(f => f.pasos && f.pasos.length);
+  if (!fases.length || idea.estado === "completada") return;
+  if (!fases.every(f => phaseStatus(f) === "done")) return;
+  const ok = await showConfirm("Every step is checked off. Mark this idea as Completed and write a quick wrap-up?", { title: "All done! 🎉", confirmLabel: "Mark completed", danger: false });
+  if (!ok) return;
+  idea.estado = "completada";
+  saveIdeas();
+  render();
+  openWrapUp(idea.id);
 }
 
 const STUCK_SYSTEM = `You are a veteran expert mentor in the field of the project below. The user is a beginner stuck on ONE step of their plan. Explain that step in a different, simpler way than the plan did: break it into 3-6 tiny concrete sub-steps, give a quick example, and name the most common beginner mistake. Be practical and warm, no fluff, under 200 words, plain text (no markdown symbols), same language as the step.`;
