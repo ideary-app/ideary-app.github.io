@@ -3294,6 +3294,48 @@ SHIPPING CHANGES
     background: transparent; color: var(--ink); border: 1.5px solid var(--ink);
     border-radius: var(--sketch-radius); padding: 8px 14px; font-family: var(--hand); font-size: 1.05rem;
   }
+
+  /* ---- Projects & chapters ---- */
+  .badge-chapter { background: var(--accent-soft) !important; color: var(--pen) !important; }
+  .chapter-nav { display: flex; justify-content: space-between; gap: 10px; margin-top: 10px; }
+  .chapter-nav button { background: none; border: none; color: var(--pen); font-family: var(--hand); font-size: 1.05rem; cursor: pointer; padding: 2px 0; max-width: 48%; text-align: left; }
+  .chapter-nav button:last-child { text-align: right; }
+  .project-offer { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: space-between;
+    margin: 0 0 18px; padding: 12px 16px; background: var(--panel); border: 1.5px dashed var(--line-strong); border-radius: 4px; font-size: .9rem; }
+  .project-offer.big { border-color: var(--pen); }
+  .project-offer > div { flex: 1; min-width: 220px; }
+  .project-offer button { background: var(--pen); color: #fff; border: none; border-radius: var(--sketch-radius); padding: 8px 14px; font-family: var(--hand); font-size: 1.05rem; cursor: pointer; }
+  [data-theme="dark"] .project-offer button { color: #10131c; }
+  .next-up { cursor: pointer; border-left: 5px solid var(--pen) !important; }
+  .next-up-ch { font-family: var(--hand); font-size: 1.35rem; }
+  .next-up-step { color: var(--slate); font-size: .92rem; margin-top: 2px; }
+  .toc { display: flex; flex-direction: column; }
+  .toc-row { display: grid; grid-template-columns: 26px 1fr 70px 38px auto; align-items: center; gap: 8px; min-height: 32px; }
+  .toc-num { font-family: var(--hand); color: var(--pen); font-size: 1.1rem; }
+  .toc-title { background: none; border: none; text-align: left; padding: 0; cursor: pointer; font-family: var(--hand); font-size: 1.15rem; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .toc-title:hover { color: var(--pen); text-decoration: underline; }
+  .toc-row.done .toc-title { color: var(--slate); }
+  .toc-bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+  .toc-bar span { display: block; height: 100%; background: var(--pen); }
+  .toc-pct { font-size: .78rem; color: var(--slate); text-align: right; }
+  .toc-move button { background: none; border: none; color: var(--slate); cursor: pointer; padding: 0 3px; font-size: .9rem; }
+  .toc-move button:disabled { opacity: .25; cursor: default; }
+  .toc-total { font-family: var(--hand); font-size: 1rem; color: var(--slate); }
+  .toc-add { border-bottom-color: var(--line-strong) !important; color: var(--ink) !important; }
+  .toc-add::placeholder { color: var(--slate) !important; }
+  .sug { padding: 10px 0; border-top: 1.5px dashed var(--line); }
+  .sug-head { font-family: var(--hand); font-size: 1.15rem; }
+  .sug-why { font-size: .9rem; color: var(--slate); margin: 2px 0 8px; }
+  .sug-actions { display: flex; gap: 8px; }
+  .sug-apply { background: var(--pen); color: #fff; border: none; border-radius: var(--sketch-radius); padding: 5px 14px; font-family: var(--hand); font-size: 1rem; cursor: pointer; }
+  [data-theme="dark"] .sug-apply { color: #10131c; }
+  .sug-ignore { background: none; border: 1.5px solid var(--line-strong); color: var(--slate); border-radius: var(--sketch-radius); padding: 5px 14px; font-family: var(--hand); font-size: 1rem; cursor: pointer; }
+  .sidebar .nav-chapter-item { margin-left: 32px !important; font-size: .82rem; }
+  .sidebar .nav-chapter-item::before { content: "· " !important; }
+  .nav-nb { color: var(--pen); }
+  @media (max-width: 600px) {
+    .toc-row { grid-template-columns: 22px 1fr 44px 34px auto; gap: 6px; }
+  }
 </style>
 </head>
 <body>
@@ -3368,7 +3410,7 @@ SHIPPING CHANGES
       <div id="nav-categorias"></div>
     </div>
 
-    <div class="version-link" onclick="openChangelog()">v0.9.1 · What's new</div>
+    <div class="version-link" onclick="openChangelog()">v1.0.0 · What's new</div>
     <div style="text-align:center;font-family:var(--hand);font-size:.9rem;margin-top:6px"><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--slate)">Privacy</a> · <a href="terms.html" target="_blank" rel="noopener" style="color:var(--slate)">Terms</a></div>
   </div>
   </aside>
@@ -3631,6 +3673,22 @@ SHIPPING CHANGES
     <label class="form-label">Next time I'd…</label>
     <textarea class="form-input form-textarea" id="wrap-next" style="min-height:70px;font-size:16px"></textarea>
     <button class="form-submit" onclick="saveWrapUp()">Save wrap-up</button>
+  </div>
+</div>
+
+
+<!-- MODAL: Director review without Gemini key -->
+<div class="modal-overlay" id="director-overlay">
+  <div class="modal-box" style="max-width:500px">
+    <div class="modal-head">
+      <div class="modal-title">Ask the director</div>
+      <button class="modal-close" onclick="closeDirectorManual()">&times;</button>
+    </div>
+    <div class="form-hint" style="margin-bottom:10px">No Gemini key yet, so copy this prompt into any AI and paste its reply below. (Add a key in Settings to do this in one tap.)</div>
+    <button class="form-submit" style="margin-top:0" onclick="copyDirectorPrompt()">Copy prompt</button>
+    <div id="director-copy-fb" style="min-height:1.4em;font-size:.85rem;margin-top:6px;color:var(--pen)"></div>
+    <textarea class="form-input form-textarea" id="director-text" style="min-height:140px;font-family:var(--mono);font-size:16px" placeholder='{"sugerencias": [...]}'></textarea>
+    <button class="form-submit" onclick="submitDirectorManual()">Show suggestions</button>
   </div>
 </div>
 
@@ -5066,6 +5124,309 @@ function renderWrapBlock(idea) {
     <div class="note-date" style="margin-top:6px">${escapeHtml(fmtShortDate(c.fecha))}</div></div>`;
 }
 
+
+/* ==================================================================
+   PROJECTS & CHAPTERS — a big idea can become a Project whose phases
+   are Chapters (each chapter is a full idea with proyectoId/orden).
+   The AI "director" reviews the chapter order and suggests missing
+   chapters; the user applies or ignores each suggestion.
+================================================================== */
+function projectChapters(p) {
+  return IDEAS.filter(i => i.proyectoId === p.id && i.estado !== "eliminada").sort((a, b) => (a.orden || 0) - (b.orden || 0));
+}
+function ideaProgress(i) {
+  let total = 0, done = 0;
+  (i.fases || []).forEach(f => (f.pasos || []).forEach(s => {
+    total++;
+    const hch = (typeof s === "object" && s.hecho) || 0;
+    done += hch === 2 ? 1 : hch === 1 ? 0.5 : 0;
+  }));
+  if (!total) return i.estado === "completada" ? 1 : 0;
+  return done / total;
+}
+function nextStepOf(i) {
+  for (const f of (i.fases || [])) for (const s of (f.pasos || [])) {
+    const hch = (typeof s === "object" && s.hecho) || 0;
+    if (hch < 2) return { fase: f.nombre, texto: typeof s === "string" ? s : s.texto };
+  }
+  return null;
+}
+function backBtnHtml(idea) {
+  const proj = isChapter(idea) && IDEAS.find(x => x.id === idea.proyectoId);
+  if (proj) return `<button class="back-btn" onclick="openDetail('${escapeAttr(proj.id)}')">&larr; ${escapeHtml(proj.titulo)}</button>`;
+  return `<button class="back-btn" onclick="goHome()">&larr; Back to Home</button>`;
+}
+function chapterBadgeHtml(idea) {
+  const proj = IDEAS.find(x => x.id === idea.proyectoId);
+  if (!proj) return "";
+  const chs = projectChapters(proj);
+  return `<span class="badge badge-chapter">Chapter ${chs.findIndex(c => c.id === idea.id) + 1} of ${chs.length}</span>`;
+}
+function chapterNavHtml(idea) {
+  const proj = IDEAS.find(x => x.id === idea.proyectoId);
+  if (!proj) return "";
+  const chs = projectChapters(proj);
+  const k = chs.findIndex(c => c.id === idea.id);
+  const prev = chs[k - 1], next = chs[k + 1];
+  return `<div class="chapter-nav">
+    ${prev ? `<button type="button" onclick="openDetail('${escapeAttr(prev.id)}')">&larr; ${escapeHtml(prev.titulo)}</button>` : "<span></span>"}
+    ${next ? `<button type="button" onclick="openDetail('${escapeAttr(next.id)}')">${escapeHtml(next.titulo)} &rarr;</button>` : "<span></span>"}
+  </div>`;
+}
+function projectOfferHtml(idea) {
+  if (isChapter(idea) || isProject(idea)) return "";
+  const fases = (idea.fases || []).filter(f => f.pasos && f.pasos.length);
+  if (fases.length < 2) return "";
+  const steps = fases.reduce((n, f) => n + f.pasos.length, 0);
+  const big = fases.length >= 4 || steps >= 20;
+  return `<div class="project-offer ${big ? "big" : ""}">
+    <div>${big ? "<strong>This idea is getting big.</strong> " : ""}Turn it into a <strong>project</strong> to work chapter by chapter: each phase becomes its own page with its own plan, notes and sketches, and an overview keeps the big picture.</div>
+    <button type="button" onclick="convertToProject('${escapeAttr(idea.id)}')">Turn into project</button>
+  </div>`;
+}
+
+async function convertToProject(ideaId) {
+  const idea = IDEAS.find(i => i.id === ideaId);
+  if (!idea) return;
+  const fases = (idea.fases || []).filter(f => f.pasos && f.pasos.length);
+  const ok = await showConfirm(`Each of the ${fases.length} phases will become a chapter with its own page. Your checkboxes stay as they are, and notes, sketches and things to figure out stay on the project's overview.`, { title: "Turn into a project?", confirmLabel: "Turn into project", danger: false });
+  if (!ok) return;
+  fases.forEach((f, k) => {
+    const st = phaseStatus(f);
+    IDEAS.push({
+      id: idea.id + "-ch-" + Date.now().toString(36) + k,
+      titulo: f.nombre || ("Chapter " + (k + 1)),
+      categoria: idea.categoria,
+      estado: st === "done" ? "completada" : st === "in-progress" ? "en-curso" : "idea",
+      descripcion: "",
+      notas: [],
+      fases: [{ nombre: f.nombre || "Steps", estado: f.estado, pasos: f.pasos }],
+      cosasAResolver: [],
+      proyectoId: idea.id,
+      orden: k + 1
+    });
+  });
+  idea.tipo = "proyecto";
+  idea._fasesOriginales = idea.fases;
+  idea.fases = [];
+  idea.sugerencias = [];
+  saveIdeas();
+  openDetail(idea.id);
+  if (geminiKey) askDirector(idea.id);
+}
+
+function renumberChapters(proj) {
+  projectChapters(proj).forEach((c, k) => { c.orden = k + 1; });
+}
+function moveChapter(projId, chId, dir) {
+  const proj = IDEAS.find(i => i.id === projId);
+  const chs = projectChapters(proj);
+  const k = chs.findIndex(c => c.id === chId);
+  const t = k + dir;
+  if (k < 0 || t < 0 || t >= chs.length) return;
+  [chs[k], chs[t]] = [chs[t], chs[k]];
+  chs.forEach((c, n) => { c.orden = n + 1; });
+  saveIdeas();
+  render();
+}
+function addChapter(projId, title, beforeTitle, descripcion) {
+  const proj = IDEAS.find(i => i.id === projId);
+  const t = (title || "").trim();
+  if (!proj || !t) return null;
+  const chs = projectChapters(proj);
+  let pos = chs.length;
+  if (beforeTitle) {
+    const b = chs.findIndex(c => c.titulo.trim().toLowerCase() === String(beforeTitle).trim().toLowerCase());
+    if (b >= 0) pos = b;
+  }
+  const ch = { id: proj.id + "-ch-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), titulo: t, categoria: proj.categoria, estado: "idea", descripcion: descripcion || "", notas: [], fases: [], cosasAResolver: [], proyectoId: proj.id, orden: 0 };
+  chs.splice(pos, 0, ch);
+  IDEAS.push(ch);
+  chs.forEach((c, n) => { c.orden = n + 1; });
+  return ch;
+}
+function quickAddChapter(projId, input) {
+  if (addChapter(projId, input.value)) { saveIdeas(); render(); }
+}
+
+/* ---- Director review (suggestions the user applies or ignores) ---- */
+const DIRECTOR_PROJECT_RULES = `You are a veteran expert in the field of this project (for an animated short: a film director with decades of experience). Review the chapters (big stages) of the project and how far along each one is. Suggest up to 5 improvements to the ORDER and to MISSING stages, the way a professional would run this production. Never suggest deleting a chapter, and respect work already started: if the person began with a later stage, suggest what to add before it instead of undoing it. Explain each suggestion in one or two friendly sentences, in the same language as the project. If the plan is already good, return an empty list.
+Output ONLY raw JSON: {"sugerencias":[{"accion":"agregar","titulo":"New chapter name","antesDe":"Existing chapter name or null for the end","motivo":"why"},{"accion":"mover","titulo":"Existing chapter name","antesDe":"Existing chapter name or null for the end","motivo":"why"}]}`;
+function directorPrompt(proj) {
+  const chs = projectChapters(proj);
+  return `PROJECT: ${proj.titulo} (${proj.categoria})\nDESCRIPTION: ${proj.descripcion}\nCHAPTERS IN ORDER:\n` +
+    chs.map((c, k) => `${k + 1}. ${c.titulo} — ${Math.round(ideaProgress(c) * 100)}% done${c.estado === "completada" ? " (completed)" : ""}`).join("\n");
+}
+let directorProjId = null;
+async function askDirector(projId) {
+  const proj = IDEAS.find(i => i.id === projId);
+  if (!proj) return;
+  if (!geminiKey) { openDirectorManual(projId); return; }
+  proj._reviewing = true; render();
+  try {
+    const reply = await geminiGenerate([{ role: "user", text: directorPrompt(proj) }], DIRECTOR_PROJECT_RULES);
+    const data = parseJsonLenient(stripJsonFences(reply));
+    proj.sugerencias = Array.isArray(data.sugerencias) ? data.sugerencias.slice(0, 5) : [];
+    proj._reviewedAt = new Date().toISOString();
+    saveIdeas();
+  } catch (e) {
+    await showAlert(e.message, { title: "Couldn't review the project" });
+  }
+  delete proj._reviewing;
+  render();
+}
+function openDirectorManual(projId) {
+  directorProjId = projId;
+  document.getElementById("director-text").value = "";
+  document.getElementById("director-overlay").classList.add("open");
+}
+function closeDirectorManual() { document.getElementById("director-overlay").classList.remove("open"); }
+async function copyDirectorPrompt() {
+  const proj = IDEAS.find(i => i.id === directorProjId);
+  if (!proj) return;
+  try { await navigator.clipboard.writeText(DIRECTOR_PROJECT_RULES + "\n\n" + directorPrompt(proj)); } catch (e) {}
+  document.getElementById("director-copy-fb").textContent = "✓ Copied! Paste it into any AI.";
+}
+async function submitDirectorManual() {
+  const proj = IDEAS.find(i => i.id === directorProjId);
+  if (!proj) return;
+  try {
+    const data = parseJsonLenient(stripJsonFences(document.getElementById("director-text").value));
+    proj.sugerencias = Array.isArray(data.sugerencias) ? data.sugerencias.slice(0, 5) : [];
+    proj._reviewedAt = new Date().toISOString();
+    saveIdeas(); closeDirectorManual(); render();
+  } catch (e) {
+    await showAlert("Paste the JSON block the AI gave you.", { title: "That's not valid JSON" });
+  }
+}
+function applySuggestion(projId, idx) {
+  const proj = IDEAS.find(i => i.id === projId);
+  const s = proj && proj.sugerencias && proj.sugerencias[idx];
+  if (!s) return;
+  if (s.accion === "mover") {
+    const chs = projectChapters(proj);
+    const k = chs.findIndex(c => c.titulo.trim().toLowerCase() === String(s.titulo).trim().toLowerCase());
+    if (k >= 0) {
+      const [ch] = chs.splice(k, 1);
+      let pos = chs.length;
+      if (s.antesDe) { const b = chs.findIndex(c => c.titulo.trim().toLowerCase() === String(s.antesDe).trim().toLowerCase()); if (b >= 0) pos = b; }
+      chs.splice(pos, 0, ch);
+      chs.forEach((c, n) => { c.orden = n + 1; });
+    }
+  } else {
+    addChapter(projId, s.titulo, s.antesDe, s.motivo ? "Why this chapter: " + s.motivo : "");
+  }
+  proj.sugerencias.splice(idx, 1);
+  saveIdeas();
+  render();
+}
+function ignoreSuggestion(projId, idx) {
+  const proj = IDEAS.find(i => i.id === projId);
+  if (!proj || !proj.sugerencias) return;
+  proj.sugerencias.splice(idx, 1);
+  saveIdeas();
+  render();
+}
+
+/* ---- Project overview page ---- */
+function renderProjectView(p) {
+  const chs = projectChapters(p);
+  const cfg = ESTADOS[p.estado];
+  const total = chs.length ? chs.reduce((n, c) => n + ideaProgress(c), 0) / chs.length : 0;
+  const nextCh = chs.find(c => c.estado !== "completada" && ideaProgress(c) < 1);
+  const ns = nextCh && nextStepOf(nextCh);
+  const nextHtml = nextCh ? `
+    <div class="detail-block next-up" onclick="openDetail('${escapeAttr(nextCh.id)}')">
+      <div class="block-title c-plan">Next up</div>
+      <div class="next-up-ch">Chapter ${chs.indexOf(nextCh) + 1}: ${escapeHtml(nextCh.titulo)}</div>
+      <div class="next-up-step">${ns ? "→ " + escapeHtml(ns.texto) : (nextCh.fases && nextCh.fases.length ? "All steps done — mark it completed" : "No plan yet — open it and use Develop idea")}</div>
+    </div>` : (chs.length ? `<div class="detail-block next-up"><div class="block-title c-plan">All chapters done 🎉</div></div>` : "");
+  const tocHtml = `
+    <div class="detail-block">
+      <div class="block-title c-plan" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>Chapters</span><span class="toc-total">${Math.round(total * 100)}% overall</span></div>
+      <div class="toc">
+        ${chs.map((c, k) => {
+          const pr = Math.round(ideaProgress(c) * 100);
+          return `<div class="toc-row ${c.estado === "completada" ? "done" : ""}">
+            <span class="toc-num">${k + 1}</span>
+            <button type="button" class="toc-title" onclick="openDetail('${escapeAttr(c.id)}')">${escapeHtml(c.titulo)}</button>
+            <span class="toc-bar"><span style="width:${pr}%"></span></span>
+            <span class="toc-pct">${pr}%</span>
+            <span class="toc-move">
+              <button type="button" title="Move up" onclick="moveChapter('${escapeAttr(p.id)}','${escapeAttr(c.id)}',-1)" ${k === 0 ? "disabled" : ""}>↑</button>
+              <button type="button" title="Move down" onclick="moveChapter('${escapeAttr(p.id)}','${escapeAttr(c.id)}',1)" ${k === chs.length - 1 ? "disabled" : ""}>↓</button>
+            </span>
+          </div>`;
+        }).join("") || `<p class="empty-plan">No chapters yet.</p>`}
+      </div>
+      <input class="note-quick-add toc-add" placeholder="+ Add a chapter… (Enter)" onkeydown="if(event.key==='Enter'){event.preventDefault();quickAddChapter('${escapeAttr(p.id)}',this)}">
+    </div>`;
+  const sug = p.sugerencias || [];
+  const sugHtml = `
+    <div class="detail-block director-block">
+      <div class="block-title c-plan" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>Director's notes</span>
+        <button type="button" class="stuck-btn" style="margin:0" onclick="askDirector('${escapeAttr(p.id)}')" ${p._reviewing ? "disabled" : ""}>${p._reviewing ? "Reviewing…" : (p._reviewedAt ? "Review again" : "Review my plan")}</button></div>
+      ${sug.length ? sug.map((s, k) => `
+        <div class="sug">
+          <div class="sug-head">${s.accion === "mover" ? "Move" : "Add"} <strong>${escapeHtml(s.titulo || "")}</strong>${s.antesDe ? ` before <em>${escapeHtml(s.antesDe)}</em>` : (s.accion === "mover" ? " to the end" : "")}</div>
+          <div class="sug-why">${escapeHtml(s.motivo || "")}</div>
+          <div class="sug-actions"><button type="button" class="sug-apply" onclick="applySuggestion('${escapeAttr(p.id)}',${k})">Apply</button><button type="button" class="sug-ignore" onclick="ignoreSuggestion('${escapeAttr(p.id)}',${k})">Ignore</button></div>
+        </div>`).join("")
+        : `<p class="empty-plan">${p._reviewedAt ? "No suggestions — the order looks good." : "Ask an experienced director to check the order of your chapters and point out stages you might be missing. You decide what to apply."}</p>`}
+    </div>`;
+  const descHtml = `
+    <div class="detail-block">
+      <div class="block-title c-desc">About this project</div>
+      <div class="desc-text">${(p.descripcion || "").split("\n").map(x => `<p>${escapeHtml(x)}</p>`).join("")}</div>
+    </div>`;
+  const notesHtml = `
+    <div class="detail-block">
+      <div class="block-title c-notes">Notes</div>
+      <ul class="notes-list">${(p.notas || []).map(n => `<li>${noteDate(n) ? `<span class="note-date">${escapeHtml(fmtShortDate(noteDate(n)))}</span>` : ""}${escapeHtml(noteText(n))}</li>`).join("")}</ul>
+      <input class="note-quick-add" placeholder="+ Jot a note… (Enter)" onkeydown="if(event.key==='Enter'){event.preventDefault();quickAddNote('${escapeAttr(p.id)}',this.value)}">
+    </div>`;
+  const cosas = p.cosasAResolver || [];
+  const resolveHtml = cosas.length ? `
+    <div class="detail-block">
+      <div class="block-title c-resolve">Things to figure out</div>
+      <ul class="resolve-list">${cosas.map((item, idx) => `
+        <li class="resolve-item ${item.resuelto ? 'done' : ''}">
+          <span class="resolve-check" onclick="toggleResolve('${p.id}', ${idx})" style="cursor:pointer">${item.resuelto ? '✓' : ''}</span>
+          <div class="resolve-text-wrap" onclick="toggleResolve('${p.id}', ${idx})" style="cursor:pointer"><div class="resolve-text">${escapeHtml(item.texto)}</div></div>
+        </li>`).join("")}</ul>
+    </div>` : "";
+  return `
+    <div class="detail-sticky-top" id="detail-sticky-header">
+      <div class="detail-top-row" style="margin-top:0;padding-top:24px">
+        <button class="back-btn" onclick="goHome()">&larr; Back to Home</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button class="tool-btn pencil" title="Edit" aria-label="Edit" onclick="startEditIdea('${p.id}')">${pencilSvg("Edit")}</button>
+          <button class="tool-btn eraser" title="Erase" aria-label="Erase" onclick="deleteIdea('${p.id}')">${eraserSvg("Erase")}</button>
+        </div>
+      </div>
+      <div class="detail-header" style="margin-bottom:0;margin-top:20px">
+        <div class="detail-title">${escapeHtml(p.titulo)}</div>
+        <div class="detail-badges">
+          <span class="badge badge-chapter">▤ Project · ${chs.length} chapters</span>
+          <span class="badge badge-status" style="background:${cfg.soft};color:${cfg.color}">${cfg.label}</span>
+          <span class="badge badge-cat" style="background:var(--slate-soft);color:var(--slate)">${escapeHtml(p.categoria)}</span>
+        </div>
+      </div>
+    </div>
+    <div class="detail-view-grid">
+      <div class="detail-dashboard-scrollcol">
+        <div class="detail-order-progress">${nextHtml}</div>
+        <div class="detail-order-plan">${tocHtml}${sugHtml}</div>
+        <div class="detail-order-resolve">${resolveHtml}</div>
+      </div>
+      <div class="detail-dashboard-sidecol" id="detail-sticky-sidecol">
+        <div class="detail-order-desc">${descHtml}</div>
+        <div class="detail-order-notes">${notesHtml}</div>
+        <div class="detail-order-sketch">${renderSketchBlock(p)}</div>
+      </div>
+    </div>`;
+}
+
 /* ==================================================================
    UPDATE CHECK — compares the deployed DEPLOY_TIMESTAMP with the
    one in this running copy and offers a reload when they differ.
@@ -5084,9 +5445,19 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-16 12:58 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-16 21:43 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
+  {
+    version: "1.0.0",
+    public: true,
+    items: [
+      "Projects: turn a big idea into a project and work on it chapter by chapter",
+      "Each chapter has its own plan, notes, sketches and AI help, with the whole project in mind",
+      "A project overview shows every chapter's progress and what to do next",
+      "Director's notes: an AI director reviews your chapters' order and suggests missing stages — you choose what to apply"
+    ]
+  },
   {
     version: "0.9.1",
     public: true,
@@ -5342,15 +5713,17 @@ let view = "home";
 let viewParam = null; // status key, category name, or idea id depending on the view
 let currentSearch = "";
 
+function isChapter(i) { return !!(i && i.proyectoId); }
+function isProject(i) { return !!(i && i.tipo === "proyecto"); }
 function getCategorias() {
-  return [...new Set(IDEAS.filter(i => i.estado !== "eliminada").map(i => i.categoria))].sort();
+  return [...new Set(IDEAS.filter(i => i.estado !== "eliminada" && !isChapter(i)).map(i => i.categoria))].sort();
 }
 
 function scopedIdeas() {
-  if (view === "trash") return IDEAS.filter(i => i.estado === "eliminada");
-  if (view === "status") return IDEAS.filter(i => i.estado === viewParam && i.estado !== "eliminada");
-  if (view === "categoria") return IDEAS.filter(i => i.categoria === viewParam && i.estado !== "eliminada");
-  return IDEAS.filter(i => i.estado !== "eliminada");
+  if (view === "trash") return IDEAS.filter(i => i.estado === "eliminada" && !i._trashedWithProject);
+  if (view === "status") return IDEAS.filter(i => i.estado === viewParam && i.estado !== "eliminada" && !isChapter(i));
+  if (view === "categoria") return IDEAS.filter(i => i.categoria === viewParam && i.estado !== "eliminada" && !isChapter(i));
+  return IDEAS.filter(i => i.estado !== "eliminada" && !isChapter(i));
 }
 
 function filteredIdeas() {
@@ -5477,8 +5850,15 @@ async function deleteIdea(ideaId) {
   idea._prevEstado = idea.estado;
   idea.estado = "eliminada";
   idea._deletedAt = Date.now();
+  if (isProject(idea)) {
+    IDEAS.filter(c => c.proyectoId === idea.id && c.estado !== "eliminada").forEach(c => {
+      c._prevEstado = c.estado; c.estado = "eliminada"; c._deletedAt = Date.now(); c._trashedWithProject = true;
+    });
+  }
   saveIdeas();
-  if (view === "detalle") goHome(); else render();
+  if (view === "detalle") {
+    if (isChapter(idea) && IDEAS.find(x => x.id === idea.proyectoId)) openDetail(idea.proyectoId); else goHome();
+  } else render();
 }
 
 async function deleteForever(ideaId) {
@@ -5486,7 +5866,7 @@ async function deleteForever(ideaId) {
   if (!idea) return;
   const confirmado = await showConfirm(`This cannot be undone.`, { title: `Delete "${idea.titulo}" forever?`, confirmLabel: "Delete forever", danger: true });
   if (!confirmado) return;
-  IDEAS = IDEAS.filter(i => i.id !== ideaId);
+  IDEAS = IDEAS.filter(i => i.id !== ideaId && !(i.proyectoId === ideaId && i._trashedWithProject));
   saveIdeas();
   goTrash();
 }
@@ -5497,6 +5877,10 @@ async function restoreIdea(ideaId) {
   idea.estado = (idea._prevEstado && ESTADOS[idea._prevEstado] && idea._prevEstado !== "eliminada") ? idea._prevEstado : "idea";
   delete idea._deletedAt;
   delete idea._prevEstado;
+  IDEAS.filter(c => c.proyectoId === idea.id && c._trashedWithProject).forEach(c => {
+    c.estado = (c._prevEstado && ESTADOS[c._prevEstado] && c._prevEstado !== "eliminada") ? c._prevEstado : "idea";
+    delete c._deletedAt; delete c._prevEstado; delete c._trashedWithProject;
+  });
   saveIdeas();
   goTrash();
 }
@@ -6212,6 +6596,13 @@ function buildEnrichMessage(idea, request) {
   const q = (s) => s.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"');
 
   let msg = q(DIRECTOR_RULES + `\n\n`);
+  if (isChapter(idea)) {
+    const proj = IDEAS.find(x => x.id === idea.proyectoId);
+    if (proj) {
+      const chs = projectChapters(proj);
+      msg += q(`PROJECT CONTEXT: this is chapter ${chs.findIndex(c => c.id === idea.id) + 1} of ${chs.length} of the project "${proj.titulo}" — ${proj.descripcion}\nAll chapters in order: ${chs.map((c, k) => (k + 1) + ". " + c.titulo).join(" | ")}\nPlan ONLY this chapter, in depth. Assume earlier chapters are done or in progress.\n\n`);
+    }
+  }
   msg += q(`IDEA:\n`);
   msg += q(`TITLE: ${idea.titulo}\n`);
   msg += q(`CATEGORY: ${idea.categoria}\n`);
@@ -6701,7 +7092,7 @@ function highlight(text, q) {
    RENDER: SIDEBAR
 ================================================================== */
 function renderSidebar() {
-  document.getElementById("count-todas").textContent = IDEAS.filter(i => i.estado !== "eliminada").length;
+  document.getElementById("count-todas").textContent = IDEAS.filter(i => i.estado !== "eliminada" && !isChapter(i)).length;
   document.getElementById("nav-todas").classList.toggle("active", view === "home");
 
   const catWrap = document.getElementById("nav-categorias");
@@ -6709,15 +7100,20 @@ function renderSidebar() {
   const trashActive = view === "trash";
 
   catWrap.innerHTML = getCategorias().map(cat => {
-    const ideas = IDEAS.filter(i => i.categoria === cat && i.estado !== "eliminada");
+    const ideas = IDEAS.filter(i => i.categoria === cat && i.estado !== "eliminada" && !isChapter(i));
     const catActive = view === "categoria" && viewParam === cat;
-    const ideaActive = view === "detalle" && ideas.some(i => i.id === viewParam);
+    const curIdea = IDEAS.find(i => i.id === viewParam);
+    const ideaActive = view === "detalle" && ideas.some(i => i.id === viewParam || (curIdea && curIdea.proyectoId === i.id));
     const catClass = catActive ? "active" : ideaActive ? "parent-active" : "";
     const ideasHtml = ideas.map(idea => {
       const isActive = view === "detalle" && viewParam === idea.id;
-      return `<div class="nav-idea-item ${isActive ? 'active' : ''}" onclick="openDetail('${escapeAttr(idea.id)}')">
-        ${escapeHtml(idea.titulo)}
-      </div>`;
+      const chaptersHtml = isProject(idea) ? projectChapters(idea).map(ch => {
+        const chActive = view === "detalle" && viewParam === ch.id;
+        return `<div class="nav-idea-item nav-chapter-item ${chActive ? 'active' : ''}" onclick="openDetail('${escapeAttr(ch.id)}')">${escapeHtml(ch.titulo)}</div>`;
+      }).join("") : "";
+      return `<div class="nav-idea-item ${isActive ? 'active' : ''} ${isProject(idea) ? 'nav-project-item' : ''}" onclick="openDetail('${escapeAttr(idea.id)}')">
+        ${isProject(idea) ? '<span class="nav-nb">▤</span> ' : ''}${escapeHtml(idea.titulo)}
+      </div>${chaptersHtml}`;
     }).join("");
     return `
       <div class="nav-cat-group">
@@ -6741,7 +7137,7 @@ function renderSidebar() {
 function renderStatusCardsOnly() {
   const statusCards = Object.keys(ESTADOS).filter(k => k !== "eliminada").map(key => {
     const cfg = ESTADOS[key];
-    const items = IDEAS.filter(i => i.estado === key && i.estado !== "eliminada");
+    const items = IDEAS.filter(i => i.estado === key && i.estado !== "eliminada" && !isChapter(i));
     const preview = items.slice(0, 5);
     return `
       <div class="status-card" style="--c:${cfg.color}" onclick="goStatus('${key}')">
@@ -6935,6 +7331,7 @@ function renderDetailView(idea) {
   if (editingIdeaId === idea.id) {
     return renderDetailEditMode(idea);
   }
+  if (isProject(idea)) return renderProjectView(idea);
   return renderDetailReadMode(idea);
 }
 
@@ -7122,7 +7519,7 @@ function renderDetailReadMode(idea) {
   return `
     <div class="detail-sticky-top" id="detail-sticky-header">
       <div class="detail-top-row" style="margin-top:0;padding-top:24px">
-        <button class="back-btn" onclick="goHome()">&larr; Back to Home</button>
+        ${backBtnHtml(idea)}
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <button class="tool-btn pencil" title="Edit" aria-label="Edit" onclick="startEditIdea('${idea.id}')">${pencilSvg("Edit")}</button>
           <button class="tool-btn marker" title="Develop idea" aria-label="Develop idea" onclick="openEvolveModal('${idea.id}')">${markerSvg("Develop idea")}</button>
@@ -7135,9 +7532,12 @@ function renderDetailReadMode(idea) {
         <div class="detail-badges">
           <span class="badge badge-status" style="background:${cfg.soft};color:${cfg.color}">${cfg.label}</span>
           <span class="badge badge-cat" style="background:var(--slate-soft);color:var(--slate)">${escapeHtml(idea.categoria)}</span>
+          ${isChapter(idea) ? chapterBadgeHtml(idea) : ""}
         </div>
+        ${isChapter(idea) ? chapterNavHtml(idea) : ""}
       </div>
     </div>
+    ${projectOfferHtml(idea)}
 
     <div class="detail-view-grid">
       <div class="detail-dashboard-scrollcol">
