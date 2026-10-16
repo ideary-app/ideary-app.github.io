@@ -3278,6 +3278,22 @@ SHIPPING CHANGES
   :root:not([data-theme="dark"]) { --pen: var(--brand); --pen-dark: var(--brand-dark); --accent: var(--brand); --accent-hover: var(--brand-dark); --accent-soft: var(--brand-soft); }
   html[data-theme="dark"] { --pen: var(--brand-night); --pen-dark: var(--brand-night); --accent: var(--brand-night); --accent-hover: var(--brand-night); --accent-soft: var(--brand-soft); }
   .brand-blob { fill: var(--brand); }
+
+  /* ---- Drive call-to-action when not signed in ---- */
+  .sidebar .drive-cta { display: flex; align-items: center; gap: 8px; border-style: dashed !important; }
+  .home-drive-cta {
+    display: flex; align-items: center; gap: 14px; justify-content: space-between; flex-wrap: wrap;
+    max-width: 460px; margin: 0 auto 30px; padding: 14px 16px;
+    background: var(--panel); color: var(--ink); border-radius: 3px;
+    box-shadow: 0 6px 14px rgba(0,0,0,.25); transform: rotate(.6deg);
+  }
+  .home-drive-cta strong { display: block; font-family: var(--hand); font-size: 1.25rem; font-weight: 400; color: var(--pen); }
+  .home-drive-cta span { display: block; font-size: .88rem; color: var(--slate); }
+  .home-drive-cta button {
+    display: flex; align-items: center; gap: 8px; cursor: pointer;
+    background: transparent; color: var(--ink); border: 1.5px solid var(--ink);
+    border-radius: var(--sketch-radius); padding: 8px 14px; font-family: var(--hand); font-size: 1.05rem;
+  }
 </style>
 </head>
 <body>
@@ -3343,6 +3359,7 @@ SHIPPING CHANGES
         <button class="sidebar-action-btn primary" style="flex:1;margin-bottom:0" onclick="openNewIdeaForm()">+ New idea</button>
         <button class="sidebar-action-btn sidebar-help-btn" onclick="openHowto()" title="How it works">?</button>
       </div>
+      <button class="sidebar-action-btn drive-cta" id="sidebar-drive-cta" onclick="connectGoogleDrive()" style="display:none"><svg width="16" height="14" viewBox="0 0 87.3 78" style="flex-shrink:0"><path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/><path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/><path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/><path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/><path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/></svg><span>Connect Google Drive</span></button>
       <button class="sidebar-action-btn settings-btn" onclick="openSettings()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
     </div>
 
@@ -4323,6 +4340,8 @@ async function disconnectGoogleDrive() {
 }
 
 function updateDriveButtonUI() {
+  const cta = document.getElementById("sidebar-drive-cta");
+  if (cta) cta.style.display = (!driveReady && !driveExpired) ? "flex" : "none";
   const btn = document.getElementById("drive-connect-btn");
   const label = document.getElementById("drive-btn-label");
   const sub = document.getElementById("brand-sub");
@@ -5065,7 +5084,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-15 20:30 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-16 12:58 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -6786,6 +6805,7 @@ function renderHomeView() {
     </div>
 
     <div id="home-results-area">${currentSearch ? resultsHtml : `
+      ${(!driveReady && !driveExpired) ? `<div class="home-drive-cta"><div><strong>Keep your ideas safe</strong><span>Connect Google Drive to sync across devices and never lose them.</span></div><button type="button" onclick="connectGoogleDrive()"><svg width="16" height="14" viewBox="0 0 87.3 78" style="flex-shrink:0"><path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/><path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/><path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/><path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/><path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/></svg>Connect Google Drive</button></div>` : ""}
       ${statusCardsHtml}
       <button class="home-create-btn" onclick="openNewIdeaForm()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -7501,6 +7521,7 @@ try {
 } catch(e) {}
 
 render();
+updateDriveButtonUI();
 
 // If a Drive token exists, show a loading overlay while syncing
 // so the user doesn't see a confusing "empty / logged out" flash.
