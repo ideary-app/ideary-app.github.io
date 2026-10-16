@@ -3392,6 +3392,31 @@ SHIPPING CHANGES
   .hist-entry { padding: 8px 0; border-top: 1.5px dashed var(--line); }
   .hist-head { display: flex; justify-content: space-between; font-family: var(--hand); font-size: 1.05rem; color: var(--pen); }
   .hist-entry ul { margin: 4px 0 0 18px; padding: 0; font-size: .85rem; color: var(--slate); }
+
+  /* ---- Step workspace ---- */
+  .step-link { cursor: pointer; }
+  .step-link:hover { color: var(--pen); text-decoration: underline; text-decoration-style: dashed; text-underline-offset: 3px; }
+  .step-help-btn { margin-left: 8px; background: none; border: 1px solid var(--line-strong); border-radius: 999px; padding: 0 8px; font-family: var(--hand); font-size: .9rem; color: var(--pen); cursor: pointer; vertical-align: 1px; opacity: .75; }
+  .step-row:hover .step-help-btn, .step-help-btn:focus { opacity: 1; border-color: var(--pen); }
+  .step-log { flex: 1; min-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px 2px; }
+  .step-msg { max-width: 90%; padding: 10px 13px; border-radius: 12px; white-space: pre-wrap; line-height: 1.45; font-size: .92rem; }
+  .step-msg.user { align-self: flex-end; background: var(--pen); color: #fff; }
+  [data-theme="dark"] .step-msg.user { color: #10131c; }
+  .step-msg.model { align-self: flex-start; background: rgba(128,128,128,.12); color: var(--ink); }
+  .step-use { display: block; margin-top: 6px; background: none; border: none; color: var(--pen); font-family: var(--hand); font-size: .95rem; cursor: pointer; padding: 0; }
+  .step-empty { color: var(--slate); font-size: .9rem; }
+  .step-chips { display: flex; flex-direction: column; gap: 8px; }
+  .step-work-head { display: flex; justify-content: space-between; margin: 12px 0 4px; font-family: var(--hand); font-size: 1.15rem; color: var(--pen); }
+  .sug-preview { font-size: .8rem; color: var(--slate); margin: 2px 0 8px; line-height: 1.6; }
+  .sug-preview .hl { color: var(--pen); font-weight: 700; }
+  .sug-warn { font-size: .85rem; color: #b0323f; margin: 2px 0 8px; }
+  /* more breathing room around the page header on desktop */
+  @media (min-width: 861px) {
+    .detail-sticky-top { padding-left: 4px; padding-right: 4px; }
+  }
+  @media (min-width: 1200px) {
+    .main { padding-left: 56px !important; padding-right: 56px !important; }
+  }
 </style>
 </head>
 <body>
@@ -3757,6 +3782,29 @@ SHIPPING CHANGES
       <button class="modal-close" onclick="closeProjectWizard()">&times;</button>
     </div>
     <div id="pw-body"></div>
+  </div>
+</div>
+
+
+<!-- MODAL: Step workspace (tutor) -->
+<div class="modal-overlay" id="step-overlay">
+  <div class="modal-box step-ws-box" style="max-width:640px;display:flex;flex-direction:column;height:min(90vh,780px)">
+    <div class="modal-head">
+      <div class="modal-title" id="step-title" style="font-size:1.4rem;line-height:1.2"></div>
+      <button class="modal-close" onclick="closeStepHelp()">&times;</button>
+    </div>
+    <div id="step-exp" class="form-hint" style="margin-bottom:8px"></div>
+    <div id="step-log" class="step-log"></div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <input class="form-input" id="step-input" style="flex:1;font-size:16px" placeholder="Ask the tutor about this step…" onkeydown="if(event.key==='Enter'){event.preventDefault();stepSend();}">
+      <button class="form-submit" style="margin:0;width:auto;padding:0 16px" onclick="stepSend()">Send</button>
+    </div>
+    <div class="step-work-head"><span>Your work on this step</span><span id="step-saved" class="note-date"></span></div>
+    <textarea class="form-input form-textarea" id="step-work" style="min-height:90px;font-size:16px" placeholder="Write your answer, decisions or draft here (or add the tutor's replies)…" onblur="saveStepWork()"></textarea>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="form-submit" style="margin:0" onclick="saveStepWork()">Save</button>
+      <button class="form-submit" style="margin:0;background:transparent !important;color:var(--pen) !important" onclick="stepMarkDone()">Save &amp; mark done</button>
+    </div>
   </div>
 </div>
 
@@ -5450,6 +5498,22 @@ async function wizardCopyPrompt() {
   try { await navigator.clipboard.writeText(DIRECTOR_PROJECT_RULES + "\n\n" + directorPrompt(proj)); } catch (e) {}
   const fb = document.getElementById("pw-copy-fb"); if (fb) fb.textContent = "✓ Copied! Paste it into any AI.";
 }
+function suggestionPreviewHtml(projId, s) {
+  const proj = IDEAS.find(i => i.id === projId);
+  if (!proj) return "";
+  const names = projectChapters(proj).map(c => c.titulo);
+  const norm = x => String(x || "").trim().toLowerCase();
+  let list = names.slice();
+  if (s.accion === "mover") {
+    const k = list.findIndex(n => norm(n) === norm(s.titulo));
+    if (k < 0) return `<div class="sug-warn">⚠ Couldn't find a chapter called "${escapeHtml(s.titulo)}" — better skip this one.</div>`;
+    list.splice(k, 1);
+  }
+  let pos = list.length;
+  if (s.antesDe) { const b = list.findIndex(n => norm(n) === norm(s.antesDe)); if (b >= 0) pos = b; }
+  list.splice(pos, 0, s.titulo);
+  return `<div class="sug-preview">Resulting order: ${list.map((n, i) => `<span class="${norm(n) === norm(s.titulo) ? "hl" : ""}">${i + 1}. ${escapeHtml(n)}</span>`).join(" · ")}</div>`;
+}
 function wizardDecide(k, apply) {
   const s = pw.sugs[k];
   if (!s || pw.done[k]) return;
@@ -5487,6 +5551,7 @@ function renderWizard() {
     html = `<p class="pw-lead">The director has a few notes. Apply the ones that make sense to you.</p>
       ${pw.sugs.map((s, k) => `<div class="sug ${pw.done[k] ? "decided" : ""}">
         <div class="sug-head">${s.accion === "mover" ? "Move" : "Add"} <strong>${escapeHtml(s.titulo || "")}</strong>${s.antesDe ? ` before <em>${escapeHtml(s.antesDe)}</em>` : (s.accion === "mover" ? " to the end" : "")}</div>
+        ${pw.done[k] ? "" : suggestionPreviewHtml(pw.ideaId, s)}
         <div class="sug-why">${escapeHtml(s.motivo || "")}</div>
         ${pw.done[k] ? `<div class="sug-state">${pw.done[k] === "applied" ? "✓ Applied" : "Skipped"}</div>` : `<div class="sug-actions"><button type="button" class="sug-apply" onclick="wizardDecide(${k},true)">Apply</button><button type="button" class="sug-ignore" onclick="wizardDecide(${k},false)">Skip</button></div>`}
       </div>`).join("")}
@@ -5536,6 +5601,7 @@ function quickAddChapter(projId, input) {
 
 /* ---- Director review (suggestions the user applies or ignores) ---- */
 const DIRECTOR_PROJECT_RULES = `You are a veteran expert in the field of this project (for an animated short: a film director with decades of experience). Review the chapters (big stages) of the project and how far along each one is. Suggest up to 5 improvements to the ORDER and to MISSING stages, the way a professional would run this production. Never suggest deleting a chapter, and respect work already started: if the person began with a later stage, suggest what to add before it instead of undoing it. Explain each suggestion in one or two friendly sentences, in the same language as the project. If the plan is already good, return an empty list.
+DEPENDENCY RULES (very important): never place a stage before a stage it depends on. Things that need a script/story (recording voices, scratch audio, storyboard, animatic, layout, animation) always go AFTER the script. Modeling goes after design, rigging after modeling, animation after rigging, rendering after animation/lighting, editing/sound mix near the end. Before answering, check each suggestion against the resulting order and drop any that break a dependency. Use EXACT chapter names from the list for "titulo" (when moving) and "antesDe".
 Output ONLY raw JSON: {"sugerencias":[{"accion":"agregar","titulo":"New chapter name","antesDe":"Existing chapter name or null for the end","motivo":"why"},{"accion":"mover","titulo":"Existing chapter name","antesDe":"Existing chapter name or null for the end","motivo":"why"}]}`;
 function directorPrompt(proj) {
   const chs = projectChapters(proj);
@@ -5730,6 +5796,122 @@ function openProjectWizardWith(projId) {
   renderWizard();
 }
 
+
+/* ==================================================================
+   STEP WORKSPACE — tap any step to open a tutor chat for that step.
+   The tutor teaches (doesn't decide), and can help draft things; the
+   person saves what they want as "Your work" on the step.
+================================================================== */
+const TUTOR_RULES = `You are a patient, experienced teacher and professional in the field of this project. The person is working on ONE step and may not know how to do it. Act like a tutor:
+- Teach step by step, in short messages (max ~120 words), one idea at a time, and end with a simple question or a tiny task so they keep moving.
+- Give concrete examples applied to THEIR project.
+- Never make their creative decisions for them: offer 2-3 options and explain trade-offs, then let them choose.
+- If they ask you to help write something (rules, a character sheet, a list…), draft it WITH them, based on what they told you, and mark it clearly as a draft they can edit.
+- Plain text, no markdown symbols. Same language as the person.`;
+let stepCtx = null;
+function getStepRef() {
+  if (!stepCtx) return null;
+  const idea = IDEAS.find(i => i.id === stepCtx.ideaId);
+  const fase = idea && idea.fases[stepCtx.f];
+  if (!fase || fase.pasos[stepCtx.s] === undefined) return null;
+  let s = fase.pasos[stepCtx.s];
+  if (typeof s === "string") { s = { texto: s }; fase.pasos[stepCtx.s] = s; }
+  return { idea, fase, step: s };
+}
+function openStepHelp(ideaId, f, s) {
+  stepCtx = { ideaId, f, s };
+  const ref = getStepRef();
+  if (!ref) return;
+  document.getElementById("step-title").textContent = ref.step.texto;
+  document.getElementById("step-exp").textContent = ref.step.explicacion || "";
+  document.getElementById("step-work").value = ref.step.trabajo || "";
+  renderStepChat();
+  document.getElementById("step-overlay").classList.add("open");
+}
+function closeStepHelp() {
+  document.getElementById("step-overlay").classList.remove("open");
+  const ref = getStepRef();
+  if (ref) { const y = window.scrollY; render(); window.scrollTo(0, y); }
+  stepCtx = null;
+}
+function renderStepChat() {
+  const ref = getStepRef();
+  const log = document.getElementById("step-log");
+  const chat = ref.step.chat || [];
+  log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}">${escapeHtml(m.text)}${m.role === "model" ? `<button type="button" class="step-use" onclick="useTutorReply(${k})">+ Add to my work</button>` : ""}</div>`).join("")
+    : `<div class="step-empty">Ask anything about this step. For example:</div>
+       <div class="step-chips">${["How do I start this?", "Explain it like I'm a beginner", "Give me an example for my project", "Help me write it"].map(t => `<button type="button" class="ai-chip" onclick="stepSend(${JSON.stringify(t).replace(/"/g, "&quot;")})">${t}</button>`).join("")}</div>`;
+  log.scrollTop = log.scrollHeight;
+}
+function stepContextText(ref) {
+  const idea = ref.idea;
+  const proj = isChapter(idea) && IDEAS.find(x => x.id === idea.proyectoId);
+  return `PROJECT: ${proj ? proj.titulo + " — " + proj.descripcion + "\nCURRENT CHAPTER: " + idea.titulo : idea.titulo + " — " + idea.descripcion}
+PLAN OF THIS ${proj ? "CHAPTER" : "IDEA"}: ${(idea.fases || []).map(f => f.nombre + ": " + (f.pasos || []).map(stepText).join(" | ")).join("\n")}
+STEP I'M WORKING ON: ${ref.step.texto}${ref.step.explicacion ? " — " + ref.step.explicacion : ""}
+${ref.step.trabajo ? "WHAT I HAVE SO FAR:\n" + ref.step.trabajo : ""}`;
+}
+async function stepSend(textOverride) {
+  const ref = getStepRef();
+  if (!ref) return;
+  const inp = document.getElementById("step-input");
+  const text = (textOverride || inp.value).trim();
+  if (!text) return;
+  inp.value = "";
+  ref.step.chat = ref.step.chat || [];
+  if (!geminiKey) {
+    try { await navigator.clipboard.writeText(TUTOR_RULES + "\n\n" + stepContextText(ref) + "\n\nMY QUESTION: " + text); } catch (e) {}
+    await showAlert("No Gemini key yet, so I copied this question with all the context. Paste it into any AI. Add a key in Settings to have the tutor right here.", { title: "Prompt copied" });
+    return;
+  }
+  ref.step.chat.push({ role: "user", text });
+  renderStepChat();
+  const log = document.getElementById("step-log");
+  const wait = document.createElement("div"); wait.className = "step-msg model"; wait.textContent = "…"; log.appendChild(wait); log.scrollTop = log.scrollHeight;
+  try {
+    const hist = ref.step.chat.slice(-12).map((m, k, arr) => ({ role: m.role, text: k === 0 ? stepContextText(ref) + "\n\n" + m.text : m.text }));
+    if (hist[0].role !== "user") hist.unshift({ role: "user", text: stepContextText(ref) });
+    const reply = (await geminiGenerate(hist, TUTOR_RULES)).trim();
+    ref.step.chat.push({ role: "model", text: reply });
+    ref.step.chat = ref.step.chat.slice(-30);
+    saveIdeas();
+  } catch (e) {
+    ref.step.chat.pop();
+    wait.textContent = "⚠ " + e.message;
+    return;
+  }
+  renderStepChat();
+}
+function useTutorReply(k) {
+  const ref = getStepRef();
+  const m = ref && ref.step.chat && ref.step.chat[k];
+  if (!m) return;
+  const ta = document.getElementById("step-work");
+  ta.value = (ta.value ? ta.value.trim() + "\n\n" : "") + m.text;
+  saveStepWork();
+}
+function saveStepWork() {
+  const ref = getStepRef();
+  if (!ref) return;
+  ref.step.trabajo = document.getElementById("step-work").value.trim();
+  if (!ref.step.trabajo) delete ref.step.trabajo;
+  saveIdeas();
+  const fb = document.getElementById("step-saved");
+  if (fb) { fb.textContent = "✓ Saved"; setTimeout(() => { fb.textContent = ""; }, 1500); }
+}
+function stepMarkDone() {
+  const ref = getStepRef();
+  if (!ref) return;
+  saveStepWork();
+  ref.step.hecho = 2;
+  const vals = ref.fase.pasos.map(x => (typeof x === "object" && x.hecho) || 0);
+  ref.fase.estado = vals.every(v => v === 2) ? "done" : "in-progress";
+  saveIdeas();
+  const idea = ref.idea;
+  closeStepHelp();
+  maybeOfferCompletion(idea);
+}
+
 /* ==================================================================
    UPDATE CHECK — compares the deployed DEPLOY_TIMESTAMP with the
    one in this running copy and offers a reload when they differ.
@@ -5748,7 +5930,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-16 22:12 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-16 22:54 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -6568,10 +6750,16 @@ function ieCollectFases() {
       const exp = expEl?.style.display !== "none" ? expEl?.value.trim() : "";
       if (!txt) return null;
       const hecho = parseInt(row.dataset.hecho || "0") || 0;
-      if (!exp && !hecho) return txt;
+      const origIdea = IDEAS.find(i => i.id === editingIdeaId);
+      const origFase = origIdea && origIdea.fases && origIdea.fases[parseInt(phaseEl.dataset.faseIdx)];
+      const origStep = origFase && (origFase.pasos || []).find(s => typeof s === "object" && (s.texto || "").trim() === txt);
+      const extra = origStep ? { trabajo: origStep.trabajo, chat: origStep.chat } : {};
+      if (!exp && !hecho && !extra.trabajo && !extra.chat) return txt;
       const o = { texto: txt };
       if (exp) o.explicacion = exp;
       if (hecho) o.hecho = hecho;
+      if (extra.trabajo) o.trabajo = extra.trabajo;
+      if (extra.chat) o.chat = extra.chat;
       return o;
     }).filter(s => s !== null);
     const orig = (IDEAS.find(i => i.id === editingIdeaId) || {}).fases?.[parseInt(phaseEl.dataset.faseIdx)];
@@ -8056,7 +8244,9 @@ function renderStep(step, ideaId, faseIdx, stepIdx) {
   const box = ideaId !== undefined
     ? `<button type="button" class="step-box s${hecho}" title="${["Not started", "Started", "Done"][hecho]} — tap to change" onclick="cycleStep('${escapeAttr(ideaId)}',${faseIdx},${stepIdx})">${BOX_SVG[hecho]}</button>`
     : "";
-  return `<li class="step-row s${hecho}">${box}<div class="step-body">${escapeHtml(txt)}${exp ? `<div class="phase-desc">${escapeHtml(exp)}</div>` : ""}</div></li>`;
+  const work = typeof step === "object" && step.trabajo ? step.trabajo : "";
+  const clickable = ideaId !== undefined ? ` onclick="openStepHelp('${escapeAttr(ideaId)}',${faseIdx},${stepIdx})" title="Open this step: get help or work on it with the AI"` : "";
+  return `<li class="step-row s${hecho}">${box}<div class="step-body"><span class="step-text${ideaId !== undefined ? " step-link" : ""}"${clickable}>${escapeHtml(txt)}</span>${ideaId !== undefined ? `<button type="button" class="step-help-btn"${clickable}>${work ? "📎 Your work" : "Help"}</button>` : ""}${exp ? `<div class="phase-desc">${escapeHtml(exp)}</div>` : ""}</div></li>`;
 }
 async function cycleStep(ideaId, faseIdx, stepIdx) {
   const idea = IDEAS.find(i => i.id === ideaId);
