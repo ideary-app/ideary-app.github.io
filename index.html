@@ -3417,6 +3417,8 @@ SHIPPING CHANGES
   @media (min-width: 1200px) {
     .main { padding-left: 56px !important; padding-right: 56px !important; }
   }
+
+  .sug-note { background: rgba(255, 220, 120, .18); border-radius: 4px; padding: 10px; }
 </style>
 </head>
 <body>
@@ -5222,7 +5224,12 @@ async function deleteSketch() {
 
 /* ---------- Brain dump ---------- */
 let brainDumpIdeaId = null;
-const BRAIN_DUMP_RULES = `You are a veteran expert mentor in the field of the project below. The user dumped everything in their head about the project, messy and unordered. Turn it into a clear production plan in the order a professional would do it, merging it with the current plan (keep existing steps that still make sense, add what's new, remove duplicates). Every step needs "texto" (short action) and "explicacion" (how to do it, why, beginner mistakes). Put open questions/decisions in "cosasAResolver" with an English search hint in "busqueda". Answer in the same language as the dump. Output ONLY raw JSON: {"fases":[{"nombre":"...","pasos":[{"texto":"...","explicacion":"..."}]}],"cosasAResolver":[{"texto":"...","resuelto":false,"busqueda":["..."]}]}`;
+const BRAIN_DUMP_RULES = `You are a veteran expert mentor in the field of the project below. The user dumped everything in their head about the project, messy and unordered. Turn it into a clear production plan in the order a professional would do it, merging it with the current plan (keep existing steps that still make sense, add what's new, remove duplicates). Every step needs "texto" (short action) and "explicacion" (how to do it, why, beginner mistakes). Put open questions/decisions in "cosasAResolver" with an English search hint in "busqueda". ORDER COHERENCE — THE MOST IMPORTANT RULE, FOR ANY KIND OF PROJECT (film, furniture, cooking, software, music, a business…):
+- Think in prerequisites: for every stage/step, ask "what must already exist before I can do this?" (its inputs) and "what does it produce?" (its outputs). Something can only come after everything it needs.
+- Examples of the logic: a chair's upholstery needs the frame and legs built; painting needs sanding; frosting needs the cake baked and cooled; recording dialogue needs a script; rigging needs a finished model; testing needs something built to test; launching needs something finished.
+- Planning, research and design come before production; production before finishing; finishing before review, delivery or sharing.
+- If a stage is missing (something a later stage needs that nobody makes), say so. If something is in the wrong place, say so and explain what it depends on.
+Answer in the same language as the dump. Output ONLY raw JSON: {"fases":[{"nombre":"...","pasos":[{"texto":"...","explicacion":"..."}]}],"cosasAResolver":[{"texto":"...","resuelto":false,"busqueda":["..."]}]}`;
 function openBrainDump(ideaId) {
   brainDumpIdeaId = ideaId;
   const bdIdea = IDEAS.find(i => i.id === ideaId);
@@ -5487,7 +5494,7 @@ async function wizardReview() {
 async function wizardManualSubmit() {
   try {
     const data = parseJsonLenient(stripJsonFences(document.getElementById("pw-paste").value));
-    pw.sugs = Array.isArray(data.sugerencias) ? data.sugerencias.slice(0, 5) : [];
+    pw.sugs = checkDirectorReply(IDEAS.find(i => i.id === pw.ideaId), data);
     pw.done = [];
     pw.step = pw.sugs.length ? "suggest" : "good";
     renderWizard();
@@ -5517,7 +5524,7 @@ function suggestionPreviewHtml(projId, s) {
 function wizardDecide(k, apply) {
   const s = pw.sugs[k];
   if (!s || pw.done[k]) return;
-  if (apply) {
+  if (apply && s.accion !== "aviso") {
     const proj = IDEAS.find(i => i.id === pw.ideaId);
     proj.sugerencias = [s];
     applySuggestion(proj.id, 0);
@@ -5549,7 +5556,7 @@ function renderWizard() {
   } else if (pw.step === "suggest") {
     const left = pw.sugs.filter((s, k) => !pw.done[k]).length;
     html = `<p class="pw-lead">The director has a few notes. Apply the ones that make sense to you.</p>
-      ${pw.sugs.map((s, k) => `<div class="sug ${pw.done[k] ? "decided" : ""}">
+      ${pw.sugs.map((s, k) => s.accion === "aviso" ? `<div class="sug sug-note ${pw.done[k] ? "decided" : ""}"><div class="sug-head">⚠ Heads-up</div><div class="sug-why">${escapeHtml(s.motivo || "")}</div>${pw.done[k] ? "" : `<div class="sug-actions"><button type="button" class="sug-ignore" onclick="wizardDecide(${k},false)">Got it</button></div>`}</div>` : `<div class="sug ${pw.done[k] ? "decided" : ""}">
         <div class="sug-head">${s.accion === "mover" ? "Move" : "Add"} <strong>${escapeHtml(s.titulo || "")}</strong>${s.antesDe ? ` before <em>${escapeHtml(s.antesDe)}</em>` : (s.accion === "mover" ? " to the end" : "")}</div>
         ${pw.done[k] ? "" : suggestionPreviewHtml(pw.ideaId, s)}
         <div class="sug-why">${escapeHtml(s.motivo || "")}</div>
@@ -5600,9 +5607,19 @@ function quickAddChapter(projId, input) {
 }
 
 /* ---- Director review (suggestions the user applies or ignores) ---- */
-const DIRECTOR_PROJECT_RULES = `You are a veteran expert in the field of this project (for an animated short: a film director with decades of experience). Review the chapters (big stages) of the project and how far along each one is. Suggest up to 5 improvements to the ORDER and to MISSING stages, the way a professional would run this production. Never suggest deleting a chapter, and respect work already started: if the person began with a later stage, suggest what to add before it instead of undoing it. Explain each suggestion in one or two friendly sentences, in the same language as the project. If the plan is already good, return an empty list.
-DEPENDENCY RULES (very important): never place a stage before a stage it depends on. Things that need a script/story (recording voices, scratch audio, storyboard, animatic, layout, animation) always go AFTER the script. Modeling goes after design, rigging after modeling, animation after rigging, rendering after animation/lighting, editing/sound mix near the end. Before answering, check each suggestion against the resulting order and drop any that break a dependency. Use EXACT chapter names from the list for "titulo" (when moving) and "antesDe".
-Output ONLY raw JSON: {"sugerencias":[{"accion":"agregar","titulo":"New chapter name","antesDe":"Existing chapter name or null for the end","motivo":"why"},{"accion":"mover","titulo":"Existing chapter name","antesDe":"Existing chapter name or null for the end","motivo":"why"}]}`;
+const DIRECTOR_PROJECT_RULES = `You are an experienced coach and professional in the field of this project (a film director for a short film, a master carpenter for furniture, a head chef for a recipe, a lead engineer for software, and so on). Review the chapters (big stages) of the project and how far along each one is.
+ORDER COHERENCE — THE MOST IMPORTANT RULE, FOR ANY KIND OF PROJECT (film, furniture, cooking, software, music, a business…):
+- Think in prerequisites: for every stage/step, ask "what must already exist before I can do this?" (its inputs) and "what does it produce?" (its outputs). Something can only come after everything it needs.
+- Examples of the logic: a chair's upholstery needs the frame and legs built; painting needs sanding; frosting needs the cake baked and cooled; recording dialogue needs a script; rigging needs a finished model; testing needs something built to test; launching needs something finished.
+- Planning, research and design come before production; production before finishing; finishing before review, delivery or sharing.
+- If a stage is missing (something a later stage needs that nobody makes), say so. If something is in the wrong place, say so and explain what it depends on.
+YOUR JOB:
+1. For EVERY chapter (and every chapter you suggest adding), list which other chapters it needs to be finished first ("dependencias"). Use exact chapter names.
+2. Suggest up to 5 changes: "agregar" a missing stage or "mover" a stage that is out of order. Respect work already started: never suggest deleting a chapter, and if the person began with a later stage, suggest what to add before it instead of undoing it.
+3. Put anything else worth warning about (a stage that doesn't belong to this kind of project, a stage too big that should be split, a risk) in "avisos".
+4. Before answering, simulate the order after each suggestion and drop any suggestion that would put a chapter before something it needs.
+Explain each suggestion in one or two friendly sentences ("motivo"), in the same language as the project. If everything is coherent, return empty lists.
+Output ONLY raw JSON: {"dependencias":{"Chapter name":["Chapter it needs", "..."]},"sugerencias":[{"accion":"agregar","titulo":"New chapter name","antesDe":"Existing chapter name or null for the end","motivo":"why"},{"accion":"mover","titulo":"Existing chapter name","antesDe":"Existing chapter name or null for the end","motivo":"why"}],"avisos":["..."]}`;
 function directorPrompt(proj) {
   const chs = projectChapters(proj);
   return `PROJECT: ${proj.titulo} (${proj.categoria})\nDESCRIPTION: ${proj.descripcion}\nCHAPTERS IN ORDER:\n` +
@@ -5613,7 +5630,88 @@ async function fetchDirectorSuggestions(proj) {
   const data = parseJsonLenient(stripJsonFences(reply));
   proj._reviewedAt = new Date().toISOString();
   saveIdeas();
-  return Array.isArray(data.sugerencias) ? data.sugerencias.slice(0, 5) : [];
+  return checkDirectorReply(proj, data);
+}
+/* Safety net: whatever the AI says, the app re-checks every suggestion
+   against the dependency map and never shows one that would put a stage
+   before something it needs. It also flags existing out-of-order stages. */
+function checkDirectorReply(proj, data) {
+  const norm = x => String(x || "").trim().toLowerCase();
+  const deps = {};
+  Object.entries(data.dependencias || {}).forEach(([k, v]) => { deps[norm(k)] = (Array.isArray(v) ? v : []).map(norm); });
+  const violations = order => {
+    const pos = {}; order.forEach((n, i) => { pos[norm(n)] = i; });
+    const out = [];
+    order.forEach((n, i) => (deps[norm(n)] || []).forEach(need => { if (pos[need] !== undefined && pos[need] > i) out.push([n, need]); }));
+    return out;
+  };
+  const simulate = (order, s) => {
+    const list = order.slice();
+    if (s.accion === "mover") {
+      const k = list.findIndex(n => norm(n) === norm(s.titulo));
+      if (k < 0) return null;
+      list.splice(k, 1);
+    }
+    let pos = list.length;
+    if (s.antesDe) { const b = list.findIndex(n => norm(n) === norm(s.antesDe)); if (b < 0) return null; pos = b; }
+    list.splice(pos, 0, s.titulo);
+    return list;
+  };
+  let order = projectChapters(proj).map(c => c.titulo);
+  const nameOf = n => order.find(x => norm(x) === norm(n)) || n;
+  // Correct position for a chapter: right after the last thing it needs.
+  const repair = (ord, s) => {
+    const base = ord.filter(n => norm(n) !== norm(s.titulo));
+    const needs = deps[norm(s.titulo)] || [];
+    let after = -1;
+    base.forEach((n, i) => { if (needs.includes(norm(n))) after = i; });
+    const beforeName = base[after + 1] || null;
+    return Object.assign({}, s, { antesDe: beforeName });
+  };
+  const keep = [];
+  const same = (x, y) => x.length === y.length && x.every((n, i) => norm(n) === norm(y[i]));
+  // 1) Fix what is already out of order: stable topological sort of the
+  //    current chapters, expressed as a few "move" suggestions.
+  if (violations(order).length) {
+    const remaining = order.slice(), target = [];
+    while (remaining.length) {
+      const placed = new Set(target.map(norm)), present = new Set(remaining.map(norm));
+      let k = remaining.findIndex(n => (deps[norm(n)] || []).every(need => placed.has(need) || !present.has(need)));
+      if (k < 0) k = 0; // circular dependencies: keep the person's order
+      target.push(remaining.splice(k, 1)[0]);
+    }
+    let cur = order.slice();
+    for (let i = 0; i < target.length && keep.length < 5; i++) {
+      if (norm(cur[i]) === norm(target[i])) continue;
+      const name = target[i];
+      const needs = (deps[norm(name)] || []).map(nameOf);
+      const neededBy = target.slice(i + 1).filter(n => (deps[norm(n)] || []).includes(norm(name)));
+      const why = needs.length && cur.indexOf(name) < Math.max(...needs.map(n => cur.indexOf(n)))
+        ? `"${name}" needs ${needs.map(n => `"${n}"`).join(", ")} done first.`
+        : `${neededBy.length ? neededBy.map(n => `"${n}"`).join(", ") : "Later stages"} need${neededBy.length === 1 ? "s" : ""} "${name}" to be done first.`;
+      const s = { accion: "mover", titulo: name, antesDe: cur[i], motivo: why };
+      cur = simulate(cur, s);
+      keep.push(s);
+    }
+    order = cur;
+  }
+  // 2) The AI's suggestions, re-checked; misplaced ones are moved to the right spot.
+  (Array.isArray(data.sugerencias) ? data.sugerencias : []).forEach(s0 => {
+    if (!s0 || !s0.titulo) return;
+    let s = s0;
+    let next = simulate(order, s);
+    if (!next) return;
+    if (violations(next).length > violations(order).length) {
+      s = repair(order, s0);
+      next = simulate(order, s);
+      if (!next || violations(next).length > violations(order).length) return;
+    }
+    if (s.accion === "mover" && same(next, order)) return; // nothing would change
+    keep.push(s);
+    order = next;
+  });
+  const avisos = Array.isArray(data.avisos) ? data.avisos.filter(Boolean).slice(0, 4) : [];
+  return keep.slice(0, 6).concat(avisos.map(a => ({ accion: "aviso", motivo: a })));
 }
 let directorProjId = null;
 async function askDirectorOld(projId) {
@@ -5930,7 +6028,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-16 22:54 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-16 22:59 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -7077,6 +7175,12 @@ FLOW RULES:
 
 QUALITY RULES FOR THE PLAN:
 - Order the phases the way a real professional would, from the very first thing to do until the thing is finished and shared.
+ORDER COHERENCE — THE MOST IMPORTANT RULE, FOR ANY KIND OF PROJECT (film, furniture, cooking, software, music, a business…):
+- Think in prerequisites: for every stage/step, ask "what must already exist before I can do this?" (its inputs) and "what does it produce?" (its outputs). Something can only come after everything it needs.
+- Examples of the logic: a chair's upholstery needs the frame and legs built; painting needs sanding; frosting needs the cake baked and cooled; recording dialogue needs a script; rigging needs a finished model; testing needs something built to test; launching needs something finished.
+- Planning, research and design come before production; production before finishing; finishing before review, delivery or sharing.
+- If a stage is missing (something a later stage needs that nobody makes), say so. If something is in the wrong place, say so and explain what it depends on.
+- Inside each phase, order the steps the same way: every step only after the steps it needs. If something I already have is in the wrong place or missing, fix it and mention it in "notas".
 - Every step needs "texto" (short action) AND "explicacion" (how to do it concretely, why it matters, typical beginner mistakes, rough time/cost when useful).
 - In "cosasAResolver" put the real unknowns/decisions I must settle, each with an English search hint in "busqueda".
 - "descripcion" = a clear paragraph of what the final result is. "notas" = key decisions and creative choices we agreed on.`;
