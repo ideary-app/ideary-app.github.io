@@ -3384,6 +3384,14 @@ SHIPPING CHANGES
     .ch-postit { min-height: 130px; padding: 12px 10px 10px; }
     .ch-title { font-size: 1.15rem; }
   }
+
+  .about-collapsed { max-height: 7.2em; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent); mask-image: linear-gradient(to bottom, #000 60%, transparent); }
+  .history-block summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; margin-bottom: 0; }
+  .history-block summary::-webkit-details-marker { display: none; }
+  .history-block[open] summary { margin-bottom: 10px; }
+  .hist-entry { padding: 8px 0; border-top: 1.5px dashed var(--line); }
+  .hist-head { display: flex; justify-content: space-between; font-family: var(--hand); font-size: 1.05rem; color: var(--pen); }
+  .hist-entry ul { margin: 4px 0 0 18px; padding: 0; font-size: .85rem; color: var(--slate); }
 </style>
 </head>
 <body>
@@ -3699,7 +3707,7 @@ SHIPPING CHANGES
       <div class="modal-title">Brain dump</div>
       <button class="modal-close" onclick="closeBrainDump()">&times;</button>
     </div>
-    <div class="form-hint" style="margin-bottom:10px">Write everything in your head about this project — messy, in any order. The AI will turn it into ordered phases and steps and merge it with your plan.</div>
+    <div class="form-hint" id="brain-dump-hint" style="margin-bottom:10px"></div>
     <textarea class="form-input form-textarea" id="brain-dump-text" style="min-height:220px;font-size:16px" placeholder="I need a character… maybe 3D… music? deadline in a month…"></textarea>
     <div id="brain-dump-status" style="min-height:1.4em;font-size:0.85rem;margin-top:8px"></div>
     <button class="form-submit" onclick="submitBrainDump()">Organize it</button>
@@ -4812,32 +4820,51 @@ async function removeAiKey() {
   st.textContent = "Key removed."; st.style.color = "var(--slate)";
 }
 
-async function geminiGenerate(history, system, retried) {
-  const model = await geminiResolveModel(false);
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(geminiKey)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: system || DIRECTOR_RULES }] },
-      contents: history.map(m => ({ role: m.role, parts: [{ text: m.text }] })),
-      generationConfig: { temperature: 0.7 }
-    })
-  });
+async function geminiGenerate(history, system, retried, modelOverride) {
+  const model = modelOverride || await geminiResolveModel(false);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 90000);
+  let res;
+  try {
+    res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(geminiKey)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: ctrl.signal,
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: system || DIRECTOR_RULES }] },
+        contents: history.map(m => ({ role: m.role, parts: [{ text: m.text }] })),
+        generationConfig: { temperature: 0.7 }
+      })
+    });
+  } catch (e) {
+    clearTimeout(timer);
+    if (e.name === "AbortError") throw new Error("Gemini took too long to answer. Try again in a moment.");
+    throw new Error("Couldn't reach Gemini. Check your internet connection and try again.");
+  }
+  clearTimeout(timer);
   if (!res.ok) {
     let msg = "Gemini error " + res.status;
     try { const j = await res.json(); if (j.error && j.error.message) msg = j.error.message; } catch (e) {}
-    // Model retired or not found: pick a fresh one and retry once.
     if (!retried && (res.status === 404 || /no longer available|not found|not supported/i.test(msg))) {
       await geminiResolveModel(true);
       return geminiGenerate(history, system, true);
     }
-    if (res.status === 400 && /api key/i.test(msg)) msg = "Your Gemini API key isn't valid. Check it in AI settings.";
-    if (res.status === 429) msg = "Gemini's free limit was hit. Wait a minute and try again.";
+    const overloaded = res.status === 503 || /high demand|overloaded|unavailable/i.test(msg);
+    if (overloaded && !retried) {
+      // Busy model: wait a bit and retry once, on the lighter model if there is one.
+      await new Promise(r => setTimeout(r, 2500));
+      const lite = /-flash$/.test(model) ? model + "-lite" : model;
+      try { return await geminiGenerate(history, system, true, lite); }
+      catch (e) { if (lite !== model) return geminiGenerate(history, system, true, model); throw e; }
+    }
+    if (overloaded) msg = "Gemini is very busy right now (lots of people are using it). It's not your key or your limit — try again in a minute.";
+    else if (res.status === 400 && /api key/i.test(msg)) msg = "Your Gemini API key isn't valid. Check it in Settings.";
+    else if (res.status === 429) msg = "You've used up your free Gemini quota for now. It refills on its own — try again later (usually within the hour, or tomorrow for the daily limit).";
     throw new Error(msg);
   }
   const j = await res.json();
   const parts = j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts;
-  if (!parts) throw new Error("Gemini returned an empty reply.");
+  if (!parts) throw new Error("Gemini returned an empty reply. Try again.");
   return parts.map(p => p.text || "").join("");
 }
 
@@ -4952,6 +4979,7 @@ function aiChatStop() { if (!aiChatHistory.length) return; aiChatSend("stop — 
 function aiChatApply() {
   const idea = IDEAS.find(i => i.id === pendingEvolveIdeaId);
   if (!idea || !aiChatItem) return;
+  aiChangeSource = "Develop idea (chat)";
   applyEvolveItem(idea, aiChatItem);
   saveIdeas();
   const id = idea.id;
@@ -4964,6 +4992,38 @@ function aiChatApply() {
    NOTEBOOK PRACTICES (Adam Savage-style): quick dated notes, sketches,
    brain dump → plan, and a wrap-up when an idea is completed.
 ================================================================== */
+function diffPlan(before, after) {
+  const out = [];
+  const norm = s => (typeof s === "string" ? s : (s && s.texto) || "").trim();
+  const bMap = {}; (before || []).forEach(f => bMap[(f.nombre || "").trim().toLowerCase()] = f);
+  const aNames = new Set((after || []).map(f => (f.nombre || "").trim().toLowerCase()));
+  (after || []).forEach(f => {
+    const key = (f.nombre || "").trim().toLowerCase();
+    const old = bMap[key];
+    if (!old) { out.push(`Added phase "${f.nombre}" (${(f.pasos || []).length} steps)`); return; }
+    const oldSteps = new Set((old.pasos || []).map(norm));
+    const newSteps = new Set((f.pasos || []).map(norm));
+    (f.pasos || []).forEach(s => { if (!oldSteps.has(norm(s))) out.push(`Added step "${norm(s)}" in ${f.nombre}`); });
+    (old.pasos || []).forEach(s => { if (!newSteps.has(norm(s))) out.push(`Removed step "${norm(s)}" from ${f.nombre}`); });
+  });
+  (before || []).forEach(f => { if (!aNames.has((f.nombre || "").trim().toLowerCase())) out.push(`Removed phase "${f.nombre}"`); });
+  return out;
+}
+function logChanges(idea, source, items) {
+  if (!items || !items.length) return;
+  idea.historial = idea.historial || [];
+  idea.historial.unshift({ fecha: new Date().toISOString(), fuente: source, cambios: items.slice(0, 40) });
+  idea.historial = idea.historial.slice(0, 30);
+}
+function renderHistoryBlock(idea) {
+  const hist = idea.historial || [];
+  if (!hist.length) return "";
+  return `<details class="detail-block history-block">
+    <summary class="block-title c-plan">Change log <span class="toc-total">${hist.length}</span></summary>
+    ${hist.map(e => `<div class="hist-entry"><div class="hist-head"><span>${escapeHtml(e.fuente)}</span><span class="note-date">${escapeHtml(fmtShortDate(e.fecha))}</span></div>
+      <ul>${e.cambios.slice(0, 12).map(c => `<li>${escapeHtml(c)}</li>`).join("")}${e.cambios.length > 12 ? `<li>…and ${e.cambios.length - 12} more</li>` : ""}</ul></div>`).join("")}
+  </details>`;
+}
 function quickAddNote(ideaId, text) {
   const idea = IDEAS.find(i => i.id === ideaId);
   const t = (text || "").trim();
@@ -5117,6 +5177,11 @@ let brainDumpIdeaId = null;
 const BRAIN_DUMP_RULES = `You are a veteran expert mentor in the field of the project below. The user dumped everything in their head about the project, messy and unordered. Turn it into a clear production plan in the order a professional would do it, merging it with the current plan (keep existing steps that still make sense, add what's new, remove duplicates). Every step needs "texto" (short action) and "explicacion" (how to do it, why, beginner mistakes). Put open questions/decisions in "cosasAResolver" with an English search hint in "busqueda". Answer in the same language as the dump. Output ONLY raw JSON: {"fases":[{"nombre":"...","pasos":[{"texto":"...","explicacion":"..."}]}],"cosasAResolver":[{"texto":"...","resuelto":false,"busqueda":["..."]}]}`;
 function openBrainDump(ideaId) {
   brainDumpIdeaId = ideaId;
+  const bdIdea = IDEAS.find(i => i.id === ideaId);
+  const hint = document.getElementById("brain-dump-hint");
+  if (hint) hint.textContent = isChapter(bdIdea)
+    ? `Write everything in your head about "${bdIdea.titulo}" — messy, in any order. The AI will turn it into ordered steps for this chapter and merge them with its plan. You'll see what changed.`
+    : "Write everything in your head about this idea — messy, in any order. The AI will turn it into ordered phases and steps and merge it with your plan. You'll see what changed.";
   document.getElementById("brain-dump-text").value = "";
   document.getElementById("brain-dump-status").textContent = "";
   document.getElementById("brain-dump-overlay").classList.add("open");
@@ -5129,7 +5194,12 @@ async function submitBrainDump() {
   const st = document.getElementById("brain-dump-status");
   if (!idea || !dump) return;
   const current = (idea.fases || []).map(f => f.nombre + ": " + (f.pasos || []).map(stepText).join(" | ")).join("\n") || "(none)";
-  const prompt = `PROJECT: ${idea.titulo} (${idea.categoria})\nDESCRIPTION: ${idea.descripcion}\nCURRENT PLAN:\n${current}\n\nMY BRAIN DUMP:\n${dump}`;
+  let ctx = "";
+  if (isChapter(idea)) {
+    const proj = IDEAS.find(x => x.id === idea.proyectoId);
+    if (proj) ctx = `This is ONLY the chapter "${idea.titulo}" of the bigger project "${proj.titulo}" (${proj.descripcion}). Organize the dump into steps for THIS chapter only; ignore parts that belong to other chapters.\n`;
+  }
+  const prompt = `${ctx}PROJECT: ${idea.titulo} (${idea.categoria})\nDESCRIPTION: ${idea.descripcion}\nCURRENT PLAN:\n${current}\n\nMY BRAIN DUMP:\n${dump}`;
   if (!geminiKey) {
     try { await navigator.clipboard.writeText(BRAIN_DUMP_RULES + "\n\n" + prompt); } catch (e) {}
     st.textContent = "No Gemini key, so I copied a prompt. Paste it into any AI, then paste its reply in Develop idea → step 2.";
@@ -5140,10 +5210,14 @@ async function submitBrainDump() {
   try {
     const reply = await geminiGenerate([{ role: "user", text: prompt }], BRAIN_DUMP_RULES);
     const item = parseJsonLenient(stripJsonFences(reply));
+    aiChangeSource = "Brain dump";
     applyEvolveItem(idea, item);
     saveIdeas();
     closeBrainDump();
     openDetail(idea.id);
+    const ch = idea._lastChanges || [];
+    delete idea._lastChanges;
+    showAlert(ch.length ? "• " + ch.slice(0, 15).join("\n• ") + (ch.length > 15 ? `\n…and ${ch.length - 15} more (see Change log)` : "") : "Your plan already covered everything in the dump — nothing changed.", { title: "What changed" });
   } catch (e) {
     st.textContent = "⚠ " + e.message; st.style.color = "var(--rust)";
   }
@@ -5193,6 +5267,39 @@ function renderWrapBlock(idea) {
    The AI "director" reviews the chapter order and suggests missing
    chapters; the user applies or ignores each suggestion.
 ================================================================== */
+const MENTOR_STAGE_RULES = `You are an experienced teacher and professional in the field of this project. Explain ONE stage of the project to a beginner. Do NOT make decisions for them — teach them what they need to know to make those decisions well. Structure (plain text, short paragraphs, no markdown symbols, same language as the project):
+What this stage is for — one or two sentences.
+What you need to know first — the key concepts or questions to answer before deciding anything here.
+The main elements — the usual components of this stage, and how they would apply to THIS project specifically.
+Where to put your effort — what matters most, and common beginner mistakes.
+How you'll know it's done — a simple checklist-style sentence.
+Keep it under 260 words.`;
+async function explainStage(ideaId) {
+  const idea = IDEAS.find(i => i.id === ideaId);
+  if (!idea) return;
+  const proj = isChapter(idea) && IDEAS.find(x => x.id === idea.proyectoId);
+  const plan = (idea.fases || []).map(f => (f.pasos || []).map(stepText).join(" | ")).join(" | ");
+  const prompt = `PROJECT: ${proj ? proj.titulo + " — " + proj.descripcion : idea.titulo}\nSTAGE TO EXPLAIN: ${idea.titulo}\nCURRENT STEPS OF THIS STAGE: ${plan || "(none yet)"}`;
+  if (!geminiKey) {
+    try { await navigator.clipboard.writeText(MENTOR_STAGE_RULES + "\n\n" + prompt); } catch (e) {}
+    await showAlert("No Gemini key yet, so I copied a prompt. Paste it into any AI, then paste the answer into this chapter's description (Edit). Add a key in Settings to get it here in one tap.", { title: "Prompt copied" });
+    return;
+  }
+  const btn = document.getElementById("explain-stage-btn");
+  if (btn) { btn.disabled = true; btn.textContent = "Thinking…"; }
+  try {
+    const text = (await geminiGenerate([{ role: "user", text: prompt }], MENTOR_STAGE_RULES)).trim();
+    idea.descripcion = text;
+    logChanges(idea, "Mentor", ["Wrote the explanation of this stage"]);
+    saveIdeas();
+    const y = window.scrollY;
+    render();
+    window.scrollTo(0, y);
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = "Explain this stage"; }
+    await showAlert(e.message, { title: "Couldn't explain this stage" });
+  }
+}
 function projectChapters(p) {
   return IDEAS.filter(i => i.proyectoId === p.id && i.estado !== "eliminada").sort((a, b) => (a.orden || 0) - (b.orden || 0));
 }
@@ -5501,6 +5608,7 @@ function applySuggestion(projId, idx) {
   } else {
     addChapter(projId, s.titulo, s.antesDe, s.motivo ? "Why this chapter: " + s.motivo : "");
   }
+  logChanges(proj, "Director's notes", [s.accion === "mover" ? `Moved chapter "${s.titulo}"${s.antesDe ? ` before "${s.antesDe}"` : " to the end"}` : `Added chapter "${s.titulo}"${s.antesDe ? ` before "${s.antesDe}"` : ""}`]);
   proj.sugerencias.splice(idx, 1);
   saveIdeas();
   render();
@@ -5553,10 +5661,12 @@ function renderProjectView(p) {
       </div>
     </div>`;
   const pending = (p.sugerencias || []).length;
+  const aboutLong = (p.descripcion || "").length > 320;
   const aboutHtml = `
     <div class="detail-block project-about">
       <div class="block-title c-desc">About this project</div>
-      <div class="desc-text">${(p.descripcion || "").split("\n").map(x => `<p>${escapeHtml(x)}</p>`).join("")}</div>
+      <div class="desc-text ${aboutLong ? "about-collapsed" : ""}" id="about-text">${(p.descripcion || "").split("\n").map(x => `<p>${escapeHtml(x)}</p>`).join("")}</div>
+      ${aboutLong ? `<button type="button" class="desc-toggle-btn" onclick="const t=document.getElementById('about-text');const o=t.classList.toggle('about-collapsed');this.textContent=o?'View more':'View less'">View more</button>` : ""}
     </div>`;
   const notesHtml = `
     <div class="detail-block">
@@ -5607,6 +5717,7 @@ function renderProjectView(p) {
         <div class="detail-order-resolve">${resolveHtml}</div>
         <div class="detail-order-notes">${notesHtml}</div>
         <div class="detail-order-sketch">${renderSketchBlock(p)}</div>
+        <div class="detail-order-wrap">${renderHistoryBlock(p)}</div>
       </div>
     </div>`;
 }
@@ -5637,7 +5748,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-16 21:57 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-16 22:12 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -5777,6 +5888,7 @@ function showAlert(message, opts) {
     dialogResolve = resolve;
     document.getElementById("dialog-title").textContent = opts.title || "Notice";
     document.getElementById("dialog-message").textContent = message;
+    document.getElementById("dialog-message").style.whiteSpace = "pre-line";
     document.getElementById("dialog-actions").innerHTML = `
       <button class="dialog-btn primary" onclick="resolveDialog(true)" style="flex:none;margin-left:auto">OK</button>
     `;
@@ -6792,7 +6904,7 @@ function buildEnrichMessage(idea, request) {
     const proj = IDEAS.find(x => x.id === idea.proyectoId);
     if (proj) {
       const chs = projectChapters(proj);
-      msg += q(`PROJECT CONTEXT: this is chapter ${chs.findIndex(c => c.id === idea.id) + 1} of ${chs.length} of the project "${proj.titulo}" — ${proj.descripcion}\nAll chapters in order: ${chs.map((c, k) => (k + 1) + ". " + c.titulo).join(" | ")}\nPlan ONLY this chapter, in depth. Assume earlier chapters are done or in progress.\n\n`);
+      msg += q(`PROJECT CONTEXT: this is chapter ${chs.findIndex(c => c.id === idea.id) + 1} of ${chs.length} of the project "${proj.titulo}" — ${proj.descripcion}\nAll chapters in order: ${chs.map((c, k) => (k + 1) + ". " + c.titulo).join(" | ")}\nPlan ONLY this chapter, in depth. Assume earlier chapters are done or in progress. In "descripcion", explain like a teacher what this stage is for, what to know before deciding and where to put effort, applied to this project — guide, never decide for me.\n\n`);
     }
   }
   msg += q(`IDEA:\n`);
@@ -6910,7 +7022,21 @@ async function evolveCopyPrompt() {
   }
 }
 
+let aiChangeSource = "AI";
 function applyEvolveItem(idea, item) {
+  const _beforeFases = JSON.parse(JSON.stringify(idea.fases || []));
+  const _beforeCosas = (idea.cosasAResolver || []).length;
+  const _beforeDesc = idea.descripcion;
+  applyEvolveItemInner(idea, item);
+  const ch = diffPlan(_beforeFases, idea.fases || []);
+  const addedCosas = (idea.cosasAResolver || []).length - _beforeCosas;
+  if (addedCosas > 0) ch.push(`Added ${addedCosas} thing${addedCosas > 1 ? "s" : ""} to figure out`);
+  if (idea.descripcion !== _beforeDesc) ch.push("Updated the description");
+  logChanges(idea, aiChangeSource, ch);
+  idea._lastChanges = ch;
+  aiChangeSource = "AI";
+}
+function applyEvolveItemInner(idea, item) {
   const simpleFields = ["titulo", "categoria", "estado", "dificultad", "tiempo", "descripcion"];
   simpleFields.forEach(f => {
     if (item[f] !== undefined && item[f] !== null) idea[f] = item[f];
@@ -6965,6 +7091,7 @@ async function submitEvolve() {
     return;
   }
 
+  aiChangeSource = "Develop idea (pasted)";
   applyEvolveItem(idea, item);
 
   saveIdeas();
@@ -7692,9 +7819,16 @@ function renderDetailReadMode(idea) {
 
   const DESC_COLLAPSE_LIMIT = 280;
   const descIsLong = idea.descripcion.length > DESC_COLLAPSE_LIMIT;
-  const descBlockHtml = `
+  const isCh = isChapter(idea);
+  const hasDesc = (idea.descripcion || "").trim() && idea.descripcion !== "No description yet.";
+  const descBlockHtml = (isCh && !hasDesc) ? `
+    <div class="detail-block" id="desc-block">
+      <div class="block-title c-desc">What this stage is about</div>
+      <p class="empty-plan">Let an experienced mentor explain this stage: what it's for, what you need to know before deciding, and what to focus on — applied to your project. It guides you; the decisions stay yours.</p>
+      <button type="button" class="stuck-btn" id="explain-stage-btn" onclick="explainStage('${escapeAttr(idea.id)}')">Explain this stage</button>
+    </div>` : `
     <div class="detail-block ${descIsLong ? 'detail-block-desc-collapsed' : ''}" id="desc-block">
-      <div class="block-title c-desc"><span class="dot" style="background:var(--ink)"></span>Description</div>
+      <div class="block-title c-desc" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span><span class="dot" style="background:var(--ink)"></span>${isCh ? "What this stage is about" : "Description"}</span>${isCh ? `<button type="button" class="stuck-btn" style="margin:0" onclick="explainStage('${escapeAttr(idea.id)}')">Re-explain</button>` : ""}</div>
       <div class="desc-text ${descIsLong ? 'desc-text-collapsed' : ''}" id="desc-text-box">${descParagraphs}</div>
       ${descIsLong ? `<button class="desc-toggle-btn" id="desc-toggle-btn" onclick="toggleDescExpand()">Show more</button>` : ""}
     </div>`;
@@ -7733,7 +7867,7 @@ function renderDetailReadMode(idea) {
 
     <div class="detail-view-grid">
       <div class="detail-dashboard-scrollcol">
-        <div class="detail-order-progress">${idea.fases && idea.fases.length > 0 ? renderPhaseTimeline(idea) : ""}</div>
+        <div class="detail-order-progress">${idea.fases && idea.fases.filter(f => f.pasos && f.pasos.length).length > 1 ? renderPhaseTimeline(idea) : ""}</div>
         <div class="detail-order-plan">${fasesHtml}</div>
         <div class="detail-order-resolve">${resolverHtml}</div>
         <div class="detail-order-wrap">${renderWrapBlock(idea)}</div>
@@ -7743,6 +7877,7 @@ function renderDetailReadMode(idea) {
         <div class="detail-order-desc">${descBlockHtml}</div>
         <div class="detail-order-notes">${notasStickyHtml}</div>
         <div class="detail-order-sketch">${renderSketchBlock(idea)}</div>
+        <div class="detail-order-wrap">${renderHistoryBlock(idea)}</div>
       </div>
     </div>
   `;
