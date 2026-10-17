@@ -3419,15 +3419,28 @@ SHIPPING CHANGES
   @media (max-width: 999px) { .detail-sticky-top { position: relative !important; } }
   /* scrolled: shrink to a slim strip (title + tools only) */
   @media (min-width: 1000px) { .detail-sticky-top.compact .detail-badges, .detail-sticky-top.compact .chapter-nav { display: none; } }
-  @media (min-width: 1000px) { .detail-sticky-top.compact .detail-title { font-size: 1.35rem; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } }
+  @media (min-width: 1000px) { .detail-sticky-top.compact .detail-title { display: block; background: none; font-size: 1.35rem; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } }
   @media (min-width: 1000px) { .detail-sticky-top.compact .detail-header { margin-top: 4px !important; } }
   @media (min-width: 1000px) { .detail-sticky-top.compact .detail-top-row { padding-top: 10px !important; } }
   .detail-sticky-top::before {
     content: ""; position: absolute; inset: 10px 0 8px; z-index: -1;
-    background: var(--panel);
-    border: 1px solid var(--line); border-radius: 3px 3px 3px 14px;
+    background:
+      radial-gradient(circle, var(--rule) 1.1px, transparent 1.4px) 0 0 / 16px 16px,
+      var(--panel);
+    border: 1px solid var(--line); border-left: 6px solid var(--pen); border-radius: 4px 3px 3px 16px;
     box-shadow: var(--card-shadow);
   }
+  /* second strip of tape on the right corner */
+  .detail-sticky-top > .detail-top-row { position: relative; }
+  .detail-sticky-top > .detail-top-row::before {
+    content: ""; position: absolute; top: -18px; right: -12px; width: 60px; height: 18px;
+    background: var(--tape-blue); transform: rotate(4deg); pointer-events: none;
+    -webkit-mask: linear-gradient(90deg, transparent 0 2px, #000 2px calc(100% - 2px), transparent calc(100% - 2px)), repeating-linear-gradient(0deg, #000 0 3px, transparent 3px 4px);
+  }
+  /* highlighter swipe under the title */
+  .detail-sticky-top .detail-title { display: inline; padding: 0 4px; margin-left: -4px; -webkit-box-decoration-break: clone; box-decoration-break: clone;
+    background: linear-gradient(100deg, transparent 0 1%, color-mix(in srgb, var(--pen) 22%, transparent) 2% 97%, transparent 98%) 0 72% / 100% 42% no-repeat; }
+  .detail-sticky-top .detail-badges { margin-top: 12px; }
   .detail-sticky-top::after {
     content: ""; position: absolute; top: 2px; left: 18px; width: 78px; height: 20px;
     background: var(--tape); transform: rotate(-4deg); pointer-events: none;
@@ -6107,7 +6120,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-17 05:40 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-17 06:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
