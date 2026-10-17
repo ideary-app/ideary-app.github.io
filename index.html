@@ -3031,8 +3031,9 @@ SHIPPING CHANGES
     }
     #zip-pull.dragging { cursor: grabbing; transition: none; }
     #zip-pull::before { content: ""; position: absolute; inset: -10px -12px; } /* bigger touch target */
-    @media (min-width: 1000px) { #zip-pull { transform: scale(1.5); } #zip-pull.dragging { transform: scale(1.6) rotate(var(--zip-rot, 0deg)); } }
-    #zip-pull.dragging { transform: rotate(var(--zip-rot, 0deg)); }
+    #zip-pull { transform: scale(var(--zip-s, 1)); }
+    #zip-pull.dragging { transform: scale(var(--zip-s, 1)) rotate(var(--zip-rot, 0deg)); }
+    @media (min-width: 1000px) { #zip-pull { --zip-s: 1.5; } }
     /* sewn-on patches */
     .mobile-brand, .mobile-menu-btn, .mobile-header .search-input {
       background: #f4ecd4 !important; color: #1f2430 !important;
@@ -6127,7 +6128,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-17 06:45 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-17 06:55 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
