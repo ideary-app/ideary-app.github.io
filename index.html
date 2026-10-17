@@ -4214,6 +4214,55 @@ async function driveWriteDataFile(fileId, ideasData) {
   writeDriveCache(false);
 }
 
+
+/* ---------------- Multi-device safety ----------------
+   Each device remembers what Drive looked like when it last synced
+   (driveBase: id -> JSON). On save we re-read Drive and merge: ideas this
+   device changed win, everything else comes from Drive. So a phone with an
+   old copy never wipes changes made on the computer (and vice versa). */
+let driveBase = {};
+let driveSyncChain = Promise.resolve();
+function snapshotOf(list) { const m = {}; (list || []).forEach(i => { if (i && i.id != null) m[i.id] = JSON.stringify(i); }); return m; }
+function mergeWithRemote(local, remote, base) {
+  const localMap = {}; local.forEach(i => { localMap[i.id] = i; });
+  const changed = new Set(), deleted = new Set();
+  local.forEach(i => { if (base[i.id] !== JSON.stringify(i)) changed.add(i.id); });
+  Object.keys(base).forEach(id => { if (!localMap[id]) deleted.add(String(id)); });
+  const out = [], seen = new Set();
+  (remote || []).forEach(r => {
+    const id = r.id; seen.add(String(id));
+    if (deleted.has(String(id))) return;
+    out.push(changed.has(id) ? localMap[id] : r);
+  });
+  local.forEach(i => { if (!seen.has(String(i.id)) && (changed.has(i.id))) out.push(i); });
+  return out;
+}
+function driveSyncNow(opts) {
+  driveSyncChain = driveSyncChain.then(async () => {
+    if (!driveFileId || !accessToken) return;
+    let remote = await driveReadDataFile(driveFileId);
+    remote = Array.isArray(remote) ? remote : [];
+    remote.forEach(migrateFasesIfNeeded);
+    const merged = mergeWithRemote(IDEAS, remote, driveBase);
+    const before = JSON.stringify(IDEAS);
+    const needsWrite = JSON.stringify(merged) !== JSON.stringify(remote);
+    if (needsWrite && !(opts && opts.readOnly)) await driveWriteDataFile(driveFileId, merged);
+    if (!(opts && opts.readOnly) || !needsWrite) {
+      IDEAS = merged;
+      driveBase = snapshotOf(needsWrite && !(opts && opts.readOnly) ? merged : remote);
+    } else {
+      IDEAS = merged; // local edits still pending, keep base
+    }
+    writeDriveCache(false);
+    if (JSON.stringify(IDEAS) !== before && editingIdeaId == null && !document.querySelector(".open[id$='-overlay']")) render();
+  });
+  return driveSyncChain.catch(e => { console.error("Drive sync failed:", e); throw e; });
+}
+// Coming back to the app (e.g. phone unlocked): pull what other devices changed.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && driveReady && !driveExpired) driveSyncNow({ readOnly: true }).catch(() => {});
+});
+
 /* ---------------- Orchestration: init + save ---------------- */
 
 /* ---------------- Staying signed in ----------------
@@ -4244,6 +4293,7 @@ function writeDriveCache(pending) {
       email: currentUserEmail || (prev && prev.email) || null,
       fileId: driveFileId || (prev && prev.fileId) || null,
       ideas: IDEAS,
+      base: driveBase,
       pending: !!pending || (pending === undefined && prev && prev.pending)
     }));
   } catch (e) {}
@@ -4272,6 +4322,7 @@ function enterDriveExpired() {
   if (cache && Array.isArray(cache.ideas)) {
     IDEAS = cache.ideas;
     IDEAS.forEach(migrateFasesIfNeeded);
+    if (cache.base) driveBase = cache.base;
     if (cache.email) currentUserEmail = cache.email;
     if (cache.fileId) driveFileId = cache.fileId;
   }
@@ -4310,7 +4361,8 @@ async function reconnectDrive() {
       if (file) {
         driveFileId = file.id;
         IDEAS = cache.ideas;
-        await driveWriteDataFile(driveFileId, IDEAS);
+        driveBase = cache.base || {};
+        await driveSyncNow();
         driveReady = true;
         setDriveSession(currentUserEmail);
         updateDriveButtonUI();
@@ -4353,6 +4405,7 @@ async function initDriveSync(ideasParaCrearSiNoExiste) {
       const newId = await driveCreateDataFile(seed);
       driveFileId = newId;
       IDEAS = seed;
+      driveBase = snapshotOf(seed);
       // Don't save to localStorage — we're now in Drive mode.
       render();
     } else {
@@ -4361,6 +4414,7 @@ async function initDriveSync(ideasParaCrearSiNoExiste) {
       const remoteIdeas = await driveReadDataFile(driveFileId);
       IDEAS = Array.isArray(remoteIdeas) ? remoteIdeas : [];
       IDEAS.forEach(migrateFasesIfNeeded);
+      driveBase = snapshotOf(IDEAS);
       render();
     }
     driveReady = true;
@@ -4444,7 +4498,7 @@ function saveIdeas() {
     // Drive mode: ideas live only in Drive + memory.
     // Never write to localStorage so they don't leak to the next
     // person who opens the app on this device without logging in.
-    driveWriteDataFile(driveFileId, IDEAS).catch(e => {
+    driveSyncNow().catch(e => {
       console.error("Could not save to Drive:", e);
       setSyncStatus("Change not saved — Drive sync failed.", true);
     });
@@ -6028,7 +6082,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-16 22:59 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-17 02:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
