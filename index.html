@@ -863,7 +863,8 @@ SHIPPING CHANGES
   }
 
   /* ≤1600px: pasar a dos líneas */
-  @media (max-width: 1850px) {
+  .home-row-wrap { container: homerow / inline-size; }
+  @container homerow (max-width: 1500px) {
     .status-grid-row { flex-direction: column; }
     .status-grid {
       flex: none;
@@ -6128,7 +6129,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-17 06:55 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-17 07:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -7876,11 +7877,11 @@ function renderStatusCardsOnly() {
     </div>`;
 
   return `
-    <div class="status-grid-row">
+    <div class="home-row-wrap"><div class="status-grid-row">
       <div class="status-grid">${statusCards}</div>
       <div class="status-howto-divider"></div>
       ${howtoCard}
-    </div>`;
+    </div></div>`;
 }
 
 function renderHomeView() {
