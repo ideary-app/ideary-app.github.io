@@ -3021,12 +3021,18 @@ SHIPPING CHANGES
       pointer-events: none;
     }
     /* zipper pull */
-    .mobile-header::after {
-      content: ""; position: absolute; right: 22px; bottom: -14px; width: 16px; height: 26px;
+    .mobile-header::after { content: none !important; }
+    #zip-pull {
+      position: absolute; left: var(--zip-x, calc(100% - 38px)); bottom: -14px; width: 16px; height: 26px; z-index: 5;
+      cursor: grab; touch-action: none; transform-origin: 50% 2px; transition: transform .25s ease;
+      padding: 0; border: 0;
       background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='26'><rect x='3' y='0' width='10' height='8' rx='2' fill='%23c7cbd2' stroke='%23585d66'/><rect x='4' y='7' width='8' height='18' rx='3' fill='%23dfe2e7' stroke='%23585d66'/><rect x='6.5' y='12' width='3' height='9' rx='1.5' fill='%23585d66'/></svg>") no-repeat;
       filter: drop-shadow(1px 2px 1px rgba(0,0,0,.35));
-      pointer-events: none;
     }
+    #zip-pull.dragging { cursor: grabbing; transition: none; }
+    #zip-pull::before { content: ""; position: absolute; inset: -10px -12px; } /* bigger touch target */
+    @media (min-width: 1000px) { #zip-pull { transform: scale(1.5); } #zip-pull.dragging { transform: scale(1.6) rotate(var(--zip-rot, 0deg)); } }
+    #zip-pull.dragging { transform: rotate(var(--zip-rot, 0deg)); }
     /* sewn-on patches */
     .mobile-brand, .mobile-menu-btn, .mobile-header .search-input {
       background: #f4ecd4 !important; color: #1f2430 !important;
@@ -3197,7 +3203,7 @@ SHIPPING CHANGES
     html[data-case="black"] .mobile-header .search-icon { color: #9a9a9f !important; }
     html[data-case="black"] .mobile-icon-btn { color: #1f1f21 !important; outline-color: rgba(0,0,0,.25) !important; }
     html[data-case="black"] .mobile-header { box-shadow: 0 3px 8px rgba(0,0,0,.25) !important; }
-    html[data-case="leather"] .mobile-header::after { filter: sepia(.6) drop-shadow(1px 2px 1px rgba(0,0,0,.35)); }
+    html[data-case="leather"] #zip-pull { filter: sepia(.6) drop-shadow(1px 2px 1px rgba(0,0,0,.35)); }
     html[data-case="leather"] .mobile-header { box-shadow: inset 0 -16px 0 -14px rgba(0,0,0,0), 0 6px 12px rgba(0,0,0,.3) !important; }
   }
   .case-swatch[data-case-sw="black"] { background-color: #1f1f21; --zt: #0c0c0d; }
@@ -3462,6 +3468,7 @@ SHIPPING CHANGES
 <body>
 
 <header class="mobile-header">
+  <div id="zip-pull" role="slider" aria-label="Zipper pull (drag it)" title="Drag me"></div>
   <div class="mobile-header-top">
     <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Menu">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
@@ -6120,7 +6127,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-17 06:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-17 06:30 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -8589,6 +8596,39 @@ function updateStickyHeaderHeight() {
     document.documentElement.style.setProperty("--sticky-header-h", h + "px");
   });
 }
+
+
+// Draggable zipper pull: slide it anywhere along the pencil case.
+(function initZipPull() {
+  const el = document.getElementById("zip-pull");
+  if (!el) return;
+  const hdr = el.parentElement;
+  const KEY = "ideary_zip_x";
+  let saved = null;
+  try { saved = parseFloat(localStorage.getItem(KEY)); } catch (e) {}
+  const apply = (f) => hdr.style.setProperty("--zip-x", `calc(${(f * 100).toFixed(2)}% - 8px)`);
+  if (saved >= 0 && saved <= 1) apply(saved);
+  let drag = false, lastX = 0, frac = saved;
+  el.addEventListener("pointerdown", (e) => {
+    drag = true; lastX = e.clientX; el.classList.add("dragging");
+    el.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  el.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const r = hdr.getBoundingClientRect();
+    frac = Math.min(1, Math.max(0, (e.clientX - r.left - 4) / (r.width - 8)));
+    frac = Math.min(1 - 14 / r.width, Math.max(14 / r.width, frac));
+    apply(frac);
+    const v = Math.max(-25, Math.min(25, (e.clientX - lastX) * -2.5));
+    el.style.setProperty("--zip-rot", v + "deg"); lastX = e.clientX;
+  });
+  const end = () => {
+    if (!drag) return; drag = false; el.classList.remove("dragging");
+    el.style.setProperty("--zip-rot", "0deg");
+    try { if (frac != null) localStorage.setItem(KEY, String(frac)); } catch (e) {}
+  };
+  el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end);
+})();
 
 // Compact sticky header once the page scrolls (hysteresis avoids flicker).
 function updateCompactHeader() {
