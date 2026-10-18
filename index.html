@@ -1126,9 +1126,11 @@ SHIPPING CHANGES
       grid-column: 1;
     }
 
+    .detail-dashboard-sidecol.no-stick { position: static !important; }
     .detail-dashboard-sidecol {
       grid-column: 2;
       position: sticky;
+      align-self: start;
       /* top matches the real header height exactly (measured via JS
          into --sticky-header-h) so Description lines up with Progress,
          which starts right at the header's bottom edge. No extra
@@ -1137,8 +1139,8 @@ SHIPPING CHANGES
       /* The whole sidecol (description + notes) gets its OWN scrollbar,
          capped to the viewport space remaining below the header — it
          must not rely on the page's scroll. */
-      max-height: calc(100vh - var(--sticky-header-h, 140px));
-      overflow-y: auto;
+      max-height: none;
+      overflow: visible;
       padding-right: 4px;
       /* Subtle separator line between the two columns, centered in
          the grid gap */
@@ -3270,7 +3272,7 @@ SHIPPING CHANGES
   @media (min-width: 1000px) {
     .detail-dashboard-sidecol {
       top: calc(var(--hdr-h, 80px) + var(--sticky-header-h, 140px)) !important;
-      max-height: calc(100vh - var(--hdr-h, 80px) - var(--sticky-header-h, 140px)) !important;
+      max-height: none !important;
     }
   }
 
@@ -3338,6 +3340,8 @@ SHIPPING CHANGES
   .sug-apply { background: var(--pen); color: #fff; border: none; border-radius: var(--sketch-radius); padding: 5px 14px; font-family: var(--hand); font-size: 1rem; cursor: pointer; }
   [data-theme="dark"] .sug-apply { color: #10131c; }
   .sug-ignore { background: none; border: 1.5px solid var(--line-strong); color: var(--slate); border-radius: var(--sketch-radius); padding: 5px 14px; font-family: var(--hand); font-size: 1rem; cursor: pointer; }
+  .nav-caret { display: inline-block; width: 16px; text-align: center; cursor: pointer; opacity: .75; margin-right: 2px; }
+  .nav-caret:hover { opacity: 1; color: var(--pen); }
   .sidebar .nav-chapter-item { margin-left: 32px !important; font-size: .82rem; }
   .sidebar .nav-chapter-item::before { content: "· " !important; }
   .nav-nb { color: var(--pen); }
@@ -6129,7 +6133,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-17 07:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-18 00:55 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -7803,6 +7807,13 @@ function highlight(text, q) {
 /* ==================================================================
    RENDER: SIDEBAR
 ================================================================== */
+// Projects in the sidebar are collapsed, except the one you're in.
+const navExpanded = new Set(), navCollapsed = new Set();
+function toggleNavProject(id, inside) {
+  const set = inside ? navCollapsed : navExpanded;
+  set.has(id) ? set.delete(id) : set.add(id);
+  renderSidebar();
+}
 function renderSidebar() {
   document.getElementById("count-todas").textContent = IDEAS.filter(i => i.estado !== "eliminada" && !isChapter(i)).length;
   document.getElementById("nav-todas").classList.toggle("active", view === "home");
@@ -7819,12 +7830,14 @@ function renderSidebar() {
     const catClass = catActive ? "active" : ideaActive ? "parent-active" : "";
     const ideasHtml = ideas.map(idea => {
       const isActive = view === "detalle" && viewParam === idea.id;
-      const chaptersHtml = isProject(idea) ? projectChapters(idea).map(ch => {
+      const inside = view === "detalle" && (viewParam === idea.id || (curIdea && curIdea.proyectoId === idea.id));
+      const open = isProject(idea) && (inside ? !navCollapsed.has(idea.id) : navExpanded.has(idea.id));
+      const chaptersHtml = open ? projectChapters(idea).map(ch => {
         const chActive = view === "detalle" && viewParam === ch.id;
         return `<div class="nav-idea-item nav-chapter-item ${chActive ? 'active' : ''}" onclick="openDetail('${escapeAttr(ch.id)}')">${escapeHtml(ch.titulo)}</div>`;
       }).join("") : "";
       return `<div class="nav-idea-item ${isActive ? 'active' : ''} ${isProject(idea) ? 'nav-project-item' : ''}" onclick="openDetail('${escapeAttr(idea.id)}')">
-        ${isProject(idea) ? '<span class="nav-nb">▤</span> ' : ''}${escapeHtml(idea.titulo)}
+        ${isProject(idea) ? `<span class="nav-caret" title="${open ? 'Hide chapters' : 'Show chapters'}" onclick="event.stopPropagation();toggleNavProject('${escapeAttr(idea.id)}',${inside})">${open ? '▾' : '▸'}</span>` : ''}${escapeHtml(idea.titulo)}
       </div>${chaptersHtml}`;
     }).join("");
     return `
@@ -8596,6 +8609,13 @@ function updateStickyHeaderHeight() {
     if (!header) return;
     const h = header.getBoundingClientRect().height;
     document.documentElement.style.setProperty("--sticky-header-h", h + "px");
+    // Right column only sticks if it fits on screen; otherwise it scrolls
+    // with the page (no nested scrollbar, nothing stranded at the bottom).
+    const side = document.querySelector(".detail-dashboard-sidecol");
+    if (side) {
+      const hdr = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--hdr-h")) || 0;
+      side.classList.toggle("no-stick", side.scrollHeight > window.innerHeight - h - hdr - 10);
+    }
   });
 }
 
