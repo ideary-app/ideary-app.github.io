@@ -3438,7 +3438,6 @@ SHIPPING CHANGES
   .pw-think .pw-star { animation: pwThink 1.4s ease-in-out infinite; }
   @keyframes pwThink { 0%,100% { transform: rotate(-12deg) translateY(0); } 50% { transform: rotate(12deg) translateY(-8px); } }
   @keyframes pwFade { from { opacity: 0; } to { opacity: 1; } }
-  @media (prefers-reduced-motion: reduce) { .pw-anim-note, .pw-anim-star, .pw-think .pw-star { animation: none !important; opacity: 1; } }
   .sug-preview { font-size: .8rem; color: var(--slate); margin: 2px 0 8px; line-height: 1.6; }
   .sug-preview .hl { color: var(--pen); font-weight: 700; }
   .sug-warn { font-size: .85rem; color: #b0323f; margin: 2px 0 8px; }
@@ -6165,7 +6164,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-18 01:15 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-18 01:35 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
