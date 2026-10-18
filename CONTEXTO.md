@@ -34,6 +34,10 @@ Es pública y gratuita, sin backend, y puede usarla cualquiera. Antes se llamaba
 - **Notas fechadas**: funcionan como bitácora del proceso.
 - **Cierre**: al terminar una idea se completa qué funcionó, qué no y qué harías distinto.
 - **Sincronización con Google Drive** (opcional), con combinación de cambios entre dispositivos. Los guardados se agrupan: se suben ~2,5 s después del último cambio (o al salir de la app) y un chip muestra "Saving… / ✓ Saved". Si cerrás con algo pendiente, avisa.
+- **References**: links por idea/capítulo/proyecto (`referencias: [{url, titulo, fecha}]`), con miniatura si es YouTube. "What should I look for?" pide a la IA búsquedas concretas (chips que abren YouTube/Google).
+- **Lecciones de proyectos terminados**: lo escrito en el cierre (`cierre`) de ideas terminadas (misma categoría primero, hasta 3) se manda a Develop idea y al director para que avisen si repetís un error.
+- **Share**: Print/Save as PDF, descargar una página .html autónoma, o copiar como texto. No hay link en vivo (no hay servidor): se comparte una copia.
+- **Contador de uso de IA** en Settings (pedidos de hoy y tokens, por dispositivo; `ideary_ai_usage_v1`).
 - **Today** (Home): los 1–3 próximos pasos de lo que está In progress (uno por proyecto), primero lo que vence antes y después lo último trabajado. Tocar uno abre ese paso con el tutor.
 - **Fechas**: fecha objetivo opcional (`fechaObjetivo`, "YYYY-MM-DD") en ideas, proyectos y capítulos (badge 📅, avisa "soon"/"overdue"). "Last worked on" automático (`actualizado`, ISO) y 💤 en ideas sin cambios hace 3+ semanas.
 - **Botón "Next step →"** flotante en celular: abre directo el próximo paso sin terminar con el tutor.
@@ -155,7 +159,7 @@ Todo tiene un aire hecho a mano y algo rotado.
 | Sesión de Drive y token | `ideary_drive_session_v1`, `ideary_gtoken_v1` |
 | Key y modelo de Gemini | `ideary_gemini_key_v1`, `ideary_gemini_model_v1` |
 | Tapa, cartuchera, tema | `ideary_cover_v1`, `ideary_case_v1`, `ideas_producciones_tema` |
-| Varios | `ideary_home_filter_v1`, `ideary_view`, `ideary_howto_seen_v1`, `ideary_install_banner_dismissed`, `ideary_zip_x` (posición del cierre) |
+| Varios | `ideary_ai_usage_v1`, `ideary_home_filter_v1`, `ideary_view`, `ideary_howto_seen_v1`, `ideary_install_banner_dismissed`, `ideary_zip_x` (posición del cierre) |
 
 Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la primera vez que se carga la app.
 
@@ -184,6 +188,7 @@ Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la prim
     ],
     "cosasAResolver": [{ "texto": "¿Qué barniz uso?", "resuelto": false }],
     "bocetos": [{ "src": "data:image/png;base64,...", "fecha": "2026-10-11T10:00:00.000Z" }],
+    "referencias": [{ "url": "https://www.youtube.com/watch?v=xxxx", "titulo": "Tutorial de ensamblado", "fecha": "2026-10-12T09:00:00.000Z" }],
     "fechaObjetivo": "2026-11-30",
     "actualizado": "2026-10-12T09:00:00.000Z",
     "historial": [{ "fecha": "2026-10-12T09:00:00.000Z", "fuente": "Brain dump", "cambios": ["Added phase \"Lijado\""] }]

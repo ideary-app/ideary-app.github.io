@@ -3590,6 +3590,25 @@ SHIPPING CHANGES
   .today-step { font-family: var(--hand); font-size: 1.15rem; line-height: 1.2; }
   .today-meta { font-size: .8rem; color: var(--slate); }
   .today-meta .soon { color: #9a6a00; } .today-meta .late { color: var(--rust); }
+
+  .share-btn { font-family: var(--hand); font-size: 1.05rem; padding: 4px 12px; border: 1.5px solid var(--line-strong); border-radius: 6px; background: var(--panel); color: var(--pen); cursor: pointer; transform: rotate(-1deg); }
+  .share-btn:hover { border-color: var(--pen); }
+  .share-opt { display: block; width: 100%; text-align: left; background: var(--panel); border: 1.5px solid var(--line-strong); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; color: var(--ink); font: inherit; }
+  .share-opt:hover { border-color: var(--pen); }
+  .share-opt strong { display: block; font-family: var(--hand); font-size: 1.15rem; font-weight: 400; color: var(--pen); }
+  .share-opt span { font-size: .84rem; color: var(--slate); }
+  .ref-list { list-style: none; padding: 0; margin: 4px 0 6px; }
+  .ref-item { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+  .ref-thumb img { width: 96px; height: 54px; object-fit: cover; border-radius: 4px; display: block; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+  .ref-ico { width: 28px; text-align: center; font-size: 1.1rem; }
+  .ref-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .ref-body a, .ref-body > span:first-child { font-family: var(--hand); font-size: 1.1rem; color: var(--pen); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ref-host { font-size: .75rem; color: var(--slate); }
+  .ref-host button { background: none; border: none; padding: 0; color: var(--slate); text-decoration: underline; cursor: pointer; font-size: .75rem; }
+  .ref-sugs { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+  .ref-chip { font-size: .8rem; padding: 3px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--pen); text-decoration: none; border: 1px solid transparent; }
+  .ref-chip:hover { border-color: var(--pen); }
+  .ai-usage { margin-top: 6px; } .ai-usage a { color: var(--pen); }
 </style>
 </head>
 <body>
@@ -3813,6 +3832,7 @@ SHIPPING CHANGES
       <div class="form-hint" style="margin-bottom:12px">If you're connected to Google Drive, it's saved in your own Drive so you don't have to enter it again on other devices. Otherwise it stays only in this browser.</div>
       <input class="form-input" id="ai-key-input" type="password" autocomplete="off" placeholder="Gemini API key" style="font-size:16px">
     <div id="ai-key-status" style="min-height:1.4em;font-size:0.82rem;margin-top:8px;font-weight:600"></div>
+    <div class="form-hint ai-usage" id="ai-usage"></div>
     <button class="form-submit" id="ai-key-save-btn" onclick="saveAiKeyFromUI()">Save key</button>
     <div style="text-align:center;margin-top:8px"><button onclick="removeAiKey()" style="background:none;border:none;font-size:0.8rem;color:var(--slate);cursor:pointer;text-decoration:underline">Remove key</button></div>
     </div>
@@ -5067,6 +5087,7 @@ function setThemeFromSettings(t) {
   updateThemeButtons();
 }
 function openSettings(section) {
+  setTimeout(() => { const el = document.getElementById("ai-usage"); if (el) el.innerHTML = aiUsageHtml(); }, 0);
   document.getElementById("ai-key-input").value = geminiKey;
   document.getElementById("ai-key-status").textContent = "";
   renderCoverSwatches();
@@ -5125,6 +5146,20 @@ async function removeAiKey() {
   st.textContent = "Key removed."; st.style.color = "var(--slate)";
 }
 
+const AI_USAGE_KEY = "ideary_ai_usage_v1";
+function aiUsage() { try { return JSON.parse(localStorage.getItem(AI_USAGE_KEY) || "{}"); } catch (e) { return {}; } }
+function countAiUse(tokens) {
+  const u = aiUsage(), d = new Date().toISOString().slice(0, 10);
+  if (u.day !== d) { u.day = d; u.req = 0; u.tok = 0; }
+  u.req++; u.tok += tokens || 0;
+  u.total = (u.total || 0) + 1;
+  try { localStorage.setItem(AI_USAGE_KEY, JSON.stringify(u)); } catch (e) {}
+  const el = document.getElementById("ai-usage"); if (el) el.innerHTML = aiUsageHtml();
+}
+function aiUsageHtml() {
+  const u = aiUsage(), today = u.day === new Date().toISOString().slice(0, 10);
+  return `<strong>Today:</strong> ${today ? u.req : 0} AI request${today && u.req === 1 ? "" : "s"}${today && u.tok ? ` (~${Math.round(u.tok / 1000)}k tokens)` : ""} from this device · ${u.total || 0} in total.<br>The free tier has a per-minute and a daily limit that depend on the model; you can see yours in <a href="https://aistudio.google.com/usage" target="_blank" rel="noopener">Google AI Studio</a>.`;
+}
 async function geminiGenerate(history, system, retried, modelOverride) {
   const model = modelOverride || await geminiResolveModel(false);
   const ctrl = new AbortController();
@@ -5168,6 +5203,7 @@ async function geminiGenerate(history, system, retried, modelOverride) {
     throw new Error(msg);
   }
   const j = await res.json();
+  countAiUse(j.usageMetadata && j.usageMetadata.totalTokenCount);
   const parts = j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts;
   if (!parts) throw new Error("Gemini returned an empty reply. Try again.");
   return parts.map(p => p.text || "").join("");
@@ -5374,6 +5410,146 @@ function quickAddNote(ideaId, text) {
   window.scrollTo(0, y);
   const inp = document.querySelector(".note-quick-add");
   if (inp) inp.focus();
+}
+
+
+
+/* ---------- Share: printable page / PDF, standalone page, plain text ---------- */
+function shareDoc(idea) {
+  const items = isProject(idea) ? [idea].concat(projectChapters(idea)) : [idea];
+  const esc = escapeHtml;
+  const stepLine = st => { const h = (typeof st === "object" && st.hecho) || 0; return `<li class="s${h}"><span class="bx">${h === 2 ? "✓" : h === 1 ? "◐" : ""}</span>${esc(typeof st === "string" ? st : st.texto)}</li>`; };
+  const body = items.map((i, k) => `
+    <section>
+      ${k === 0 ? `<h1>${esc(i.titulo)}</h1><p class="meta">${esc(i.categoria)} · ${esc((ESTADOS[i.estado] || {}).label || "")}${i.fechaObjetivo ? " · target " + esc(i.fechaObjetivo) : ""}</p>` : `<h2>Chapter ${k}: ${esc(i.titulo)} <small>${Math.round(ideaProgress(i) * 100)}%</small></h2>`}
+      ${i.descripcion ? `<p>${esc(i.descripcion).replace(/\n/g, "<br>")}</p>` : ""}
+      ${k === 0 && decisionsOf(i).length ? `<h3>Key decisions</h3><ul>${decisionsOf(i).map(d => `<li>📌 ${esc(d.texto)}</li>`).join("")}</ul>` : ""}
+      ${(i.fases || []).filter(f => f.pasos && f.pasos.length).map(f => `<h3>${esc(f.nombre)}</h3><ul class="steps">${f.pasos.map(stepLine).join("")}</ul>`).join("")}
+      ${(i.cosasAResolver || []).length ? `<h3>Things to figure out</h3><ul>${i.cosasAResolver.map(c => `<li>${c.resuelto ? "✓ " : "? "}${esc(c.texto)}</li>`).join("")}</ul>` : ""}
+      ${(i.referencias || []).length ? `<h3>References</h3><ul>${i.referencias.map(r => `<li>${r.url ? `<a href="${escapeAttr(r.url)}">${esc(r.titulo || r.url)}</a>` : esc(r.titulo)}</li>`).join("")}</ul>` : ""}
+      ${(i.bocetos || []).length ? `<div class="sk">${i.bocetos.map(b => `<img src="${b.src}">`).join("")}</div>` : ""}
+    </section>`).join("");
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(idea.titulo)} — Ideary</title>
+<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#fbf9f1;color:#1f2430;font:15px/1.6 Inter,-apple-system,sans-serif}
+main{max-width:760px;margin:0 auto;padding:40px 28px 40px 60px;background:repeating-linear-gradient(#fbf9f1 0 31px,rgba(84,130,190,.22) 31px 32px);border-left:2px solid rgba(220,90,90,.55);min-height:100vh}
+h1,h2,h3{font-family:'Patrick Hand',cursive;font-weight:400;color:#2b4fa8;margin:18px 0 4px}h1{font-size:2.4rem;color:#1f2430}h2{font-size:1.6rem;border-top:2px dashed #cfc7ae;padding-top:14px}h2 small{color:#888;font-size:1rem}
+.meta{color:#5c6470;margin-top:0}ul{padding-left:20px}.steps{list-style:none;padding-left:4px}.steps li{display:flex;gap:8px}.bx{display:inline-flex;width:16px;height:16px;border:1.5px solid #1f2430;border-radius:3px;font-size:12px;align-items:center;justify-content:center;flex-shrink:0;margin-top:4px}
+.s2{color:#777;text-decoration:line-through}.sk{display:flex;flex-wrap:wrap;gap:8px}.sk img{max-width:220px;border-radius:4px;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+footer{color:#999;font-size:12px;margin-top:30px}@media print{main{padding:10px 10px 10px 30px}section{break-inside:avoid-page}}</style></head>
+<body><main>${body}<footer>Made with Ideary · ${new Date().toLocaleDateString()}</footer></main></body></html>`;
+}
+function shareText(idea) {
+  const items = isProject(idea) ? [idea].concat(projectChapters(idea)) : [idea];
+  return items.map((i, k) => {
+    const head = k === 0 ? `${i.titulo}\n${i.descripcion || ""}` + (decisionsOf(i).length ? "\nKey decisions: " + decisionsOf(i).map(d => d.texto).join("; ") : "") : `\nChapter ${k}: ${i.titulo} (${Math.round(ideaProgress(i) * 100)}%)`;
+    return head + (i.fases || []).map(f => `\n${f.nombre}:` + (f.pasos || []).map(st => { const h = (typeof st === "object" && st.hecho) || 0; return `\n  ${h === 2 ? "[x]" : h === 1 ? "[~]" : "[ ]"} ${typeof st === "string" ? st : st.texto}`; }).join("")).join("");
+  }).join("\n");
+}
+async function openShare(id) {
+  const idea = IDEAS.find(i => i.id === id);
+  if (!idea) return;
+  const html = shareDoc(idea);
+  const choice = await showShareSheet();
+  if (choice === "pdf") {
+    const w = window.open("", "_blank");
+    if (!w) { await showAlert("Your browser blocked the new window. Allow pop-ups for Ideary and try again.", { title: "Couldn't open" }); return; }
+    w.document.write(html); w.document.close();
+    setTimeout(() => { try { w.focus(); w.print(); } catch (e) {} }, 700);
+  } else if (choice === "page") {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+    a.download = slugify(idea.titulo) + ".html"; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  } else if (choice === "text") {
+    try { await navigator.clipboard.writeText(shareText(idea)); await showAlert("Copied. Paste it in a chat, an email or a note.", { title: "Copied as text" }); }
+    catch (e) { await showAlert("Couldn't copy here. Try the PDF option.", { title: "Copy failed" }); }
+  }
+}
+function showShareSheet() {
+  return new Promise(res => {
+    const ov = document.createElement("div");
+    ov.className = "modal-overlay open"; ov.id = "share-overlay";
+    ov.innerHTML = `<div class="modal-box" style="max-width:420px"><div class="modal-head"><div class="modal-title">Share</div><button class="modal-close" data-c="">&times;</button></div>
+      <p class="pw-small" style="margin-bottom:12px">Ideary has no server, so sharing makes a copy — what you send won't update by itself.</p>
+      <button class="share-opt" data-c="pdf"><strong>🖨 Print / Save as PDF</strong><span>A clean notebook page with the plan, decisions, references and sketches.</span></button>
+      <button class="share-opt" data-c="page"><strong>📄 Download as a page</strong><span>One .html file anyone can open in a browser, even offline.</span></button>
+      <button class="share-opt" data-c="text"><strong>📋 Copy as text</strong><span>Quick checklist to paste in WhatsApp, an email or notes.</span></button></div>`;
+    ov.addEventListener("click", e => { const b = e.target.closest("[data-c]"); if (b || e.target === ov) { ov.remove(); res(b ? b.dataset.c : ""); } });
+    document.body.appendChild(ov);
+  });
+}
+
+/* ---------- References (links: videos, artworks, tutorials) ---------- */
+function ytId(u) { const m = String(u).match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([\w-]{6,})/); return m ? m[1] : null; }
+function refHost(u) { try { return new URL(u).hostname.replace(/^www\./, ""); } catch (e) { return ""; } }
+function addReference(ideaId, input) {
+  const idea = IDEAS.find(i => i.id === ideaId);
+  let v = (input.value || "").trim();
+  if (!idea || !v) return;
+  const m = v.match(/https?:\/\/\S+/);
+  const url = m ? m[0] : (/^[\w-]+\.[\w.-]+\//.test(v) ? "https://" + v : null);
+  const nota = m ? v.replace(m[0], "").trim() : (url ? "" : v);
+  idea.referencias = (idea.referencias || []).concat([{ url: url || "", titulo: nota || (url ? refHost(url) : v), fecha: new Date().toISOString() }]);
+  saveIdeas(); render();
+}
+function removeReference(ideaId, k) {
+  const idea = IDEAS.find(i => i.id === ideaId);
+  if (!idea || !idea.referencias) return;
+  idea.referencias.splice(k, 1); saveIdeas(); render();
+}
+function renameReference(ideaId, k) {
+  const idea = IDEAS.find(i => i.id === ideaId);
+  const r = idea && idea.referencias && idea.referencias[k];
+  if (!r) return;
+  const v = window.prompt("What is this reference? (a short note)", r.titulo || "");
+  if (v == null) return;
+  r.titulo = v.trim() || refHost(r.url); saveIdeas(); render();
+}
+async function suggestSearches(ideaId) {
+  const idea = IDEAS.find(i => i.id === ideaId);
+  if (!idea) return;
+  const proj = isChapter(idea) && IDEAS.find(x => x.id === idea.proyectoId);
+  const prompt = `PROJECT: ${proj ? proj.titulo + " — " + projAbout(proj) + "\nCHAPTER: " : ""}${idea.titulo} — ${idea.descripcion || ""}\nPLAN: ${(idea.fases || []).map(f => f.nombre + ": " + (f.pasos || []).map(stepText).join(" | ")).join("\n")}`;
+  const rules = `You are an experienced professional in this field helping someone gather references before working. Suggest 6 short, concrete search queries (in the language that gets the best results for this craft, usually English) for videos, tutorials or artwork that would help with THIS idea right now. Output ONLY raw JSON: {"busquedas":[{"q":"query","donde":"youtube"|"images"|"web"}]}`;
+  if (!geminiKey) {
+    try { await navigator.clipboard.writeText(rules + "\n\n" + prompt); } catch (e) {}
+    await showAlert("No Gemini key yet, so I copied a prompt. Paste it into any AI to get search ideas.", { title: "Prompt copied" });
+    return;
+  }
+  const btn = document.getElementById("ref-suggest-" + ideaId);
+  if (btn) { btn.disabled = true; btn.textContent = "Thinking…"; }
+  try {
+    const data = parseJsonLenient(stripJsonFences(await geminiGenerate([{ role: "user", text: prompt }], rules)));
+    idea._busquedas = (data.busquedas || []).slice(0, 8);
+    render();
+  } catch (e) {
+    await showAlert(e.message, { title: "Couldn't get ideas" });
+    if (btn) { btn.disabled = false; btn.textContent = "What should I look for?"; }
+  }
+}
+function searchUrl(b) {
+  const q = encodeURIComponent(b.q);
+  return b.donde === "youtube" ? "https://www.youtube.com/results?search_query=" + q : b.donde === "images" ? "https://www.google.com/search?tbm=isch&q=" + q : "https://www.google.com/search?q=" + q;
+}
+function renderReferencesBlock(idea) {
+  const list = idea.referencias || [];
+  const sug = idea._busquedas || [];
+  return `
+    <div class="detail-block refs-block">
+      <div class="block-title c-plan" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>References</span>
+        <button type="button" class="stuck-btn" style="margin:0" id="ref-suggest-${escapeAttr(idea.id)}" onclick="suggestSearches('${escapeAttr(idea.id)}')">What should I look for?</button></div>
+      ${sug.length ? `<div class="ref-sugs">${sug.map(b => `<a class="ref-chip" href="${escapeAttr(searchUrl(b))}" target="_blank" rel="noopener">${b.donde === "youtube" ? "▶" : b.donde === "images" ? "🖼" : "🔎"} ${escapeHtml(b.q)}</a>`).join("")}</div>` : ""}
+      <ul class="ref-list">${list.map((r, k) => {
+        const yt = r.url && ytId(r.url);
+        return `<li class="ref-item">
+          ${yt ? `<a href="${escapeAttr(r.url)}" target="_blank" rel="noopener" class="ref-thumb"><img src="https://img.youtube.com/vi/${yt}/mqdefault.jpg" alt="" loading="lazy"></a>` : `<span class="ref-ico">${r.url ? "🔗" : "📝"}</span>`}
+          <div class="ref-body">${r.url ? `<a href="${escapeAttr(r.url)}" target="_blank" rel="noopener">${escapeHtml(r.titulo || refHost(r.url))}</a>` : `<span>${escapeHtml(r.titulo)}</span>`}
+            <span class="ref-host">${r.url ? escapeHtml(refHost(r.url)) + " · " : ""}<button type="button" onclick="renameReference('${escapeAttr(idea.id)}',${k})">edit note</button></span></div>
+          <button type="button" class="resolve-delete-btn" title="Remove" onclick="removeReference('${escapeAttr(idea.id)}',${k})">&times;</button>
+        </li>`; }).join("")}</ul>
+      <input class="note-quick-add" placeholder="+ Paste a link (YouTube, ArtStation, Pinterest…) and press Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();addReference('${escapeAttr(idea.id)}',this)}">
+    </div>`;
 }
 
 /* ---------- Sketches ---------- */
@@ -6041,10 +6217,19 @@ async function editDecision(projId, k) {
   d[k].texto = v.trim(); proj.decisiones = d;
   saveIdeas(); render();
 }
+// Wrap-up lessons from finished ideas, so the notebook learns from you.
+function lessonsFor(idea) {
+  const done = IDEAS.filter(i => i.cierre && i.id !== idea.id && i.estado !== "eliminada" && (i.cierre.funciono || i.cierre.noFunciono || i.cierre.distinto));
+  if (!done.length) return "";
+  const same = done.filter(i => i.categoria === idea.categoria);
+  const pick = (same.length ? same : done).slice(-3);
+  return "\nLESSONS FROM MY PAST FINISHED PROJECTS (use them: warn me if I'm about to repeat a mistake, reuse what worked; mention it briefly when relevant):\n" +
+    pick.map(i => `- "${i.titulo}" (${i.categoria}): worked: ${i.cierre.funciono || "-"}; didn't: ${i.cierre.noFunciono || "-"}; would do differently: ${i.cierre.distinto || "-"}`).join("\n");
+}
 function directorPrompt(proj) {
   const chs = projectChapters(proj);
   return `PROJECT: ${proj.titulo} (${proj.categoria})\nDESCRIPTION: ${projAbout(proj)}${decisionsOf(proj).length ? "" : "\n(The project has NO key decisions yet: propose 2-5 in \"decisiones\".)"}\nCHAPTERS IN ORDER:\n` +
-    chs.map((c, k) => `${k + 1}. ${c.titulo} — ${Math.round(ideaProgress(c) * 100)}% done${c.estado === "completada" ? " (completed)" : ""}`).join("\n");
+    chs.map((c, k) => `${k + 1}. ${c.titulo} — ${Math.round(ideaProgress(c) * 100)}% done${c.estado === "completada" ? " (completed)" : ""}`).join("\n") + lessonsFor(proj);
 }
 async function fetchDirectorSuggestions(proj) {
   const reply = await geminiGenerate([{ role: "user", text: directorPrompt(proj) }], DIRECTOR_PROJECT_RULES);
@@ -6292,6 +6477,7 @@ function renderProjectView(p) {
         <button class="back-btn" onclick="goHome()">&larr; Back to Home</button>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <button class="tool-btn pencil" title="Edit" aria-label="Edit" onclick="startEditIdea('${p.id}')">${pencilSvg("Edit")}</button>
+          <button type="button" class="share-btn" title="Share" onclick="openShare('${escapeAttr(p.id)}')">Share</button>
           <button class="tool-btn eraser" title="Erase" aria-label="Erase" onclick="deleteIdea('${p.id}')">${eraserSvg("Erase")}</button>
         </div>
       </div>
@@ -6316,7 +6502,7 @@ function renderProjectView(p) {
       <div class="detail-dashboard-sidecol" id="detail-sticky-sidecol">
         <div class="detail-order-resolve">${resolveHtml}</div>
         <div class="detail-order-notes">${notesHtml}</div>
-        <div class="detail-order-sketch">${renderSketchBlock(p)}</div>
+        <div class="detail-order-sketch">${renderSketchBlock(p)}${renderReferencesBlock(p)}</div>
         <div class="detail-order-wrap">${renderHistoryBlock(p)}</div>
       </div>
     </div>`;
@@ -6464,7 +6650,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-18 09:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-18 09:50 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -7679,6 +7865,8 @@ function buildEnrichMessage(idea, request) {
   const q = (s) => s.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"');
 
   let msg = q(DIRECTOR_RULES + `\n\n`);
+  const _lessons = lessonsFor(isChapter(idea) ? (IDEAS.find(x => x.id === idea.proyectoId) || idea) : idea);
+  if (_lessons) msg += q(_lessons + `\n\n`);
   if (isChapter(idea)) {
     const proj = IDEAS.find(x => x.id === idea.proyectoId);
     if (proj) {
@@ -8655,6 +8843,7 @@ function renderDetailReadMode(idea) {
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <button class="tool-btn pencil" title="Edit" aria-label="Edit" onclick="startEditIdea('${idea.id}')">${pencilSvg("Edit")}</button>
           <button class="tool-btn marker" title="Develop idea" aria-label="Develop idea" onclick="openEvolveModal('${idea.id}')">${markerSvg("Develop idea")}</button>
+          <button type="button" class="share-btn" title="Share" onclick="openShare('${escapeAttr(idea.id)}')">Share</button>
           <button class="tool-btn eraser" title="Erase" aria-label="Erase" onclick="deleteIdea('${idea.id}')">${eraserSvg("Erase")}</button>
         </div>
       </div>
@@ -8683,7 +8872,7 @@ function renderDetailReadMode(idea) {
       <div class="detail-dashboard-sidecol" id="detail-sticky-sidecol">
         <div class="detail-order-desc">${descBlockHtml}</div>
         <div class="detail-order-notes">${notasStickyHtml}</div>
-        <div class="detail-order-sketch">${renderSketchBlock(idea)}</div>
+        <div class="detail-order-sketch">${renderSketchBlock(idea)}${renderReferencesBlock(idea)}</div>
         <div class="detail-order-wrap">${renderHistoryBlock(idea)}</div>
       </div>
     </div>
