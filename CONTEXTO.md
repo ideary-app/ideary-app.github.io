@@ -33,7 +33,9 @@ Es pública y gratuita, sin backend, y puede usarla cualquiera. Antes se llamaba
 - **Bocetos**: se puede dibujar en la app o subir una foto.
 - **Notas fechadas**: funcionan como bitácora del proceso.
 - **Cierre**: al terminar una idea se completa qué funcionó, qué no y qué harías distinto.
-- **Sincronización con Google Drive** (opcional), con combinación de cambios entre dispositivos.
+- **Sincronización con Google Drive** (opcional), con combinación de cambios entre dispositivos. Los guardados se agrupan: se suben ~2,5 s después del último cambio (o al salir de la app) y un chip muestra "Saving… / ✓ Saved". Si cerrás con algo pendiente, avisa.
+- **Bienvenida en 3 pasos** (qué es, cómo usar la IA con o sin key —con guía para sacar la key gratis— y conectar Drive). Se abre la primera vez y desde "?".
+- **Ayudas "?"** al lado de Production plan, Brain dump/I'm stuck y Ask the director.
 - **Personalización**: tema Day/Night (Day por defecto; Night es una paleta marrón oscuro con letra crema), color de tapa del cuaderno y cartuchera, que es el header en celular.
 - **Exportar e importar** respaldos en JSON.
 - **Aviso de nueva versión y changelog** público ("What's new").
@@ -237,6 +239,7 @@ Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la prim
 ## 7. Decisiones tomadas (y por qué)
 
 - **Day es el tema por defecto** (no se sigue el modo oscuro del sistema). El autor prefiere Day y pidió el Night en tonos marrones cálidos, no violeta/azul.
+- **Guardado agrupado en vez de inmediato:** menos subidas del archivo entero; mientras tanto se guarda una copia en la caché local de Drive.
 - **Todo en un solo archivo de datos** (`ideary-data.json`, bocetos incluidos): el autor prefiere no partirlo en varios archivos para evitar complicaciones.
 
 - **Un solo archivo HTML y sin backend:** es simple de publicar en Pages y no junta datos de nadie.

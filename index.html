@@ -3542,6 +3542,31 @@ SHIPPING CHANGES
   html[data-theme="dark"][data-case="pencils"] { --pen: #a9c2ff; --accent: #a9c2ff; }
   html[data-theme="dark"][data-case="coral"] { --pen: #ffab9c; --accent: #ffab9c; }
   html[data-theme="dark"][data-case="black"] { --pen: #e8dcc6; --accent: #e8dcc6; }
+
+  #save-chip { position: fixed; right: 16px; bottom: 16px; z-index: 900; font-family: var(--hand); font-size: 1rem; padding: 4px 12px; border-radius: 999px;
+    background: var(--panel); color: var(--slate); border: 1px solid var(--line-strong); box-shadow: var(--card-shadow); transition: opacity .4s; pointer-events: none; }
+  #save-chip.saved { color: #2e8f4e; }
+  #save-chip.error { color: var(--rust); }
+  #save-chip.gone { opacity: 0; }
+  @media (max-width: 600px) { #save-chip { bottom: auto; top: calc(var(--hdr-h, 80px) + 8px); } }
+
+  .key-guide { margin: 4px 0 10px 18px; padding: 0; font-size: .88rem; line-height: 1.55; color: var(--ink); }
+  .key-guide li { margin-bottom: 3px; }
+  .key-guide a { color: var(--pen); }
+  .key-guide code { font-family: var(--mono); font-size: .8rem; background: var(--slate-soft); padding: 0 4px; border-radius: 3px; }
+  .tour-hero { font-size: 2.6rem; text-align: center; margin: 4px 0 8px; }
+  .tour-list { margin: 6px 0 0 18px; line-height: 1.7; }
+  .tour-opt { border: 1.5px dashed var(--line-strong); border-radius: 8px; padding: 10px 12px; margin: 10px 0; }
+  .tour-dots { display: flex; justify-content: center; gap: 8px; margin: 14px 0 10px; }
+  .tour-dots span { width: 9px; height: 9px; border-radius: 50%; background: var(--line-strong); }
+  .tour-dots span.on { background: var(--pen); transform: scale(1.25); }
+  .tour-nav { display: flex; justify-content: space-between; align-items: center; }
+  .hint { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%;
+    border: 1.3px solid currentColor; font: 700 11px/1 var(--sans); color: var(--slate); cursor: help; margin-left: 6px; flex-shrink: 0; opacity: .8; }
+  .hint:hover, .hint:focus { opacity: 1; outline: none; color: var(--pen); }
+  .hint:hover::after, .hint:focus::after { content: attr(data-tip); position: absolute; z-index: 50; top: 24px; right: -8px; width: 240px;
+    background: var(--panel); color: var(--ink); border: 1px solid var(--line-strong); box-shadow: var(--card-shadow); border-radius: 6px;
+    padding: 8px 10px; font: 400 .82rem/1.45 var(--sans); text-align: left; white-space: normal; }
 </style>
 </head>
 <body>
@@ -3755,7 +3780,14 @@ SHIPPING CHANGES
     </div>
     <div class="settings-section" id="settings-ai">
       <div class="settings-h">AI (Gemini)</div>
-      <div class="form-hint" style="margin-bottom:12px">Add your own free Gemini API key to chat with the AI inside Ideary. Get one at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--accent)">aistudio.google.com/apikey</a>. If you're connected to Google Drive, it's saved in your own Drive so you don't have to enter it again on other devices. Otherwise it stays only in this browser.</div>
+      <div class="form-hint" style="margin-bottom:8px">Add your own free Gemini key so the AI works right inside Ideary. How to get one (2 minutes):</div>
+      <ol class="key-guide">
+        <li>Open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> and sign in with any Google account.</li>
+        <li>Tap <strong>Create API key</strong> (if it asks, pick "Create in new project").</li>
+        <li>Copy the long key that appears (it starts with <code>AIza</code>).</li>
+        <li>Paste it below. It's free; Google only limits how many requests per minute.</li>
+      </ol>
+      <div class="form-hint" style="margin-bottom:12px">If you're connected to Google Drive, it's saved in your own Drive so you don't have to enter it again on other devices. Otherwise it stays only in this browser.</div>
       <input class="form-input" id="ai-key-input" type="password" autocomplete="off" placeholder="Gemini API key" style="font-size:16px">
     <div id="ai-key-status" style="min-height:1.4em;font-size:0.82rem;margin-top:8px;font-weight:600"></div>
     <button class="form-submit" id="ai-key-save-btn" onclick="saveAiKeyFromUI()">Save key</button>
@@ -4018,37 +4050,17 @@ SHIPPING CHANGES
 
 <!-- MODAL: How it works (onboarding) -->
 <div class="modal-overlay" id="howto-overlay">
-  <div class="modal-box" style="max-width:780px">
+  <div class="modal-box tour-box" style="max-width:560px">
     <div class="modal-head">
-      <div class="modal-title">How Ideary works</div>
+      <div class="modal-title" id="tour-title">Welcome to Ideary</div>
       <button class="modal-close" onclick="closeHowto()">&times;</button>
     </div>
-    <div class="howto-row">
-      <div class="howto-card">
-        <div class="howto-card-icon">💡</div>
-        <div class="howto-card-title">Capture</div>
-        <div class="howto-card-desc">Tap <strong>+</strong> to add any idea — film, drawing, recipe, anything.</div>
-      </div>
-      <div class="howto-arrow">→</div>
-      <div class="howto-card">
-        <div class="howto-card-icon">🤖</div>
-        <div class="howto-card-title">Develop with AI</div>
-        <div class="howto-card-desc">Tap <strong>Develop idea</strong> to build a full plan with Gemini, or copy the prompt into any AI.</div>
-      </div>
-      <div class="howto-arrow">→</div>
-      <div class="howto-card">
-        <div class="howto-card-icon">✅</div>
-        <div class="howto-card-title">Track progress</div>
-        <div class="howto-card-desc">Mark phases as done, check off open questions as you go.</div>
-      </div>
-      <div class="howto-arrow">→</div>
-      <div class="howto-card">
-        <div class="howto-card-icon">☁️</div>
-        <div class="howto-card-title">Sync</div>
-        <div class="howto-card-desc">Connect Google Drive to keep everything across all your devices.</div>
-      </div>
+    <div id="tour-body"></div>
+    <div class="tour-dots" id="tour-dots"></div>
+    <div class="tour-nav">
+      <button type="button" class="pw-skip" id="tour-back" onclick="tourGo(-1)">Back</button>
+      <button type="button" class="form-submit" id="tour-next" style="margin:0;width:auto;padding:10px 26px" onclick="tourGo(1)">Next</button>
     </div>
-    <button class="form-submit" style="margin-top:20px" onclick="closeHowto()">Got it</button>
   </div>
 </div>
 
@@ -4612,7 +4624,33 @@ function setSyncStatus(msg, isWarning) {
 // saveIdeas() always saves to local cache immediately (so the UI
 // never waits on the network), and also attempts to write to Drive
 // in the background if a session is already active.
+// Saving: changes are batched and written ~2.5s after the last edit (or
+// right away when the app is hidden/closed), always as ONE file. A small
+// "Saving… / ✓ Saved" chip shows the state.
+let saveTimer = null, savePending = false, saveInFlight = false;
+function stampWorkedOn() {
+  // "Last worked on": any idea whose content changed since the last save.
+  const now = new Date().toISOString();
+  IDEAS.forEach(i => {
+    const prev = lastSaved.get(i.id);
+    if (prev === undefined) { if (lastSaved.size && !i.actualizado) i.actualizado = now; return; }
+    const cur = JSON.stringify(Object.assign({}, i, { actualizado: undefined }));
+    let old; try { old = JSON.stringify(Object.assign({}, JSON.parse(prev), { actualizado: undefined })); } catch (e) { old = ""; }
+    if (cur !== old) {
+      i.actualizado = now;
+      if (i.proyectoId) { const p = IDEAS.find(x => x.id === i.proyectoId); if (p) p.actualizado = now; }
+    }
+  });
+}
+function showSaveChip(state) {
+  let el = document.getElementById("save-chip");
+  if (!el) { el = document.createElement("div"); el.id = "save-chip"; document.body.appendChild(el); }
+  el.className = state;
+  el.textContent = state === "saving" ? "Saving…" : state === "error" ? "⚠ Not saved — will retry" : "✓ Saved";
+  if (state === "saved") { clearTimeout(el._t); el._t = setTimeout(() => el.classList.add("gone"), 1600); }
+}
 function saveIdeas() {
+  stampWorkedOn();
   setTimeout(refreshLastSaved, 0);
   if (driveExpired) {
     // Session paused: keep edits in the Drive cache until reconnect.
@@ -4620,18 +4658,36 @@ function saveIdeas() {
     return;
   }
   if (driveReady && driveFileId && accessToken) {
-    // Drive mode: ideas live only in Drive + memory.
-    // Never write to localStorage so they don't leak to the next
-    // person who opens the app on this device without logging in.
-    driveSyncNow().catch(e => {
-      console.error("Could not save to Drive:", e);
-      setSyncStatus("Change not saved — Drive sync failed.", true);
-    });
+    // Drive mode: ideas live only in Drive + memory (never localStorage).
+    writeDriveCache(true); // safety copy until the batched upload lands
+    savePending = true;
+    showSaveChip("saving");
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(flushSave, 2500);
   } else {
-    // Anonymous mode: persist locally.
+    // Anonymous mode: persist locally (instant, no network).
     saveCachedIdeas();
   }
 }
+function flushSave() {
+  clearTimeout(saveTimer);
+  if (!savePending || saveInFlight || !(driveReady && driveFileId && accessToken)) return Promise.resolve();
+  savePending = false; saveInFlight = true;
+  return driveSyncNow().then(() => {
+    saveInFlight = false;
+    if (savePending) { saveTimer = setTimeout(flushSave, 800); } else showSaveChip("saved");
+  }).catch(e => {
+    console.error("Could not save to Drive:", e);
+    saveInFlight = false; savePending = true;
+    showSaveChip("error");
+    saveTimer = setTimeout(flushSave, 8000);
+  });
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushSave(); });
+window.addEventListener("pagehide", () => flushSave());
+window.addEventListener("beforeunload", (e) => {
+  if (savePending || saveInFlight) { flushSave(); e.preventDefault(); e.returnValue = ""; }
+});
 
 // connectGoogleDrive() is what the sidebar button triggers when
 // there's NO active session. If there are local ideas (created
@@ -6062,7 +6118,7 @@ function renderProjectView(p) {
   const colors = ["#fff3a8", "#ffd9df", "#cfe8ff", "#d6f2c9", "#ffe0b8", "#e6dcff"];
   const wall = `
     <div class="chapter-wall-head"><span class="block-title c-plan" style="margin:0">Chapters</span><span class="toc-total">${Math.round(total * 100)}% overall</span>
-      <button type="button" class="stuck-btn" style="margin:0" onclick="askDirector('${escapeAttr(p.id)}')">Ask the director</button></div>
+      <button type="button" class="stuck-btn" style="margin:0" onclick="askDirector('${escapeAttr(p.id)}')">Ask the director</button><span class="hint" tabindex="0" data-tip="An AI with experience in this kind of project checks that your chapters are in an order that makes sense, and points out missing stages. You decide what to apply.">?</span></div>
     <div class="chapter-wall">
       ${chs.map((c, k) => {
         const pr = Math.round(ideaProgress(c) * 100);
@@ -6300,7 +6356,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-18 07:50 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-18 08:30 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -6520,7 +6576,46 @@ async function submitBiImport() {
   goHome();
 }
 
+let tourStep = 0;
+const TOUR = [
+  { t: "Welcome to Ideary", h: `<div class="tour-hero">💡📓</div><p class="pw-lead">Ideary is a notebook for your creative ideas: a short film, a piece of furniture, a recipe, a game…</p>
+    <ul class="tour-list"><li><strong>Capture</strong> any idea with <strong>+</strong>.</li><li><strong>Develop idea</strong>: an AI that knows the craft turns it into a step-by-step plan, explaining how to do each step.</li><li><strong>Track</strong> it: tap a checkbox once = started (half filled), twice = done.</li><li>Big idea? Turn it into a <strong>project</strong> with chapters.</li></ul>` },
+  { t: "Your AI mentor", h: `<p class="pw-lead">The AI is free. You have two ways to use it:</p>
+    <div class="tour-opt"><strong>A · Inside Ideary (recommended)</strong><p class="pw-small">Get a free Gemini key once:</p><ol class="key-guide">\n        <li>Open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> and sign in with any Google account.</li>\n        <li>Tap <strong>Create API key</strong> (if it asks, pick "Create in new project").</li>\n        <li>Copy the long key that appears (it starts with <code>AIza</code>).</li>\n        <li>Paste it below. It\'s free; Google only limits how many requests per minute.</li>\n      </ol>
+    <input class="form-input" id="tour-key" type="password" placeholder="Paste your key here (optional)" style="font-size:16px"><div id="tour-key-st" class="pw-small" style="min-height:1.2em"></div></div>
+    <div class="tour-opt"><strong>B · With any AI you already use</strong><p class="pw-small">Without a key, every AI button copies a ready-made prompt. Paste it into ChatGPT, Claude, Gemini… and paste the answer back. That's it.</p></div>` },
+  { t: "Keep it everywhere", h: `<div class="tour-hero">☁️</div><p class="pw-lead">Your ideas live in this browser. Connect Google Drive to keep them safe and see them on your phone and computer.</p>
+    <p class="pw-small">Ideary only sees the one file it creates in your Drive. Nothing is sent anywhere else.</p>
+    <button type="button" class="sidebar-action-btn" style="width:100%" onclick="closeHowto();connectGoogleDrive()">Connect Google Drive</button>
+    <p class="pw-small" style="text-align:center;margin-top:8px">You can do it later from the sidebar.</p>` }
+];
+function renderTour() {
+  const st = TOUR[tourStep];
+  document.getElementById("tour-title").textContent = st.t;
+  document.getElementById("tour-body").innerHTML = st.h;
+  document.getElementById("tour-dots").innerHTML = TOUR.map((_, k) => `<span class="${k === tourStep ? "on" : ""}"></span>`).join("");
+  document.getElementById("tour-back").style.visibility = tourStep ? "visible" : "hidden";
+  document.getElementById("tour-next").textContent = tourStep === TOUR.length - 1 ? "Start" : "Next";
+  const ki = document.getElementById("tour-key");
+  if (ki && geminiKey) { ki.placeholder = "✓ You already have a key saved"; }
+}
+async function tourGo(d) {
+  const ki = document.getElementById("tour-key");
+  if (d > 0 && ki && ki.value.trim()) {
+    const st = document.getElementById("tour-key-st");
+    st.textContent = "Checking key…";
+    const inp = document.getElementById("ai-key-input"); if (inp) inp.value = ki.value.trim();
+    await saveAiKeyFromUI();
+    const res = document.getElementById("ai-key-status");
+    st.textContent = res ? res.textContent : "";
+    if (!geminiKey) return;
+  }
+  if (d > 0 && tourStep === TOUR.length - 1) return closeHowto();
+  tourStep = Math.max(0, Math.min(TOUR.length - 1, tourStep + d));
+  renderTour();
+}
 function openHowto() {
+  tourStep = 0; renderTour();
   document.getElementById("howto-overlay").classList.add("open");
   if (STORAGE_OK) {
     try { localStorage.setItem(HOWTO_SEEN_KEY, "1"); } catch(e) {}
@@ -8383,7 +8478,7 @@ function renderDetailReadMode(idea) {
 
   const fasesHtml = fasesArray.length ? `
     <div class="detail-block">
-      <div class="block-title c-plan" style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="display:flex;align-items:center;gap:8px"><span class="dot" style="background:var(--accent)"></span>Production plan</span><span style="display:flex;gap:6px"><button type="button" class="stuck-btn" style="margin:0" onclick="openBrainDump('${escapeAttr(idea.id)}')">Brain dump</button><button type="button" class="stuck-btn" style="margin:0" onclick="openStuck('${escapeAttr(idea.id)}')">I'm stuck</button></span></div>
+      <div class="block-title c-plan" style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="display:flex;align-items:center;gap:8px"><span class="dot" style="background:var(--accent)"></span>Production plan<span class="hint" tabindex="0" data-tip="Tap a checkbox once = started (half filled), twice = done, again = empty. Tap a step&#39;s text or Help to work on it with a tutor.">?</span></span><span style="display:flex;gap:6px;align-items:center"><span class="hint" tabindex="0" data-tip="Brain dump: paste messy notes and the AI orders them into steps. I&#39;m stuck: the AI explains a step in a different way.">?</span><button type="button" class="stuck-btn" style="margin:0" onclick="openBrainDump('${escapeAttr(idea.id)}')">Brain dump</button><button type="button" class="stuck-btn" style="margin:0" onclick="openStuck('${escapeAttr(idea.id)}')">I'm stuck</button></span></div>
       ${fasesArray.map((fase, idx) => `
         <div class="phase">
           <div class="phase-head">
