@@ -34,6 +34,9 @@ Es pública y gratuita, sin backend, y puede usarla cualquiera. Antes se llamaba
 - **Notas fechadas**: funcionan como bitácora del proceso.
 - **Cierre**: al terminar una idea se completa qué funcionó, qué no y qué harías distinto.
 - **Sincronización con Google Drive** (opcional), con combinación de cambios entre dispositivos. Los guardados se agrupan: se suben ~2,5 s después del último cambio (o al salir de la app) y un chip muestra "Saving… / ✓ Saved". Si cerrás con algo pendiente, avisa.
+- **Today** (Home): los 1–3 próximos pasos de lo que está In progress (uno por proyecto), primero lo que vence antes y después lo último trabajado. Tocar uno abre ese paso con el tutor.
+- **Fechas**: fecha objetivo opcional (`fechaObjetivo`, "YYYY-MM-DD") en ideas, proyectos y capítulos (badge 📅, avisa "soon"/"overdue"). "Last worked on" automático (`actualizado`, ISO) y 💤 en ideas sin cambios hace 3+ semanas.
+- **Botón "Next step →"** flotante en celular: abre directo el próximo paso sin terminar con el tutor.
 - **Bienvenida en 3 pasos** (qué es, cómo usar la IA con o sin key —con guía para sacar la key gratis— y conectar Drive). Se abre la primera vez y desde "?".
 - **Ayudas "?"** al lado de Production plan, Brain dump/I'm stuck y Ask the director.
 - **Personalización**: tema Day/Night (Day por defecto; Night es una paleta marrón oscuro con letra crema), color de tapa del cuaderno y cartuchera, que es el header en celular.
@@ -181,6 +184,8 @@ Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la prim
     ],
     "cosasAResolver": [{ "texto": "¿Qué barniz uso?", "resuelto": false }],
     "bocetos": [{ "src": "data:image/png;base64,...", "fecha": "2026-10-11T10:00:00.000Z" }],
+    "fechaObjetivo": "2026-11-30",
+    "actualizado": "2026-10-12T09:00:00.000Z",
     "historial": [{ "fecha": "2026-10-12T09:00:00.000Z", "fuente": "Brain dump", "cambios": ["Added phase \"Lijado\""] }]
   },
   {

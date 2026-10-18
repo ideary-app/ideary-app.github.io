@@ -3567,6 +3567,29 @@ SHIPPING CHANGES
   .hint:hover::after, .hint:focus::after { content: attr(data-tip); position: absolute; z-index: 50; top: 24px; right: -8px; width: 240px;
     background: var(--panel); color: var(--ink); border: 1px solid var(--line-strong); box-shadow: var(--card-shadow); border-radius: 6px;
     padding: 8px 10px; font: 400 .82rem/1.45 var(--sans); text-align: left; white-space: normal; }
+
+  .badge-due { border: 1.5px dashed var(--line-strong); background: transparent; color: var(--slate); cursor: pointer; font: inherit; font-size: .78rem; }
+  .badge-due:not(.empty) { border-style: solid; color: var(--ink); }
+  .badge-due.soon { border-color: #d9a43a; color: #9a6a00; }
+  .badge-due.late { border-color: var(--rust); color: var(--rust); }
+  .badge-worked { background: transparent; color: var(--slate); font-size: .78rem; }
+  .badge-worked.dormant { color: #8a6a3c; }
+  .ch-due { font-size: .78rem; opacity: .8; } .ch-due.late { color: #b0323f; opacity: 1; }
+  .next-fab { position: fixed; right: 16px; bottom: 18px; z-index: 80; font-family: var(--hand); font-size: 1.15rem; padding: 10px 18px; border: none; border-radius: 999px;
+    background: var(--pen); color: #fff; box-shadow: 0 6px 16px rgba(0,0,0,.25); cursor: pointer; }
+  html[data-theme="dark"] .next-fab { color: #241b14; }
+  @media (min-width: 1000px) { .next-fab { display: none; } }
+  .today-card { background: var(--panel); border-radius: 3px; padding: 16px 20px 12px; margin: 0 0 22px; box-shadow: var(--card-shadow); position: relative;
+    background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 39px, var(--rule) 39px, var(--rule) 40px); background-position: 0 30px; }
+  .today-card::after { content: ""; position: absolute; top: -10px; left: 28px; width: 80px; height: 20px; background: var(--tape); transform: rotate(-3deg); }
+  .today-head { font-family: var(--hand); font-size: 1.5rem; color: var(--pen); margin-bottom: 4px; }
+  .today-head span { font-size: 1rem; color: var(--slate); }
+  .today-item { display: flex; gap: 12px; align-items: flex-start; padding: 6px 0; cursor: pointer; min-height: 40px; }
+  .today-item:hover .today-step { color: var(--pen); }
+  .today-box { width: 18px; height: 18px; border: 2px solid var(--ink); border-radius: 3px; margin-top: 3px; flex-shrink: 0; }
+  .today-step { font-family: var(--hand); font-size: 1.15rem; line-height: 1.2; }
+  .today-meta { font-size: .8rem; color: var(--slate); }
+  .today-meta .soon { color: #9a6a00; } .today-meta .late { color: var(--rust); }
 </style>
 </head>
 <body>
@@ -5640,6 +5663,89 @@ function nextStepOf(i) {
   }
   return null;
 }
+
+/* ---- Time: target dates, last worked on, dormant ideas ---- */
+function nextStepRef(i) {
+  const fs = i.fases || [];
+  for (let f = 0; f < fs.length; f++) for (let k = 0; k < (fs[f].pasos || []).length; k++) {
+    const st = fs[f].pasos[k];
+    if (((typeof st === "object" && st.hecho) || 0) < 2) return { f, s: k, texto: typeof st === "string" ? st : st.texto, fase: fs[f].nombre };
+  }
+  return null;
+}
+function daysSince(iso) { return iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 864e5) : null; }
+function daysUntil(ymd) { if (!ymd) return null; const d = new Date(ymd + "T23:59:59"); return Math.ceil((d.getTime() - Date.now()) / 864e5); }
+function agoText(iso) { const d = daysSince(iso); return d == null ? "" : d <= 0 ? "today" : d === 1 ? "yesterday" : d < 30 ? d + " days ago" : Math.round(d / 30) + " mo ago"; }
+function isDormant(i) { return (i.estado === "en-curso" || i.estado === "idea") && i.actualizado && daysSince(i.actualizado) >= 21; }
+function dueBadgeHtml(i) {
+  const n = daysUntil(i.fechaObjetivo);
+  const label = i.fechaObjetivo ? (n < 0 ? `Overdue ${-n}d` : n === 0 ? "Due today" : `Due ${fmtShortDate(i.fechaObjetivo + "T12:00:00")}`) : "Set a target date";
+  const cls = !i.fechaObjetivo ? "empty" : n < 0 ? "late" : n <= 7 ? "soon" : "";
+  return `<button type="button" class="badge badge-due ${cls}" onclick="pickDueDate('${escapeAttr(i.id)}')" title="Target date">📅 ${label}</button>`;
+}
+function workedBadgeHtml(i) {
+  if (!i.actualizado) return "";
+  return `<span class="badge badge-worked ${isDormant(i) ? "dormant" : ""}" title="Last worked on">${isDormant(i) ? "💤 " : "✎ "}${agoText(i.actualizado)}</span>`;
+}
+function pickDueDate(id) {
+  const idea = IDEAS.find(i => i.id === id);
+  if (!idea) return;
+  const inp = document.createElement("input");
+  inp.type = "date"; inp.value = idea.fechaObjetivo || "";
+  inp.style.cssText = "position:fixed;left:50%;top:40%;opacity:0;width:1px;height:1px";
+  document.body.appendChild(inp);
+  const done = () => { idea.fechaObjetivo = inp.value || undefined; if (!inp.value) delete idea.fechaObjetivo; inp.remove(); saveIdeas(); render(); };
+  inp.addEventListener("change", done, { once: true });
+  inp.addEventListener("blur", () => setTimeout(() => inp.remove(), 300), { once: true });
+  try { inp.showPicker(); } catch (e) { inp.style.opacity = 1; inp.style.width = "auto"; inp.style.height = "auto"; inp.focus(); }
+}
+function goNextStep(id) {
+  const idea = IDEAS.find(i => i.id === id);
+  if (!idea) return;
+  if (isProject(idea)) {
+    const ch = projectChapters(idea).find(c => c.estado !== "completada" && ideaProgress(c) < 1);
+    if (ch) { openDetail(ch.id); const r = nextStepRef(ch); if (r) setTimeout(() => openStepHelp(ch.id, r.f, r.s), 250); }
+    return;
+  }
+  const r = nextStepRef(idea);
+  if (r) openStepHelp(idea.id, r.f, r.s);
+}
+function nextFabHtml(idea) {
+  const has = isProject(idea) ? projectChapters(idea).some(c => nextStepRef(c)) : !!nextStepRef(idea);
+  return has ? `<button type="button" class="next-fab" onclick="goNextStep('${escapeAttr(idea.id)}')">Next step →</button>` : "";
+}
+/* Today: the next 1–3 steps across what you're working on */
+function todayItems() {
+  const pool = IDEAS.filter(i => i.estado === "en-curso" && !isProject(i) && i.estado !== "eliminada");
+  const items = [];
+  pool.forEach(i => {
+    const r = nextStepRef(i);
+    if (!r) return;
+    const proj = isChapter(i) ? IDEAS.find(x => x.id === i.proyectoId) : null;
+    if (proj && proj.estado === "eliminada") return;
+    const due = daysUntil(i.fechaObjetivo || (proj && proj.fechaObjetivo));
+    items.push({ i, r, proj, due, last: new Date(i.actualizado || (proj && proj.actualizado) || 0).getTime() });
+  });
+  // one per project (its current chapter), soonest due first, then most recently worked
+  const seen = new Set(), out = [];
+  items.sort((a, b) => ((a.due ?? 9999) - (b.due ?? 9999)) || (b.last - a.last)).forEach(x => {
+    const k = x.proj ? x.proj.id : x.i.id;
+    if (!seen.has(k)) { seen.add(k); out.push(x); }
+  });
+  return out.slice(0, 3);
+}
+function todayHtml() {
+  const t = todayItems();
+  if (!t.length) return "";
+  return `<div class="today-card">
+    <div class="today-head">Today <span>— pick one and do it</span></div>
+    ${t.map(x => `<div class="today-item" onclick="openDetail('${escapeAttr(x.i.id)}');setTimeout(()=>openStepHelp('${escapeAttr(x.i.id)}',${x.r.f},${x.r.s}),250)">
+      <span class="today-box"></span>
+      <div><div class="today-step">${escapeHtml(x.r.texto)}</div>
+      <div class="today-meta">${x.proj ? "▤ " + escapeHtml(x.proj.titulo) + " · " : ""}${escapeHtml(x.i.titulo)}${x.due != null ? ` · <span class="${x.due < 0 ? "late" : x.due <= 7 ? "soon" : ""}">${x.due < 0 ? "overdue" : x.due === 0 ? "due today" : "due in " + x.due + "d"}</span>` : ""}</div></div>
+    </div>`).join("")}
+  </div>`;
+}
 function backBtnHtml(idea) {
   const proj = isChapter(idea) && IDEAS.find(x => x.id === idea.proyectoId);
   if (proj) return `<button class="back-btn" onclick="openDetail('${escapeAttr(proj.id)}')">&larr; ${escapeHtml(proj.titulo)}</button>`;
@@ -6130,6 +6236,7 @@ function renderProjectView(p) {
           <div class="ch-bar"><span style="width:${pr}%"></span></div>
           <div class="ch-meta"><span>${c.estado === "completada" ? "✓ Done" : st.label}</span><span>${pr}%</span></div>
           ${nx && c.estado !== "completada" ? `<div class="ch-next">→ ${escapeHtml(nx.texto)}</div>` : ""}
+          ${c.fechaObjetivo && c.estado !== "completada" ? `<div class="ch-due ${daysUntil(c.fechaObjetivo) < 0 ? "late" : ""}">📅 ${fmtShortDate(c.fechaObjetivo + "T12:00:00")}</div>` : ""}
           <div class="ch-move" onclick="event.stopPropagation()">
             <button type="button" title="Move earlier" onclick="moveChapter('${escapeAttr(p.id)}','${escapeAttr(c.id)}',-1)" ${k === 0 ? "disabled" : ""}>←</button>
             <button type="button" title="Move later" onclick="moveChapter('${escapeAttr(p.id)}','${escapeAttr(c.id)}',1)" ${k === chs.length - 1 ? "disabled" : ""}>→</button>
@@ -6179,7 +6286,7 @@ function renderProjectView(p) {
         </li>`).join("")}</ul>
       <button class="resolve-add-btn" onclick="addResolverItem('${p.id}')">+ Add thing to figure out</button>
     </div>`;
-  return `
+  return `${nextFabHtml(p)}
     <div class="detail-sticky-top" id="detail-sticky-header">
       <div class="detail-top-row" style="margin-top:0;padding-top:24px">
         <button class="back-btn" onclick="goHome()">&larr; Back to Home</button>
@@ -6194,6 +6301,7 @@ function renderProjectView(p) {
           <span class="badge badge-chapter">▤ Project · ${chs.length} chapters</span>
           <span class="badge badge-status" style="background:${cfg.soft};color:${cfg.color}">${cfg.label}</span>
           <span class="badge badge-cat" style="background:var(--slate-soft);color:var(--slate)">${escapeHtml(p.categoria)}</span>
+          ${dueBadgeHtml(p)}${workedBadgeHtml(p)}
           <button type="button" class="undo-project" onclick="revertProject('${escapeAttr(p.id)}')">Turn back into a single idea</button>
         </div>
       </div>
@@ -6356,7 +6464,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-18 08:30 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-18 09:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -8161,7 +8269,7 @@ function renderStatusCardsOnly() {
         <div class="status-name">${cfg.label}</div>
         <div class="status-preview">
           ${preview.map(i => {
-            if (!isProject(i)) return `<div>${escapeHtml(i.titulo)}</div>`;
+            if (!isProject(i)) return `<div>${isDormant(i) ? '<span title="No changes in 3+ weeks">💤 </span>' : ''}${escapeHtml(i.titulo)}</div>`;
             const chs = projectChapters(i), done = chs.filter(c => c.estado === "completada").length;
             return `<div><span class="pv-proj">▤ ${escapeHtml(i.titulo)}</span><span class="pv-prog">${done}/${chs.length} ch.</span></div>`;
           }).join("") || `<div style="opacity:0.5">${homeFilter === "projects" ? "No projects" : "No ideas yet"}</div>`}
@@ -8181,7 +8289,7 @@ function renderStatusCardsOnly() {
       <div class="howto-status-cta">Learn more →</div>
     </div>`;
 
-  return `${homeFilterHtml()}
+  return `${todayHtml()}${homeFilterHtml()}
     <div class="home-row-wrap"><div class="status-grid-row">
       <div class="status-grid">${statusCards}</div>
       <div class="status-howto-divider"></div>
@@ -8540,7 +8648,7 @@ function renderDetailReadMode(idea) {
       <input class="note-quick-add" placeholder="+ Jot a note… (Enter)" onkeydown="if(event.key==='Enter'){event.preventDefault();quickAddNote('${escapeAttr(idea.id)}',this.value)}">
     </div>`;
 
-  return `
+  return `${nextFabHtml(idea)}
     <div class="detail-sticky-top" id="detail-sticky-header">
       <div class="detail-top-row" style="margin-top:0;padding-top:24px">
         ${backBtnHtml(idea)}
@@ -8557,6 +8665,7 @@ function renderDetailReadMode(idea) {
           <span class="badge badge-status" style="background:${cfg.soft};color:${cfg.color}">${cfg.label}</span>
           <span class="badge badge-cat" style="background:var(--slate-soft);color:var(--slate)">${escapeHtml(idea.categoria)}</span>
           ${isChapter(idea) ? chapterBadgeHtml(idea) : ""}
+          ${dueBadgeHtml(idea)}${workedBadgeHtml(idea)}
         </div>
         ${isChapter(idea) ? chapterNavHtml(idea) : ""}
       </div>
