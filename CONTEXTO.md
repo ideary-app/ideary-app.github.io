@@ -29,12 +29,12 @@ Es pública y gratuita, sin backend, y puede usarla cualquiera. Antes se llamaba
 - **Filtro de la Home**: All / Projects / Ideas. Se recuerda la última opción. En los proyectos se muestra el avance de capítulos.
 - **Director**: la IA revisa el orden de los capítulos y propone mover o agregar capítulos, además de avisos. El usuario aplica o ignora cada sugerencia. La app valida la coherencia del orden (ver la sección 7).
 - **Explain this stage**: en cada capítulo, la IA escribe una explicación de esa etapa con tono de profesor.
-- **Change log**: un historial de los cambios hechos por la IA en cada idea.
+- **Change log con Undo**: un historial de los cambios hechos por la IA en cada idea. Los últimos 5 cambios de IA tienen un botón "↶ Undo" que devuelve la idea (y los capítulos, si es un proyecto) a como estaba antes. Los bocetos no se tocan.
 - **Bocetos**: se puede dibujar en la app o subir una foto.
 - **Notas fechadas**: funcionan como bitácora del proceso.
 - **Cierre**: al terminar una idea se completa qué funcionó, qué no y qué harías distinto.
 - **Sincronización con Google Drive** (opcional), con combinación de cambios entre dispositivos.
-- **Personalización**: tema Day/Night, color de tapa del cuaderno y cartuchera, que es el header en celular.
+- **Personalización**: tema Day/Night (Day por defecto; Night es una paleta marrón oscuro con letra crema), color de tapa del cuaderno y cartuchera, que es el header en celular.
 - **Exportar e importar** respaldos en JSON.
 - **Aviso de nueva versión y changelog** público ("What's new").
 
@@ -117,12 +117,13 @@ Todo tiene un aire hecho a mano y algo rotado.
 - cinta `rgba(236,214,150,.72)` (y celeste `rgba(160,196,232,.72)`);
 - tapa `#121212`.
 
-**Paleta (Night)**
-- tinta `#e7e4dc`;
-- birome `#8fb0ff`;
-- papel `#1b1c22`;
-- ficha `#25262e`;
-- post-it `#4a4425`.
+**Paleta (Night, "lámpara de escritorio")**
+- tinta crema `#f1e6d2`;
+- papel nogal `#241b14`;
+- ficha `#2f241b`;
+- líneas `#463627`;
+- birome ámbar `#e6b47c` (con cartuchera de color, una versión clara de ese color);
+- post-it `#5a4a24`.
 
 **Color principal:** `--pen` sale de `--brand`, que depende de la cartuchera elegida (`html[data-case]`): mint, checker, stripes, polka, pencils, coral, black o leather. Las tapas pueden ser black, white, blue, green, red, purple o yellow.
 
@@ -234,6 +235,9 @@ Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la prim
 - **Google OAuth:** el client ID de Google está en el código (`GOOGLE_CLIENT_ID`), con permiso `drive.file` y email.
 
 ## 7. Decisiones tomadas (y por qué)
+
+- **Day es el tema por defecto** (no se sigue el modo oscuro del sistema). El autor prefiere Day y pidió el Night en tonos marrones cálidos, no violeta/azul.
+- **Todo en un solo archivo de datos** (`ideary-data.json`, bocetos incluidos): el autor prefiere no partirlo en varios archivos para evitar complicaciones.
 
 - **Un solo archivo HTML y sin backend:** es simple de publicar en Pages y no junta datos de nadie.
 - **Campos en español que no se renombran:** los datos guardados por los usuarios dependen de esos nombres.

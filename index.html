@@ -3402,7 +3402,8 @@ SHIPPING CHANGES
   .history-block summary::-webkit-details-marker { display: none; }
   .history-block[open] summary { margin-bottom: 10px; }
   .hist-entry { padding: 8px 0; border-top: 1.5px dashed var(--line); }
-  .hist-head { display: flex; justify-content: space-between; font-family: var(--hand); font-size: 1.05rem; color: var(--pen); }
+  .hist-head .note-date { margin-left: auto; }
+  .hist-head { display: flex; gap: 8px; align-items: center; font-family: var(--hand); font-size: 1.05rem; color: var(--pen); }
   .hist-entry ul { margin: 4px 0 0 18px; padding: 0; font-size: .85rem; color: var(--slate); }
 
   /* ---- Step workspace ---- */
@@ -3460,6 +3461,8 @@ SHIPPING CHANGES
   .home-filter button:hover { filter: none; }
   .status-preview .pv-proj { font-weight: 600; }
   .status-preview .pv-prog { opacity: .65; font-size: .78rem; margin-left: 4px; white-space: nowrap; }
+  .hist-undo { margin-left: auto; background: none; border: 1px dashed var(--line-strong); border-radius: 6px; padding: 0 8px; font-family: var(--hand); font-size: .95rem; color: var(--pen); cursor: pointer; }
+  .hist-undo:hover { border-style: solid; }
   .sug-preview { font-size: .8rem; color: var(--slate); margin: 2px 0 8px; line-height: 1.6; }
   .sug-preview .hl { color: var(--pen); font-weight: 700; }
   .sug-warn { font-size: .85rem; color: #b0323f; margin: 2px 0 8px; }
@@ -3510,6 +3513,35 @@ SHIPPING CHANGES
   }
 
   .sug-note { background: rgba(255, 220, 120, .18); border-radius: 4px; padding: 10px; }
+
+  /* ---- Night = desk lamp: dark walnut paper, cream ink (overrides older night palettes) ---- */
+  html[data-theme="dark"] {
+    --ink: #f1e6d2;
+    --paper: #241b14;
+    --panel: #2f241b;
+    --line: #463627;
+    --line-strong: #5d4835;
+    --rule: rgba(240, 220, 190, .07);
+    --margin-line: rgba(214, 120, 100, .35);
+    --slate: #c2b09a;
+    --slate-soft: #3a2d22;
+    --postit: #5a4a24;
+    --postit-pink: #5b3530;
+    --postit-ink: #f6ead2;
+    --tape: rgba(222, 192, 132, .30);
+    --tape-blue: rgba(150, 180, 210, .28);
+    --amber-soft: #3d2f1f;
+    --rust-soft: #45281f;
+    --card-shadow: 0 6px 16px rgba(0,0,0,.4);
+    --pen: #e6b47c; --pen-dark: #f0c897; --accent: #e6b47c; --accent-hover: #f0c897; --accent-soft: #46331f;
+  }
+  html[data-theme="dark"][data-case="mint"] { --pen: #8fd6c5; --accent: #8fd6c5; }
+  html[data-theme="dark"][data-case="checker"] { --pen: #c6b2f0; --accent: #c6b2f0; }
+  html[data-theme="dark"][data-case="stripes"] { --pen: #f3a6b9; --accent: #f3a6b9; }
+  html[data-theme="dark"][data-case="polka"] { --pen: #aebfee; --accent: #aebfee; }
+  html[data-theme="dark"][data-case="pencils"] { --pen: #a9c2ff; --accent: #a9c2ff; }
+  html[data-theme="dark"][data-case="coral"] { --pen: #ffab9c; --accent: #ffab9c; }
+  html[data-theme="dark"][data-case="black"] { --pen: #e8dcc6; --accent: #e8dcc6; }
 </style>
 </head>
 <body>
@@ -4581,6 +4613,7 @@ function setSyncStatus(msg, isWarning) {
 // never waits on the network), and also attempts to write to Drive
 // in the background if a session is already active.
 function saveIdeas() {
+  setTimeout(refreshLastSaved, 0);
   if (driveExpired) {
     // Session paused: keep edits in the Drive cache until reconnect.
     writeDriveCache(true);
@@ -4712,11 +4745,8 @@ function toggleTheme() {
 (function initTheme() {
   let saved = null;
   if (STORAGE_OK) { try { saved = localStorage.getItem(THEME_KEY); } catch(e) {} }
-  if (saved) {
-    applyTheme(saved);
-  } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
-    applyTheme("dark");
-  }
+  // Day is the default; Night only if the person picked it.
+  if (saved) applyTheme(saved);
 })();
 
 /* ==================================================================
@@ -5205,18 +5235,51 @@ function diffPlan(before, after) {
   (before || []).forEach(f => { if (!aNames.has((f.nombre || "").trim().toLowerCase())) out.push(`Removed phase "${f.nombre}"`); });
   return out;
 }
+/* Undo for AI changes: lastSaved holds every idea as it was at the last
+   save/render, i.e. right BEFORE the change being logged. AI entries keep
+   that snapshot (the idea, plus its chapters for a project) so they can be
+   reverted. Sketches are left out of the snapshot (they're kept as they are). */
+let lastSaved = new Map();
+function refreshLastSaved() { lastSaved = new Map(IDEAS.map(i => [i.id, JSON.stringify(i)])); }
+function snapForUndo(idea) {
+  const strip = j => { const o = JSON.parse(j); delete o.bocetos; delete o.historial; return o; };
+  const ids = [idea.id].concat(isProject(idea) ? [...lastSaved.keys()].filter(id => { try { return JSON.parse(lastSaved.get(id)).proyectoId === idea.id; } catch (e) { return false; } }) : []);
+  return ids.filter(id => lastSaved.has(id)).map(id => strip(lastSaved.get(id)));
+}
 function logChanges(idea, source, items) {
   if (!items || !items.length) return;
   idea.historial = idea.historial || [];
-  idea.historial.unshift({ fecha: new Date().toISOString(), fuente: source, cambios: items.slice(0, 40) });
+  const entry = { fecha: new Date().toISOString(), fuente: source, cambios: items.slice(0, 40) };
+  if (source !== "You" && lastSaved.has(idea.id)) entry.antes = snapForUndo(idea);
+  idea.historial.unshift(entry);
   idea.historial = idea.historial.slice(0, 30);
+  idea.historial.forEach((e, k) => { if (k >= 5) delete e.antes; });
+}
+async function undoAiChange(ideaId, k) {
+  const idea = IDEAS.find(i => i.id === ideaId);
+  const e = idea && idea.historial && idea.historial[k];
+  if (!e || !e.antes) return;
+  const ok = await showConfirm(`This puts "${idea.titulo}" back the way it was before this change (${e.fuente}, ${fmtShortDate(e.fecha)}). Anything you changed after it on the same plan is lost too.`, { title: "Undo this change?", confirmLabel: "Undo", danger: false });
+  if (!ok) return;
+  const keepIds = new Set(e.antes.map(o => o.id));
+  if (isProject(idea)) IDEAS = IDEAS.filter(i => i.proyectoId !== idea.id || keepIds.has(i.id));
+  e.antes.forEach(o => {
+    const k2 = IDEAS.findIndex(i => i.id === o.id);
+    const cur = k2 >= 0 ? IDEAS[k2] : null;
+    const restored = Object.assign({}, o, { bocetos: cur ? cur.bocetos : o.bocetos, historial: cur ? cur.historial : [] });
+    if (k2 >= 0) IDEAS[k2] = restored; else IDEAS.push(restored);
+  });
+  const now = IDEAS.find(i => i.id === ideaId);
+  now.historial = (now.historial || []).filter(x => x !== e);
+  now.historial.unshift({ fecha: new Date().toISOString(), fuente: "You", cambios: ["Undid: " + e.cambios[0] + (e.cambios.length > 1 ? " (+" + (e.cambios.length - 1) + " more)" : "")] });
+  saveIdeas(); render();
 }
 function renderHistoryBlock(idea) {
   const hist = idea.historial || [];
   if (!hist.length) return "";
   return `<details class="detail-block history-block">
     <summary class="block-title c-plan">Change log <span class="toc-total">${hist.length}</span></summary>
-    ${hist.map(e => `<div class="hist-entry"><div class="hist-head"><span>${escapeHtml(e.fuente)}</span><span class="note-date">${escapeHtml(fmtShortDate(e.fecha))}</span></div>
+    ${hist.map((e, k) => `<div class="hist-entry"><div class="hist-head"><span>${escapeHtml(e.fuente)}</span><span class="note-date">${escapeHtml(fmtShortDate(e.fecha))}</span>${e.antes ? `<button type="button" class="hist-undo" onclick="undoAiChange('${escapeAttr(idea.id)}',${k})">↶ Undo</button>` : ""}</div>
       <ul>${e.cambios.slice(0, 12).map(c => `<li>${escapeHtml(c)}</li>`).join("")}${e.cambios.length > 12 ? `<li>…and ${e.cambios.length - 12} more</li>` : ""}</ul></div>`).join("")}
   </details>`;
 }
@@ -6237,7 +6300,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-18 07:20 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-18 07:50 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -8713,6 +8776,7 @@ function closePhasePicker() {
 }
 window.addEventListener("scroll", () => { if (openPhasePickerId) closePhasePicker(); }, { passive: true });
 function render() {
+  setTimeout(refreshLastSaved, 0);
   closePhasePicker();
   document.body.dataset.view = (view === "detalle" && !IDEAS.find(i => i.id === viewParam)) ? "home" : view;
   renderSidebar();
