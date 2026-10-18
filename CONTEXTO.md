@@ -1,6 +1,6 @@
 # Ideary — CONTEXTO
 
-**Última actualización:** 2026-10-18 (versión 1.1.0)
+**Última actualización:** 2026-10-18 (versión 1.2.0)
 
 Este archivo sirve para entender Ideary sin haber leído las charlas en las que se construyó. Ideary es una app independiente: no comparte datos con las otras apps del autor (Receater, el inventario de casa). Solo va a aparecer como una entrada más en el futuro hub común.
 
@@ -270,5 +270,7 @@ Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la prim
 ## 8. Pendientes e ideas a futuro
 
 - **Integración con el hub:** solo como acceso desde el hub común. Sin compartir datos.
-- **Por revisar:** los márgenes del header en algunas pantallas de desktop. Se ajustaron, pero hay que confirmarlo con el autor.
+- **Respaldo automático** en Drive (descartado por ahora por el autor).
+- **Link en vivo para compartir:** requeriría un servidor; hoy se comparte una copia (PDF, página .html o texto).
+- **Regla de diseño de superficies:** fichas (bloques con cinta) para información; post-its (amarillo/rosa) para lo que escribe el usuario (notas, cosas a resolver, capítulos); cinta solo en elementos destacados. Respetarla en UI nueva.
 - **Regla de mantenimiento:** cada cambio de la app tiene que actualizar este `CONTEXTO.md` en el mismo commit.

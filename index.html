@@ -2617,7 +2617,7 @@ SHIPPING CHANGES
     border-radius: 3px;
     box-shadow: 0 3px 10px rgba(0,0,0,.5);
   }
-  [data-theme="dark"] .sidebar-label { background-color: #25262e; outline-color: #25262e; color: #e7e4dc; border-color: #000; }
+  [data-theme="dark"] .sidebar-label { background-color: var(--panel); outline-color: var(--panel); color: var(--ink); border-color: #000; }
   .sidebar-label .nav-section { border-top: 1.5px dashed var(--line-strong); padding-top: 14px; }
   .sidebar .brand-row { margin-bottom: 12px; }
   .sidebar .brand, [data-theme="dark"] .sidebar .brand { color: var(--ink); }
@@ -2933,7 +2933,7 @@ SHIPPING CHANGES
   body[data-view="home"] .home-create-btn { box-shadow: 3px 4px 0 rgba(0,0,0,.5); }
   body[data-view="home"] .search-result-idea { background: var(--panel); }
   body[data-view="home"] .status-card { background: #fbf5e1; }
-  [data-theme="dark"] body[data-view="home"] .status-card { background: #25262e; }
+  [data-theme="dark"] body[data-view="home"] .status-card { background: var(--panel); }
   .status-card { border-width: 3px !important; }
 
   /* ---- Sidebar: the notebook's index page, spiral-bound ---- */
@@ -3147,7 +3147,7 @@ SHIPPING CHANGES
     padding: 4px 12px; border-radius: 3px; transform: rotate(-1deg);
     box-shadow: 0 2px 4px rgba(0,0,0,.3); margin-bottom: 12px;
   }
-  [data-theme="dark"] body[data-view="home"] .section-label { background: #25262e; color: #e7e4dc !important; }
+  [data-theme="dark"] body[data-view="home"] .section-label { background: var(--panel); color: var(--ink) !important; }
   .install-banner {
     background: var(--postit) !important; color: var(--postit-ink) !important;
     border: none !important; border-radius: 2px 2px 16px 2px !important;
@@ -3609,6 +3609,13 @@ SHIPPING CHANGES
   .ref-chip { font-size: .8rem; padding: 3px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--pen); text-decoration: none; border: 1px solid transparent; }
   .ref-chip:hover { border-color: var(--pen); }
   .ai-usage { margin-top: 6px; } .ai-usage a { color: var(--pen); }
+
+  /* hide floating bits while a dialog is open */
+  body:has(.modal-overlay.open) .next-fab, body:has(.modal-overlay.open) #save-chip { display: none; }
+  html[data-theme="dark"] .ch-postit:not(.ch-add) { filter: brightness(.68) saturate(.85); }
+  html[data-theme="dark"] .ch-postit:not(.ch-add) .ch-title, html[data-theme="dark"] .ch-postit .ch-num { color: #1d150e; }
+  html[data-theme="dark"] .pw-anim-note { filter: brightness(.8); }
+  html[data-theme="dark"] .badge-status { filter: brightness(1.5) saturate(.8); }
 </style>
 </head>
 <body>
@@ -3684,7 +3691,7 @@ SHIPPING CHANGES
       <div id="nav-categorias"></div>
     </div>
 
-    <div class="version-link" onclick="openChangelog()">v1.1.0 · What's new</div>
+    <div class="version-link" onclick="openChangelog()">v1.2.0 · What's new</div>
     <div style="text-align:center;font-family:var(--hand);font-size:.9rem;margin-top:6px"><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--slate)">Privacy</a> · <a href="terms.html" target="_blank" rel="noopener" style="color:var(--slate)">Terms</a></div>
   </div>
   </aside>
@@ -6650,9 +6657,25 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-18 09:50 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-18 10:20 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
+  {
+    version: "1.2.0",
+    public: true,
+    items: [
+      "Today: the next steps of what you're working on, right on the home page",
+      "Target dates, \"last worked on\" and a 💤 on ideas you haven't touched in a while",
+      "References: save links (YouTube shows a preview) and ask the AI what to look for",
+      "Undo any AI change from the Change log",
+      "Share: print or save as PDF, download as a page, or copy as text",
+      "Ideas learn from your finished projects: the AI reads your wrap-ups and warns you before repeating a mistake",
+      "A friendly welcome tour, with a step-by-step guide to get your free Gemini key",
+      "Saving is batched, with a small Saving… / ✓ Saved indicator",
+      "Day is the default theme, and Night is now a warm, dark-brown desk-lamp look",
+      "On phones, a Next step button takes you straight to what's next"
+    ]
+  },
   {
     version: "1.1.0",
     public: true,
