@@ -3438,6 +3438,28 @@ SHIPPING CHANGES
   .pw-think .pw-star { animation: pwThink 1.4s ease-in-out infinite; }
   @keyframes pwThink { 0%,100% { transform: rotate(-12deg) translateY(0); } 50% { transform: rotate(12deg) translateY(-8px); } }
   @keyframes pwFade { from { opacity: 0; } to { opacity: 1; } }
+
+  /* ---- Project About: What it is + Key decisions ---- */
+  .about-grid { display: grid; grid-template-columns: 3fr 2fr; gap: 28px; }
+  @media (max-width: 860px) { .about-grid { grid-template-columns: 1fr; gap: 14px; } }
+  .about-decisions { border-left: 2px dashed var(--line-strong); padding-left: 22px; }
+  @media (max-width: 860px) { .about-decisions { border-left: none; padding-left: 0; border-top: 2px dashed var(--line-strong); padding-top: 12px; } }
+  .dec-hint { font-size: .8rem; color: var(--slate); margin: 2px 0 6px; }
+  .dec-list { list-style: none; margin: 0 0 6px; padding: 0; }
+  .dec-list li { display: flex; align-items: center; gap: 8px; line-height: 32px; font-family: var(--hand); font-size: 1.1rem; }
+  .dec-text { flex: 1; cursor: text; }
+  .dec-pin { font-size: .9rem; }
+  .sug-dec { border-left: 4px solid var(--pen); }
+  /* ---- Home filter tabs (notebook dividers) ---- */
+  .home-filter { display: flex; gap: 6px; margin: 0 0 18px 6px; }
+  .home-filter button { font-family: var(--hand); font-size: 1.1rem; padding: 6px 16px 4px; border: 1.5px solid var(--line-strong); border-bottom: none;
+    border-radius: 10px 10px 0 0; background: var(--panel); color: var(--ink); cursor: pointer; filter: brightness(.82); transform: translateY(4px); transition: transform .12s, opacity .12s; }
+  .home-filter button:nth-child(2) { background: var(--postit); color: var(--postit-ink); }
+  .home-filter button:nth-child(3) { background: var(--postit-pink); color: var(--postit-ink); }
+  .home-filter button.on { filter: none; transform: translateY(0); box-shadow: 0 -2px 6px rgba(0,0,0,.12); font-weight: 700; }
+  .home-filter button:hover { filter: none; }
+  .status-preview .pv-proj { font-weight: 600; }
+  .status-preview .pv-prog { opacity: .65; font-size: .78rem; margin-left: 4px; white-space: nowrap; }
   .sug-preview { font-size: .8rem; color: var(--slate); margin: 2px 0 8px; line-height: 1.6; }
   .sug-preview .hl { color: var(--pen); font-weight: 700; }
   .sug-warn { font-size: .85rem; color: #b0323f; margin: 2px 0 8px; }
@@ -3563,7 +3585,7 @@ SHIPPING CHANGES
       <div id="nav-categorias"></div>
     </div>
 
-    <div class="version-link" onclick="openChangelog()">v1.0.0 · What's new</div>
+    <div class="version-link" onclick="openChangelog()">v1.1.0 · What's new</div>
     <div style="text-align:center;font-family:var(--hand);font-size:.9rem;margin-top:6px"><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--slate)">Privacy</a> · <a href="terms.html" target="_blank" rel="noopener" style="color:var(--slate)">Terms</a></div>
   </div>
   </aside>
@@ -5376,7 +5398,7 @@ async function submitBrainDump() {
   let ctx = "";
   if (isChapter(idea)) {
     const proj = IDEAS.find(x => x.id === idea.proyectoId);
-    if (proj) ctx = `This is ONLY the chapter "${idea.titulo}" of the bigger project "${proj.titulo}" (${proj.descripcion}). Organize the dump into steps for THIS chapter only; ignore parts that belong to other chapters.\n`;
+    if (proj) ctx = `This is ONLY the chapter "${idea.titulo}" of the bigger project "${proj.titulo}" (${projAbout(proj)}). Organize the dump into steps for THIS chapter only; ignore parts that belong to other chapters.\n`;
   }
   const prompt = `${ctx}PROJECT: ${idea.titulo} (${idea.categoria})\nDESCRIPTION: ${idea.descripcion}\nCURRENT PLAN:\n${current}\n\nMY BRAIN DUMP:\n${dump}`;
   if (!geminiKey) {
@@ -5458,7 +5480,7 @@ async function explainStage(ideaId) {
   if (!idea) return;
   const proj = isChapter(idea) && IDEAS.find(x => x.id === idea.proyectoId);
   const plan = (idea.fases || []).map(f => (f.pasos || []).map(stepText).join(" | ")).join(" | ");
-  const prompt = `PROJECT: ${proj ? proj.titulo + " — " + proj.descripcion : idea.titulo}\nSTAGE TO EXPLAIN: ${idea.titulo}\nCURRENT STEPS OF THIS STAGE: ${plan || "(none yet)"}`;
+  const prompt = `PROJECT: ${proj ? proj.titulo + " — " + projAbout(proj) : idea.titulo}\nSTAGE TO EXPLAIN: ${idea.titulo}\nCURRENT STEPS OF THIS STAGE: ${plan || "(none yet)"}`;
   if (!geminiKey) {
     try { await navigator.clipboard.writeText(MENTOR_STAGE_RULES + "\n\n" + prompt); } catch (e) {}
     await showAlert("No Gemini key yet, so I copied a prompt. Paste it into any AI, then paste the answer into this chapter's description (Edit). Add a key in Settings to get it here in one tap.", { title: "Prompt copied" });
@@ -5653,7 +5675,12 @@ function suggestionPreviewHtml(projId, s) {
 function wizardDecide(k, apply) {
   const s = pw.sugs[k];
   if (!s || pw.done[k]) return;
-  if (apply && s.accion !== "aviso") {
+  if (apply && s.accion === "decision") {
+    const proj = IDEAS.find(i => i.id === pw.ideaId);
+    proj.decisiones = decisionsOf(proj).concat([{ texto: s.titulo }]);
+    logChanges(proj, "Director's notes", ["Added key decision \"" + s.titulo + "\""]);
+    saveIdeas();
+  } else if (apply && s.accion !== "aviso") {
     const proj = IDEAS.find(i => i.id === pw.ideaId);
     proj.sugerencias = [s];
     applySuggestion(proj.id, 0);
@@ -5692,7 +5719,7 @@ function renderWizard() {
   } else if (pw.step === "suggest") {
     const left = pw.sugs.filter((s, k) => !pw.done[k]).length;
     html = `${pw.justCreated ? `<p class="pw-ok">✓ Project created</p>` : ""}<p class="pw-lead">The director has a few notes. Apply the ones that make sense to you.</p>
-      ${pw.sugs.map((s, k) => s.accion === "aviso" ? `<div class="sug sug-note ${pw.done[k] ? "decided" : ""}"><div class="sug-head">⚠ Heads-up</div><div class="sug-why">${escapeHtml(s.motivo || "")}</div>${pw.done[k] ? "" : `<div class="sug-actions"><button type="button" class="sug-ignore" onclick="wizardDecide(${k},false)">Got it</button></div>`}</div>` : `<div class="sug ${pw.done[k] ? "decided" : ""}">
+      ${pw.sugs.map((s, k) => s.accion === "decision" ? `<div class="sug sug-dec ${pw.done[k] ? "decided" : ""}"><div class="sug-head">📌 Key decision: <strong>${escapeHtml(s.titulo)}</strong></div><div class="sug-why">Keep it as a fixed rule for this project? Every AI step will respect it.</div>${pw.done[k] ? `<div class="sug-state">${pw.done[k] === "applied" ? "✓ Saved" : "Skipped"}</div>` : `<div class="sug-actions"><button type="button" class="sug-apply" onclick="wizardDecide(${k},true)">Keep</button><button type="button" class="sug-ignore" onclick="wizardDecide(${k},false)">Skip</button></div>`}</div>` : s.accion === "aviso" ? `<div class="sug sug-note ${pw.done[k] ? "decided" : ""}"><div class="sug-head">⚠ Heads-up</div><div class="sug-why">${escapeHtml(s.motivo || "")}</div>${pw.done[k] ? "" : `<div class="sug-actions"><button type="button" class="sug-ignore" onclick="wizardDecide(${k},false)">Got it</button></div>`}</div>` : `<div class="sug ${pw.done[k] ? "decided" : ""}">
         <div class="sug-head">${s.accion === "mover" ? "Move" : "Add"} <strong>${escapeHtml(s.titulo || "")}</strong>${s.antesDe ? ` before <em>${escapeHtml(s.antesDe)}</em>` : (s.accion === "mover" ? " to the end" : "")}</div>
         ${pw.done[k] ? "" : suggestionPreviewHtml(pw.ideaId, s)}
         <div class="sug-why">${escapeHtml(s.motivo || "")}</div>
@@ -5752,13 +5779,46 @@ ORDER COHERENCE — THE MOST IMPORTANT RULE, FOR ANY KIND OF PROJECT (film, furn
 YOUR JOB:
 1. For EVERY chapter (and every chapter you suggest adding), list which other chapters it needs to be finished first ("dependencias"). Use exact chapter names.
 2. Suggest up to 5 changes: "agregar" a missing stage or "mover" a stage that is out of order. Respect work already started: never suggest deleting a chapter, and if the person began with a later stage, suggest what to add before it instead of undoing it.
-3. Put anything else worth warning about (a stage that doesn't belong to this kind of project, a stage too big that should be split, a risk) in "avisos".
+3. If the project has no key decisions yet, propose 2 to 5 short ones in "decisiones": the basic choices already implied by the description or that should be fixed early (format, length, style, tools, materials, budget…), written as "Topic: choice". Only propose what the description supports or what is a sensible default to confirm — the person accepts or rejects each one. If key decisions exist, respect them and leave "decisiones" empty.
+4. Put anything else worth warning about (a stage that doesn't belong to this kind of project, a stage too big that should be split, a risk) in "avisos".
 4. Before answering, simulate the order after each suggestion and drop any suggestion that would put a chapter before something it needs.
 Explain each suggestion in one or two friendly sentences ("motivo"), in the same language as the project. If everything is coherent, return empty lists.
-Output ONLY raw JSON: {"dependencias":{"Chapter name":["Chapter it needs", "..."]},"sugerencias":[{"accion":"agregar","titulo":"New chapter name","antesDe":"Existing chapter name or null for the end","motivo":"why"},{"accion":"mover","titulo":"Existing chapter name","antesDe":"Existing chapter name or null for the end","motivo":"why"}],"avisos":["..."]}`;
+Output ONLY raw JSON: {"dependencias":{"Chapter name":["Chapter it needs", "..."]},"sugerencias":[{"accion":"agregar","titulo":"New chapter name","antesDe":"Existing chapter name or null for the end","motivo":"why"},{"accion":"mover","titulo":"Existing chapter name","antesDe":"Existing chapter name or null for the end","motivo":"why"}],"decisiones":["Topic: choice"],"avisos":["..."]}`;
+// Key decisions: fixed rules of a project that every AI must respect.
+function decisionsOf(proj) { return (proj && Array.isArray(proj.decisiones)) ? proj.decisiones.filter(d => d && d.texto) : []; }
+function projAbout(proj) {
+  const d = decisionsOf(proj);
+  return proj.descripcion + (d.length ? "\nKEY DECISIONS ALREADY MADE (fixed rules — never contradict them; if one seems wrong, say so instead of ignoring it): " + d.map(x => x.texto).join(" | ") : "");
+}
+function addDecision(projId, input) {
+  const proj = IDEAS.find(i => i.id === projId);
+  const t = (input.value || "").trim();
+  if (!proj || !t) return;
+  proj.decisiones = decisionsOf(proj).concat([{ texto: t }]);
+  logChanges(proj, "You", ["Added key decision \"" + t + "\""]);
+  saveIdeas(); render();
+}
+function removeDecision(projId, k) {
+  const proj = IDEAS.find(i => i.id === projId);
+  if (!proj) return;
+  const d = decisionsOf(proj); const [gone] = d.splice(k, 1);
+  proj.decisiones = d;
+  if (gone) logChanges(proj, "You", ["Removed key decision \"" + gone.texto + "\""]);
+  saveIdeas(); render();
+}
+async function editDecision(projId, k) {
+  const proj = IDEAS.find(i => i.id === projId);
+  const d = decisionsOf(proj);
+  if (!d[k]) return;
+  const v = window.prompt("Edit this decision", d[k].texto);
+  if (v == null) return;
+  if (!v.trim()) return removeDecision(projId, k);
+  d[k].texto = v.trim(); proj.decisiones = d;
+  saveIdeas(); render();
+}
 function directorPrompt(proj) {
   const chs = projectChapters(proj);
-  return `PROJECT: ${proj.titulo} (${proj.categoria})\nDESCRIPTION: ${proj.descripcion}\nCHAPTERS IN ORDER:\n` +
+  return `PROJECT: ${proj.titulo} (${proj.categoria})\nDESCRIPTION: ${projAbout(proj)}${decisionsOf(proj).length ? "" : "\n(The project has NO key decisions yet: propose 2-5 in \"decisiones\".)"}\nCHAPTERS IN ORDER:\n` +
     chs.map((c, k) => `${k + 1}. ${c.titulo} — ${Math.round(ideaProgress(c) * 100)}% done${c.estado === "completada" ? " (completed)" : ""}`).join("\n");
 }
 async function fetchDirectorSuggestions(proj) {
@@ -5847,7 +5907,9 @@ function checkDirectorReply(proj, data) {
     order = next;
   });
   const avisos = Array.isArray(data.avisos) ? data.avisos.filter(Boolean).slice(0, 4) : [];
-  return keep.slice(0, 6).concat(avisos.map(a => ({ accion: "aviso", motivo: a })));
+  const have = decisionsOf(proj).length;
+  const decs = (!have && Array.isArray(data.decisiones)) ? data.decisiones.filter(x => typeof x === "string" && x.trim()).slice(0, 5) : [];
+  return decs.map(d => ({ accion: "decision", titulo: d.trim() })).concat(keep.slice(0, 6), avisos.map(a => ({ accion: "aviso", motivo: a })));
 }
 let directorProjId = null;
 async function askDirectorOld(projId) {
@@ -5962,11 +6024,22 @@ function renderProjectView(p) {
     </div>`;
   const pending = (p.sugerencias || []).length;
   const aboutLong = (p.descripcion || "").length > 320;
+  const decs = decisionsOf(p);
   const aboutHtml = `
     <div class="detail-block project-about">
-      <div class="block-title c-desc">About this project</div>
-      <div class="desc-text ${aboutLong ? "about-collapsed" : ""}" id="about-text">${(p.descripcion || "").split("\n").map(x => `<p>${escapeHtml(x)}</p>`).join("")}</div>
-      ${aboutLong ? `<button type="button" class="desc-toggle-btn" onclick="const t=document.getElementById('about-text');const o=t.classList.toggle('about-collapsed');this.textContent=o?'View more':'View less'">View more</button>` : ""}
+      <div class="about-grid">
+        <div class="about-what">
+          <div class="block-title c-desc">What it is</div>
+          <div class="desc-text ${aboutLong ? "about-collapsed" : ""}" id="about-text">${(p.descripcion || "").split("\n").map(x => `<p>${escapeHtml(x)}</p>`).join("") || `<p style="opacity:.6">No description yet — tap the pencil to write one.</p>`}</div>
+          ${aboutLong ? `<button type="button" class="desc-toggle-btn" onclick="const t=document.getElementById('about-text');const o=t.classList.toggle('about-collapsed');this.textContent=o?'View more':'View less'">View more</button>` : ""}
+        </div>
+        <div class="about-decisions">
+          <div class="block-title c-desc">Key decisions</div>
+          <div class="dec-hint">Fixed rules for this project. The director and every AI helper respect them.</div>
+          <ul class="dec-list">${decs.map((d, k) => `<li><span class="dec-pin">📌</span><span class="dec-text" title="Click to edit" onclick="editDecision('${escapeAttr(p.id)}',${k})">${escapeHtml(d.texto)}</span><button type="button" class="resolve-delete-btn" title="Remove" onclick="removeDecision('${escapeAttr(p.id)}',${k})">&times;</button></li>`).join("")}</ul>
+          <input class="note-quick-add" placeholder="+ Add a decision, e.g. Software: Blender (Enter)" onkeydown="if(event.key==='Enter'){event.preventDefault();addDecision('${escapeAttr(p.id)}',this)}">
+        </div>
+      </div>
     </div>`;
   const notesHtml = `
     <div class="detail-block">
@@ -6080,7 +6153,7 @@ function renderStepChat() {
 function stepContextText(ref) {
   const idea = ref.idea;
   const proj = isChapter(idea) && IDEAS.find(x => x.id === idea.proyectoId);
-  return `PROJECT: ${proj ? proj.titulo + " — " + proj.descripcion + "\nCURRENT CHAPTER: " + idea.titulo : idea.titulo + " — " + idea.descripcion}
+  return `PROJECT: ${proj ? proj.titulo + " — " + projAbout(proj) + "\nCURRENT CHAPTER: " + idea.titulo : idea.titulo + " — " + idea.descripcion}
 PLAN OF THIS ${proj ? "CHAPTER" : "IDEA"}: ${(idea.fases || []).map(f => f.nombre + ": " + (f.pasos || []).map(stepText).join(" | ")).join("\n")}
 STEP I'M WORKING ON: ${ref.step.texto}${ref.step.explicacion ? " — " + ref.step.explicacion : ""}
 ${ref.step.trabajo ? "WHAT I HAVE SO FAR:\n" + ref.step.trabajo : ""}`;
@@ -6164,9 +6237,21 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-18 01:35 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-18 07:20 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
+  {
+    version: "1.1.0",
+    public: true,
+    items: [
+      "Key decisions: write down what's already decided in a project (style, length, tools…) and every AI helper will respect it. The director can suggest the first ones",
+      "Home filter: switch between All, Projects and Ideas",
+      "The director now checks that chapters make sense in order for any kind of project, and warns you about missing or misplaced stages",
+      "Your devices no longer overwrite each other's changes when synced with Drive",
+      "A fresh look for the idea header, a fun animation when you create a project, and a zipper you can drag",
+      "Smoother scrolling: the right column scrolls with the page and projects fold up in the sidebar"
+    ]
+  },
   {
     version: "1.0.0",
     public: true,
@@ -7332,7 +7417,7 @@ function buildEnrichMessage(idea, request) {
     const proj = IDEAS.find(x => x.id === idea.proyectoId);
     if (proj) {
       const chs = projectChapters(proj);
-      msg += q(`PROJECT CONTEXT: this is chapter ${chs.findIndex(c => c.id === idea.id) + 1} of ${chs.length} of the project "${proj.titulo}" — ${proj.descripcion}\nAll chapters in order: ${chs.map((c, k) => (k + 1) + ". " + c.titulo).join(" | ")}\nPlan ONLY this chapter, in depth. Assume earlier chapters are done or in progress. In "descripcion", explain like a teacher what this stage is for, what to know before deciding and where to put effort, applied to this project — guide, never decide for me.\n\n`);
+      msg += q(`PROJECT CONTEXT: this is chapter ${chs.findIndex(c => c.id === idea.id) + 1} of ${chs.length} of the project "${proj.titulo}" — ${projAbout(proj)}\nAll chapters in order: ${chs.map((c, k) => (k + 1) + ". " + c.titulo).join(" | ")}\nPlan ONLY this chapter, in depth. Assume earlier chapters are done or in progress. In "descripcion", explain like a teacher what this stage is for, what to know before deciding and where to put effort, applied to this project — guide, never decide for me.\n\n`);
     }
   }
   msg += q(`IDEA:\n`);
@@ -7890,10 +7975,24 @@ function renderSidebar() {
 /* ==================================================================
    RENDER: HOME — solo status cards + buscador global
 ================================================================== */
+let homeFilter = "all";
+try { homeFilter = localStorage.getItem("ideary_home_filter_v1") || "all"; } catch (e) {}
+function setHomeFilter(f) {
+  homeFilter = f;
+  try { localStorage.setItem("ideary_home_filter_v1", f); } catch (e) {}
+  render();
+}
+function passesHomeFilter(i) {
+  return homeFilter === "projects" ? isProject(i) : homeFilter === "ideas" ? !isProject(i) : true;
+}
+function homeFilterHtml() {
+  const t = (k, l) => `<button type="button" class="${homeFilter === k ? "on" : ""}" onclick="setHomeFilter('${k}')">${l}</button>`;
+  return `<div class="home-filter" role="tablist">${t("all", "All")}${t("projects", "Projects")}${t("ideas", "Ideas")}</div>`;
+}
 function renderStatusCardsOnly() {
   const statusCards = Object.keys(ESTADOS).filter(k => k !== "eliminada").map(key => {
     const cfg = ESTADOS[key];
-    const items = IDEAS.filter(i => i.estado === key && i.estado !== "eliminada" && !isChapter(i));
+    const items = IDEAS.filter(i => i.estado === key && i.estado !== "eliminada" && !isChapter(i) && passesHomeFilter(i));
     const preview = items.slice(0, 5);
     return `
       <div class="status-card" style="--c:${cfg.color}" onclick="goStatus('${key}')">
@@ -7903,7 +8002,11 @@ function renderStatusCardsOnly() {
         </div>
         <div class="status-name">${cfg.label}</div>
         <div class="status-preview">
-          ${preview.map(i => `<div>${escapeHtml(i.titulo)}</div>`).join("") || '<div style="opacity:0.5">No ideas yet</div>'}
+          ${preview.map(i => {
+            if (!isProject(i)) return `<div>${escapeHtml(i.titulo)}</div>`;
+            const chs = projectChapters(i), done = chs.filter(c => c.estado === "completada").length;
+            return `<div><span class="pv-proj">▤ ${escapeHtml(i.titulo)}</span><span class="pv-prog">${done}/${chs.length} ch.</span></div>`;
+          }).join("") || `<div style="opacity:0.5">${homeFilter === "projects" ? "No projects" : "No ideas yet"}</div>`}
         </div>
       </div>`;
   }).join("");
@@ -7920,7 +8023,7 @@ function renderStatusCardsOnly() {
       <div class="howto-status-cta">Learn more →</div>
     </div>`;
 
-  return `
+  return `${homeFilterHtml()}
     <div class="home-row-wrap"><div class="status-grid-row">
       <div class="status-grid">${statusCards}</div>
       <div class="status-howto-divider"></div>

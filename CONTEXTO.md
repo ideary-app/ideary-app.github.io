@@ -1,6 +1,6 @@
 # Ideary — CONTEXTO
 
-**Última actualización:** 2026-10-18 (versión 1.0.0)
+**Última actualización:** 2026-10-18 (versión 1.1.0)
 
 Este archivo sirve para entender Ideary sin haber leído las charlas en las que se construyó. Ideary es una app independiente: no comparte datos con las otras apps del autor (Receater, el inventario de casa). Solo va a aparecer como una entrada más en el futuro hub común.
 
@@ -25,6 +25,8 @@ Es pública y gratuita, sin backend, y puede usarla cualquiera. Antes se llamaba
   - las cosas a resolver.
 
   La conversión se puede deshacer.
+- **Key decisions**: cada proyecto tiene una lista de decisiones ya tomadas ("Software: Blender", "Duración: 1 minuto"). Todas las funciones de IA las reciben como reglas fijas. Si el proyecto no tiene ninguna, el director propone las primeras y el usuario elige cuáles guardar.
+- **Filtro de la Home**: All / Projects / Ideas. Se recuerda la última opción. En los proyectos se muestra el avance de capítulos.
 - **Director**: la IA revisa el orden de los capítulos y propone mover o agregar capítulos, además de avisos. El usuario aplica o ignora cada sugerencia. La app valida la coherencia del orden (ver la sección 7).
 - **Explain this stage**: en cada capítulo, la IA escribe una explicación de esa etapa con tono de profesor.
 - **Change log**: un historial de los cambios hechos por la IA en cada idea.
@@ -41,6 +43,7 @@ Es pública y gratuita, sin backend, y puede usarla cualquiera. Antes se llamaba
 **Pantallas**
 - **Home**: es la tapa del cuaderno, de mármol con el logo. Tiene:
   - un buscador;
+  - las pestañas All / Projects / Ideas, que filtran las tarjetas de estado;
   - las tarjetas de estado con la cantidad de ideas de cada uno;
   - el post-it "How it works";
   - el botón "Create new idea";
@@ -61,7 +64,8 @@ Es pública y gratuita, sin backend, y puede usarla cualquiera. Antes se llamaba
     - a la derecha, Description, Notes, Things to figure out, Sketches y Change log.
   - **En celular**, todo va apilado en una sola columna.
 - **Vista de proyecto**:
-  - About (colapsable) y Next up;
+  - About dividido en "What it is" (la descripción, colapsable) y "Key decisions" (lista editable: Enter para agregar, clic para editar, × para borrar);
+  - Next up;
   - el muro de capítulos (post-its que se pueden reordenar con ← →, más "New chapter");
   - Ask the director;
   - a la derecha, Things to figure out, Notes, Sketches y Change log;
@@ -145,7 +149,7 @@ Todo tiene un aire hecho a mano y algo rotado.
 | Sesión de Drive y token | `ideary_drive_session_v1`, `ideary_gtoken_v1` |
 | Key y modelo de Gemini | `ideary_gemini_key_v1`, `ideary_gemini_model_v1` |
 | Tapa, cartuchera, tema | `ideary_cover_v1`, `ideary_case_v1`, `ideas_producciones_tema` |
-| Varios | `ideary_view`, `ideary_howto_seen_v1`, `ideary_install_banner_dismissed`, `ideary_zip_x` (posición del cierre) |
+| Varios | `ideary_home_filter_v1`, `ideary_view`, `ideary_howto_seen_v1`, `ideary_install_banner_dismissed`, `ideary_zip_x` (posición del cierre) |
 
 Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la primera vez que se carga la app.
 
@@ -183,6 +187,7 @@ Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la prim
     "categoria": "Animación",
     "estado": "en-curso",
     "descripcion": "…",
+    "decisiones": [{ "texto": "Software: Blender" }],
     "sugerencias": [],
     "_fasesOriginales": []
   },
@@ -210,7 +215,7 @@ Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la prim
 ## 5. IA
 
 - **Qué usa:** Google Gemini, con la key de cada usuario. El modelo se elige al usarla: el "flash" más nuevo que tenga habilitado esa key.
-- **Para qué la usa:** Develop idea (chat), Brain dump, I'm stuck, el tutor de cada paso, el director de proyectos y "Explain this stage".
+- **Para qué la usa:** Develop idea (chat), Brain dump, I'm stuck, el tutor de cada paso, el director de proyectos y "Explain this stage". En todas, si la idea pertenece a un proyecto, se envían las Key decisions como reglas que no se pueden contradecir (`projAbout()`).
 - **Dónde está la key:** en el navegador (`ideary_gemini_key_v1`) y, si hay sesión, en `ideary-settings.json` dentro del Drive del usuario. Nunca se registra en logs ni se manda a otro lugar que no sea la API de Google.
 - **Sin key:** cada función arma un prompt para copiar en cualquier IA y acepta la respuesta en JSON. `parseJsonLenient()` la repara, así que el usuario nunca tiene que arreglar JSON a mano.
 - **Robustez:**
@@ -238,6 +243,7 @@ Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la prim
   - la IA tiene que declarar de qué depende cada capítulo;
   - la app reordena lo que esté fuera de orden, corrige agregados mal ubicados y descarta las sugerencias incoherentes;
   - los avisos ("Heads-up") nunca cambian nada solos.
+- **Key decisions como reglas fijas para la IA:** evitan que la IA se vaya por las ramas o contradiga lo ya definido. La IA puede proponerlas, pero solo se guardan si el usuario las acepta.
 - **La IA sugiere y el usuario decide:** cada cambio del director se aplica o se ignora uno por uno. Los cambios de la IA quedan en el Change log.
 - **Los capítulos no aparecen sueltos en la Home:** solo se ven dentro de su proyecto o en la sidebar debajo del proyecto.
 - **La lista de ideas por defecto (`IDEAS_DEFAULT`) queda vacía:** la app es pública y no debe traer datos personales de nadie.
@@ -247,8 +253,5 @@ Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la prim
 ## 8. Pendientes e ideas a futuro
 
 - **Integración con el hub:** solo como acceso desde el hub común. Sin compartir datos.
-- **Propuestas sin confirmar:**
-  - un filtro en la Home (All / Projects / Ideas);
-  - separar el About del proyecto en "What it is" y "Key decisions".
 - **Por revisar:** los márgenes del header en algunas pantallas de desktop. Se ajustaron, pero hay que confirmarlo con el autor.
 - **Regla de mantenimiento:** cada cambio de la app tiene que actualizar este `CONTEXTO.md` en el mismo commit.
