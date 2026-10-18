@@ -3419,6 +3419,26 @@ SHIPPING CHANGES
   .step-empty { color: var(--slate); font-size: .9rem; }
   .step-chips { display: flex; flex-direction: column; gap: 8px; }
   .step-work-head { display: flex; justify-content: space-between; margin: 12px 0 4px; font-family: var(--hand); font-size: 1.15rem; color: var(--pen); }
+
+  /* ---- "Creating project" animation: notes drop in, the star hops over them ---- */
+  .pw-ok { color: #2e8f4e; font-family: var(--hand); font-size: 1.25rem; margin: 0 0 6px; }
+  .pw-anim { position: relative; padding: 46px 4px 6px; min-height: 150px; }
+  .pw-anim-wall { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  .pw-anim-note { width: 92px; min-height: 70px; padding: 8px 8px 6px; background: var(--postit); color: #2a2418; font-family: var(--hand); font-size: .9rem; line-height: 1.1;
+    border-radius: 2px 2px 10px 2px; box-shadow: 0 6px 10px -6px rgba(60,45,0,.45); transform: rotate(var(--rot)); opacity: 0;
+    animation: pwDrop .45s cubic-bezier(.3,1.6,.5,1) forwards; animation-delay: calc(.35s + var(--k) * .38s); overflow: hidden; }
+  .pw-anim-note:nth-child(3n+2) { background: #ffd6e0; } .pw-anim-note:nth-child(3n) { background: #cfeaf7; }
+  .pw-anim-note span { display: block; font-size: 1.2rem; opacity: .6; }
+  @keyframes pwDrop { from { opacity: 0; transform: translateY(-40px) rotate(calc(var(--rot) * -4)) scale(.6); } to { opacity: 1; transform: rotate(var(--rot)); } }
+  .pw-anim-star { position: absolute; top: 0; left: 50%; margin-left: -23px; animation: pwHop .38s ease-in-out infinite alternate, pwSpin calc(var(--n) * .38s + .7s) ease-in-out forwards; }
+  @keyframes pwHop { from { translate: 0 0; } to { translate: 0 -14px; } }
+  @keyframes pwSpin { 0% { transform: rotate(0) scale(.4); } 15% { transform: rotate(0) scale(1); } 85% { transform: rotate(720deg) scale(1); } 100% { transform: rotate(720deg) scale(1.35); } }
+  .pw-anim-text { text-align: center; animation: pwFade .4s ease both; }
+  .pw-think { display: flex; justify-content: center; margin: 10px 0 4px; }
+  .pw-think .pw-star { animation: pwThink 1.4s ease-in-out infinite; }
+  @keyframes pwThink { 0%,100% { transform: rotate(-12deg) translateY(0); } 50% { transform: rotate(12deg) translateY(-8px); } }
+  @keyframes pwFade { from { opacity: 0; } to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .pw-anim-note, .pw-anim-star, .pw-think .pw-star { animation: none !important; opacity: 1; } }
   .sug-preview { font-size: .8rem; color: var(--slate); margin: 2px 0 8px; line-height: 1.6; }
   .sug-preview .hl { color: var(--pen); font-weight: 700; }
   .sug-warn { font-size: .85rem; color: #b0323f; margin: 2px 0 8px; }
@@ -5579,10 +5599,15 @@ function closeProjectWizard() {
   if (id && IDEAS.find(i => i.id === id)) openDetail(id);
 }
 async function wizardConvert() {
+  const idea = IDEAS.find(i => i.id === pw.ideaId);
+  pw.anim = ((idea && idea.fases) || []).filter(f => f.pasos && f.pasos.length).map(f => f.nombre).slice(0, 6);
   doConvertToProject(pw.ideaId);
-  wizardReview();
+  pw.step = "creating"; renderWizard();
+  await new Promise(r => setTimeout(r, 900 + pw.anim.length * 380));
+  wizardReview(true);
 }
-async function wizardReview() {
+async function wizardReview(justCreated) {
+  pw.justCreated = !!justCreated;
   const proj = IDEAS.find(i => i.id === pw.ideaId);
   if (!proj) return;
   if (!geminiKey) { pw.step = "manual"; renderWizard(); return; }
@@ -5648,8 +5673,15 @@ function renderWizard() {
       <div class="pw-chapters">${fases.map((f, k) => `<div class="pw-ch"><span>${k + 1}</span>${escapeHtml(f.nombre)}</div>`).join("")}</div>
       <p class="pw-small">Your checkboxes stay as they are. You can turn it back into a single idea anytime.</p>
       <button class="form-submit" onclick="wizardConvert()">Turn into project</button>`;
+  } else if (pw.step === "creating") {
+    const n = pw.anim.length;
+    html = `<div class="pw-anim">
+        <div class="pw-anim-wall">${pw.anim.map((t, k) => `<div class="pw-anim-note" style="--k:${k};--rot:${[-3,2,-1.5,3,-2,1][k % 6]}deg"><span>${k + 1}</span>${escapeHtml(t)}</div>`).join("")}</div>
+        <div class="pw-anim-star" style="--n:${n}"><svg class="pw-star" viewBox="40 14 36 32" width="46" height="40"><path d="M58.4 18 L60.9 26.6 L70.6 27.8 L62.8 33.4 L65.4 42.9 L57.5 37.2 L48.8 41.8 L52.6 33.6 L44.6 27.1 L54.6 26.9 Z" fill="#f5c842" stroke="#e0a91f" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+      </div>
+      <p class="pw-lead pw-anim-text" style="--n:${n}">Cutting your idea into chapters…</p>`;
   } else if (pw.step === "reviewing") {
-    html = `<p class="pw-lead">An experienced director is reviewing the order of your chapters…</p><div class="pw-spinner"></div>`;
+    html = `${pw.justCreated ? `<p class="pw-ok">✓ Project created</p>` : ""}<div class="pw-think"><svg class="pw-star" viewBox="40 14 36 32" width="46" height="40"><path d="M58.4 18 L60.9 26.6 L70.6 27.8 L62.8 33.4 L65.4 42.9 L57.5 37.2 L48.8 41.8 L52.6 33.6 L44.6 27.1 L54.6 26.9 Z" fill="#f5c842" stroke="#e0a91f" stroke-width="1.6" stroke-linejoin="round"/></svg></div><p class="pw-lead" style="text-align:center">The director is reviewing the order of your chapters…</p>`;
   } else if (pw.step === "manual") {
     html = `<p class="pw-lead">Want an experienced director to check the order of your chapters and point out missing stages?</p>
       <p class="pw-small">No Gemini key yet: copy this prompt into any AI and paste its reply here. (With a key in Settings this happens automatically.)</p>
@@ -5660,7 +5692,7 @@ function renderWizard() {
       <div style="text-align:center;margin-top:8px"><button class="pw-skip" onclick="closeProjectWizard()">Skip for now</button></div>`;
   } else if (pw.step === "suggest") {
     const left = pw.sugs.filter((s, k) => !pw.done[k]).length;
-    html = `<p class="pw-lead">The director has a few notes. Apply the ones that make sense to you.</p>
+    html = `${pw.justCreated ? `<p class="pw-ok">✓ Project created</p>` : ""}<p class="pw-lead">The director has a few notes. Apply the ones that make sense to you.</p>
       ${pw.sugs.map((s, k) => s.accion === "aviso" ? `<div class="sug sug-note ${pw.done[k] ? "decided" : ""}"><div class="sug-head">⚠ Heads-up</div><div class="sug-why">${escapeHtml(s.motivo || "")}</div>${pw.done[k] ? "" : `<div class="sug-actions"><button type="button" class="sug-ignore" onclick="wizardDecide(${k},false)">Got it</button></div>`}</div>` : `<div class="sug ${pw.done[k] ? "decided" : ""}">
         <div class="sug-head">${s.accion === "mover" ? "Move" : "Add"} <strong>${escapeHtml(s.titulo || "")}</strong>${s.antesDe ? ` before <em>${escapeHtml(s.antesDe)}</em>` : (s.accion === "mover" ? " to the end" : "")}</div>
         ${pw.done[k] ? "" : suggestionPreviewHtml(pw.ideaId, s)}
@@ -5669,9 +5701,9 @@ function renderWizard() {
       </div>`).join("")}
       <button class="form-submit" onclick="closeProjectWizard()">${left ? "Done for now" : "Open my project"}</button>`;
   } else if (pw.step === "good") {
-    html = `<p class="pw-lead">The director thinks your chapter order already makes sense. 👌</p><button class="form-submit" onclick="closeProjectWizard()">Open my project</button>`;
+    html = `${pw.justCreated ? `<p class="pw-ok">✓ Project created</p>` : ""}<p class="pw-lead">The director thinks your chapter order already makes sense. 👌</p><button class="form-submit" onclick="closeProjectWizard()">Open my project</button>`;
   } else if (pw.step === "error") {
-    html = `<p class="pw-lead">Couldn't get the director's review: ${escapeHtml(pw.error || "")}</p><button class="form-submit" onclick="closeProjectWizard()">Open my project</button>`;
+    html = `${pw.justCreated ? `<p class="pw-ok">✓ Your project is ready — nothing was lost.</p>` : ""}<p class="pw-lead">The director couldn't review it right now: ${escapeHtml(pw.error || "")}</p><p class="pw-small">No rush: you can tap <strong>Ask the director</strong> on the project page anytime.</p><button class="form-submit" onclick="closeProjectWizard()">Open my project</button>`;
   }
   box.innerHTML = html;
 }
@@ -6133,7 +6165,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-18 00:55 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-18 01:15 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
