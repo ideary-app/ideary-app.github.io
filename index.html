@@ -3707,10 +3707,22 @@ SHIPPING CHANGES
   .sort-progress { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; font-size: .88rem; color: var(--slate); }
   .sort-progress .cs-bar { flex: 1; max-width: 200px; color: var(--pen); }
   .sort-progress.done { color: #2e8f4e; } .sort-progress.err { color: var(--rust); }
-  .sortnote.pending { opacity: .55; }
-  .sortnote.pending .sortnote-sel { background-image: linear-gradient(100deg, transparent 20%, rgba(255,255,255,.6) 50%, transparent 80%); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; }
+  .sortnote.pending { opacity: .5; position: relative; }
+  .sortnote.pending::after { content: ""; position: absolute; inset: 0; pointer-events: all; cursor: wait;
+    background: linear-gradient(100deg, transparent 15%, color-mix(in srgb, var(--pen) 22%, transparent) 50%, transparent 85%); background-size: 220% 100%; animation: shimmer 1s linear infinite; }
   .sortnote.just-sorted { animation: sortFlash .9s ease; }
   @keyframes sortFlash { 0% { background: var(--accent-soft); } 100% { background: transparent; } }
+
+  .resolve-ai-btn { flex-shrink: 0; align-self: center; background: none; border: 1px dashed currentColor; border-radius: 999px; padding: 2px 10px; font-family: var(--hand); font-size: .95rem; color: var(--pen); cursor: pointer; white-space: nowrap; }
+  .resolve-ai-btn:hover { border-style: solid; }
+  .resolve-decision { font-family: var(--hand); font-size: 1.05rem; color: #2e8f4e; }
+  @media (max-width: 600px) { .resolve-item { flex-wrap: wrap; } .resolve-ai-btn { margin-left: 28px; } }
+
+  .hint { display: inline-grid !important; place-items: center; box-sizing: border-box; padding: 0 !important; line-height: 1 !important;
+    font-family: var(--sans) !important; font-size: 11px !important; font-weight: 700 !important; letter-spacing: 0 !important; text-transform: none !important; vertical-align: middle; }
+
+  .collapsible > .block-title { justify-content: flex-start !important; gap: 6px; }
+  .collapsible > .block-title > span:last-child:not(.cs-caret):not(:nth-child(2)), .collapsible > .block-title > button:last-child { margin-left: auto !important; }
 </style>
 </head>
 <body>
@@ -5314,7 +5326,21 @@ async function withThinking(waitEl, inputId, fn, label, t0) {
     if (inputId) lockComposer(inputId, false);
   }
 }
-async function geminiGenerate(history, system, retried, modelOverride) {
+// "Thinking" models can spend a long time reasoning before answering. For quick
+// jobs (sorting, transcribing, chat) we ask for little or no thinking.
+let thinkCfgOK = true;
+function thinkCfg(model, level) {
+  if (!level || !thinkCfgOK) return null;
+  if (/gemini-2\.5/.test(model)) return { thinkingBudget: level === "none" ? 0 : 1024 };
+  if (/gemini-[3-9]/.test(model)) return { thinkingLevel: "low" };
+  return null;
+}
+function genConfig(model, temperature, level) {
+  const g = { temperature };
+  const t = thinkCfg(model, level); if (t) g.thinkingConfig = t;
+  return g;
+}
+async function geminiGenerate(history, system, retried, modelOverride, think) {
   const model = modelOverride || await geminiResolveModel(false);
   const ctrl = new AbortController();
   aiCtrlUser = ctrl;
@@ -5328,7 +5354,7 @@ async function geminiGenerate(history, system, retried, modelOverride) {
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: system || DIRECTOR_RULES }] },
         contents: history.map(m => ({ role: m.role, parts: [{ text: m.text }] })),
-        generationConfig: { temperature: 0.7 }
+        generationConfig: genConfig(model, 0.7, think)
       })
     });
   } catch (e) {
@@ -5341,17 +5367,18 @@ async function geminiGenerate(history, system, retried, modelOverride) {
   if (!res.ok) {
     let msg = "Gemini error " + res.status;
     try { const j = await res.json(); if (j.error && j.error.message) msg = j.error.message; } catch (e) {}
+    if (res.status === 400 && /thinking/i.test(msg) && thinkCfgOK) { thinkCfgOK = false; return geminiGenerate(history, system, retried, modelOverride, think); }
     if (!retried && (res.status === 404 || /no longer available|not found|not supported/i.test(msg))) {
       await geminiResolveModel(true);
-      return geminiGenerate(history, system, true);
+      return geminiGenerate(history, system, true, undefined, think);
     }
     const overloaded = res.status === 503 || /high demand|overloaded|unavailable/i.test(msg);
     if (overloaded && !retried) {
       // Busy model: wait a bit and retry once, on the lighter model if there is one.
       await new Promise(r => setTimeout(r, 2500));
       const lite = /-flash$/.test(model) ? model + "-lite" : model;
-      try { return await geminiGenerate(history, system, true, lite); }
-      catch (e) { if (lite !== model) return geminiGenerate(history, system, true, model); throw e; }
+      try { return await geminiGenerate(history, system, true, lite, think); }
+      catch (e) { if (lite !== model) return geminiGenerate(history, system, true, model, think); throw e; }
     }
     if (overloaded) msg = "Gemini is very busy right now (lots of people are using it). It's not your key or your limit — try again in a minute.";
     else if (res.status === 400 && /api key/i.test(msg)) msg = "Your Gemini API key isn't valid. Check it in Settings.";
@@ -6450,7 +6477,7 @@ async function finishRecording(st) {
       body: JSON.stringify({ contents: [{ role: "user", parts: [
         { inlineData: { mimeType: blob.type || "audio/webm", data: b64 } },
         { text: "Transcribe this voice note exactly as spoken, in the language(s) spoken (it may mix Spanish and English). Add normal punctuation and remove filler sounds (eh, um) and false starts. Output ONLY the transcription. If there is no speech, output exactly: [no speech]" }
-      ] }], generationConfig: { temperature: 0 } })
+      ] }], generationConfig: genConfig(model, 0, "none") })
     });
     clearTimeout(tt);
     if (!resp.ok) { let m = "Error " + resp.status; try { const j = await resp.json(); m = j.error.message || m; } catch (e) {} throw new Error(resp.status === 429 ? "Gemini quota used up for now — try again later." : resp.status === 503 ? "Gemini is very busy right now — try again in a minute." : m); }
@@ -6548,65 +6575,45 @@ async function suggestSortNotes() {
   const idea = IDEAS.find(i => i.id === sortNotesId);
   const btn = document.getElementById("sortnotes-ai");
   if (!idea || !btn) return;
-  const total = (idea.notas || []).length;
+  const notes = idea.notas || [], total = notes.length;
   const opts = sortTargets(idea).map(o => o[0]);
-  btn.disabled = true;
-  document.querySelectorAll(".sortnote").forEach(r => r.classList.add("pending"));
+  document.querySelectorAll(".sortnote").forEach(r => { r.classList.add("pending"); r.querySelector("select").disabled = true; });
+  const apply = document.querySelector("#sortnotes-overlay .form-submit"); if (apply) apply.disabled = true;
   const prog = document.createElement("div"); prog.className = "sort-progress";
-  prog.innerHTML = `<span class="ai-dots"><i></i><i></i><i></i></span><span class="sort-count">Reading your notes…</span><span class="cs-bar"><span style="width:0%"></span></span>`;
+  prog.innerHTML = `<span class="ai-dots"><i></i><i></i><i></i></span><span class="sort-count">Reading your notes… 0 of ${total}</span><span class="cs-bar"><span style="width:0%"></span></span>`;
   btn.replaceWith(prog);
-  const rules = `You help someone tidy the notes of a creative ${isProject(idea) ? "project" : "idea"}. For each note decide where it belongs: ${opts.join(", ")}. "decision" = something already decided (a choice), "about" = describes what the project is, "resolver" = an open question or something still undecided, "keep" = a loose note/log entry, "delete" = clearly obsolete or duplicated by the description or decisions. Be conservative: when unsure, "keep". Output ONE line per note, in order, exactly like "1: keep", "2: decision"… and nothing else.`;
-  const prompt = `${isProject(idea) ? "PROJECT" : "IDEA"}: ${idea.titulo} — ${idea.descripcion}${isProject(idea) ? "\nKEY DECISIONS: " + decisionsOf(idea).map(d => d.texto).join(" | ") : ""}\nNOTES:\n` + idea.notas.map((n, k) => `${k + 1}. ${noteText(n)}`).join("\n");
-  let done = 0, buf = "";
-  const applyLine = line => {
-    const m = line.match(/^\s*(\d+)\s*[:.)-]\s*([a-z]+)/i);
-    if (!m) return;
-    const k = +m[1] - 1, d = m[2].toLowerCase();
+  const rules = `You help someone tidy the notes of a creative ${isProject(idea) ? "project" : "idea"}. For each note decide where it belongs: ${opts.join(", ")}. "decision" = something already decided (a choice), "about" = describes what the project is, "resolver" = an open question or something still undecided, "keep" = a loose note/log entry, "delete" = clearly obsolete or duplicated by the description or decisions. Be conservative: when unsure, "keep". Output ONE line per note, exactly like "3: keep", using the note numbers given, and nothing else.`;
+  const head = `${isProject(idea) ? "PROJECT" : "IDEA"}: ${idea.titulo} — ${idea.descripcion}${isProject(idea) ? "\nKEY DECISIONS: " + decisionsOf(idea).map(d => d.texto).join(" | ") : ""}\n`;
+  let done = 0;
+  const unlockRow = (k, d) => {
     const sel = document.querySelector(`.sortnote-sel[data-k="${k}"]`);
-    if (!sel || !opts.includes(d) || !sel.closest(".sortnote").classList.contains("pending")) return;
-    sel.value = d; sel.classList.add("ai-picked");
-    const row = sel.closest(".sortnote"); row.classList.remove("pending"); row.classList.add("just-sorted");
+    if (!sel) return;
+    const row = sel.closest(".sortnote");
+    sel.disabled = false;
+    if (d && opts.includes(d)) { sel.value = d; sel.classList.add("ai-picked"); }
+    if (row.classList.contains("pending")) { row.classList.remove("pending"); row.classList.add("just-sorted"); done++; }
     row.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    done++;
     prog.querySelector(".sort-count").textContent = `Sorted ${done} of ${total}`;
     prog.querySelector(".cs-bar span").style.width = Math.round(done / total * 100) + "%";
   };
+  const BATCH = 6;
   try {
-    const model = await geminiResolveModel(false);
-    const ctrl = new AbortController(); const tt = setTimeout(() => ctrl.abort(), 120000);
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${encodeURIComponent(geminiKey)}`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, signal: ctrl.signal,
-      body: JSON.stringify({ systemInstruction: { parts: [{ text: rules }] }, contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2 } })
-    });
-    if (!res.ok) { let m = "Gemini error " + res.status; try { const j = await res.json(); m = j.error.message || m; } catch (e) {} throw new Error(res.status === 429 ? "Gemini quota used up for now — try again later." : res.status === 503 ? "Gemini is very busy right now — try again in a minute." : m); }
-    const reader = res.body.getReader(), dec = new TextDecoder();
-    let sse = "";
-    while (true) {
-      const { value, done: end } = await reader.read();
-      if (end) break;
-      sse += dec.decode(value, { stream: true });
-      let i;
-      while ((i = sse.indexOf("\n")) >= 0) {
-        const raw = sse.slice(0, i).trim(); sse = sse.slice(i + 1);
-        if (!raw.startsWith("data:")) continue;
-        try {
-          const j = JSON.parse(raw.slice(5));
-          if (j.usageMetadata && j.usageMetadata.totalTokenCount && j.candidates && j.candidates[0] && j.candidates[0].finishReason) countAiUse(j.usageMetadata.totalTokenCount);
-          buf += ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || []).filter(p => !p.thought).map(p => p.text || "").join("");
-          let nl; while ((nl = buf.indexOf("\n")) >= 0) { applyLine(buf.slice(0, nl)); buf = buf.slice(nl + 1); }
-        } catch (e) {}
-      }
+    for (let from = 0; from < total; from += BATCH) {
+      const idx = notes.slice(from, from + BATCH).map((_, j) => from + j);
+      const prompt = head + "NOTES TO SORT NOW:\n" + idx.map(k => `${k + 1}. ${noteText(notes[k])}`).join("\n");
+      const reply = await geminiGenerate([{ role: "user", text: prompt }], rules, false, undefined, "none");
+      const got = {};
+      reply.split("\n").forEach(line => { const m = line.match(/^\s*(\d+)\s*[:.)-]\s*([a-z]+)/i); if (m) got[+m[1] - 1] = m[2].toLowerCase(); });
+      for (const k of idx) { unlockRow(k, got[k]); await new Promise(r => setTimeout(r, 90)); }
     }
-    clearTimeout(tt);
-    applyLine(buf);
-    document.querySelectorAll(".sortnote.pending").forEach(r => r.classList.remove("pending"));
-    prog.innerHTML = `✓ Sorted ${done} of ${total} — change anything you like, then Apply`;
+    prog.innerHTML = `✓ Sorted ${total} of ${total} — change anything you like, then Apply`;
     prog.classList.add("done");
   } catch (e) {
-    document.querySelectorAll(".sortnote.pending").forEach(r => r.classList.remove("pending"));
-    prog.innerHTML = `⚠ ${escapeHtml(e.name === "AbortError" ? "It took too long. Try again." : e.message)}`;
+    document.querySelectorAll(".sortnote.pending").forEach(r => { r.classList.remove("pending"); r.querySelector("select").disabled = false; });
+    prog.innerHTML = `⚠ ${escapeHtml(e.message)} (the ones already sorted are kept)`;
     prog.classList.add("err");
   }
+  if (apply) apply.disabled = false;
 }
 function applySortNotes() {
   const idea = IDEAS.find(i => i.id === sortNotesId);
@@ -6637,9 +6644,10 @@ const PROJECT_MENTOR_RULES = `You are a veteran professional in the field of thi
 - Answer in the language the person writes in.
 - If (and only if) your answer suggests concrete additions to the project, end with a block exactly like this (no other text after it):
 \`\`\`actions
-[{"tipo":"capitulo","titulo":"New chapter name","antesDe":"Existing chapter name or null"},{"tipo":"decision","texto":"Topic: choice"},{"tipo":"resolver","texto":"Open question to figure out"},{"tipo":"nota","texto":"Short note"}]
+[{"tipo":"resuelto","pregunta":"Exact text of the thing to figure out","texto":"Topic: the choice made"},{"tipo":"capitulo","titulo":"New chapter name","antesDe":"Existing chapter name or null"},{"tipo":"decision","texto":"Topic: choice"},{"tipo":"resolver","texto":"Open question to figure out"},{"tipo":"nota","texto":"Short note"}]
 \`\`\`
-Only include actions the person would clearly want offered; they will accept or skip each one.`;
+Only include actions the person would clearly want offered; they will accept or skip each one.
+- When the person picks an option for one of the THINGS TO FIGURE OUT (or clearly settles it), offer a "resuelto" action with that thing's exact text in "pregunta" and the choice in "texto", asking briefly if they want it written into the project. "capitulo" only applies to projects.`;
 let pcProjId = null;
 const pcPending = {}; // projId -> start time of an answer in progress
 function projectContextText(proj) {
@@ -6653,11 +6661,29 @@ ${chs.map((c, k) => `${k + 1}. ${c.titulo} — ${Math.round(ideaProgress(c) * 10
 ${cosas.length ? "THINGS TO FIGURE OUT: " + cosas.join(" | ") : ""}
 ${(proj.notas || []).length ? "NOTES: " + proj.notas.map(noteText).join(" | ") : ""}${lessonsFor(proj)}`;
 }
+function chatContextText(idea) {
+  if (isProject(idea)) return projectContextText(idea);
+  const proj = isChapter(idea) && IDEAS.find(x => x.id === idea.proyectoId);
+  const cosas = (idea.cosasAResolver || []).map(c => (c.resuelto ? "[solved] " : "") + c.texto);
+  return `${proj ? `PROJECT: ${proj.titulo} — ${projAbout(proj)}\nTHIS CHAPTER: ` : "IDEA: "}${idea.titulo} (${idea.categoria})
+${idea.descripcion ? "DESCRIPTION: " + idea.descripcion : ""}
+PLAN: ${(idea.fases || []).map(f => f.nombre + ": " + (f.pasos || []).map(st => { const h = (typeof st === "object" && st.hecho) || 0; return (h === 2 ? "[x] " : h === 1 ? "[~] " : "[ ] ") + stepText(st); }).join(" | ")).join("\n") || "(no plan yet)"}
+${cosas.length ? "THINGS TO FIGURE OUT: " + cosas.join(" | ") : ""}
+${(idea.notas || []).length ? "NOTES: " + idea.notas.map(noteText).join(" | ") : ""}${lessonsFor(proj || idea)}`;
+}
+function figureOut(ideaId, idx) {
+  const idea = IDEAS.find(i => i.id === ideaId);
+  const c = idea && idea.cosasAResolver && idea.cosasAResolver[idx];
+  if (!c) return;
+  openProjectChat(ideaId);
+  pcSend(`Help me figure this out: "${c.texto}". Give me 3 to 5 concrete options that fit this ${isProject(idea) ? "project" : "idea"}, with pros and cons of each and which one you'd lean towards and why. Then I'll choose.`);
+}
 function openProjectChat(projId) {
   pcProjId = projId;
   const proj = IDEAS.find(i => i.id === projId);
   if (!proj) return;
   document.getElementById("pc-title").textContent = "Talk to your mentor · " + proj.titulo;
+  document.querySelector("#pc-overlay .form-hint").textContent = isProject(proj) ? "Ask anything about the whole project. The mentor sees every chapter, your progress, key decisions and notes. If it suggests adding something, you choose." : "Ask anything about this " + (isChapter(proj) ? "chapter" : "idea") + ". The mentor sees its plan, notes and things to figure out. If it suggests adding something, you choose.";
   renderPcChat();
   document.getElementById("pc-overlay").classList.add("open");
   setTimeout(() => document.getElementById("pc-input").focus(), 50);
@@ -6675,7 +6701,7 @@ function renderPcChat() {
   const proj = IDEAS.find(i => i.id === pcProjId);
   const log = document.getElementById("pc-log");
   const chat = (proj && proj.chat) || [];
-  const label = a => a.tipo === "capitulo" ? `Add chapter <strong>${escapeHtml(a.titulo)}</strong>${a.antesDe ? " before <em>" + escapeHtml(a.antesDe) + "</em>" : ""}` : a.tipo === "decision" ? `Add key decision <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "resolver" ? `Add to figure out: <strong>${escapeHtml(a.texto)}</strong>` : `Add note: <strong>${escapeHtml(a.texto)}</strong>`;
+  const label = a => a.tipo === "resuelto" ? `Settle <em>${escapeHtml(a.pregunta || "")}</em> → <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "capitulo" ? `Add chapter <strong>${escapeHtml(a.titulo)}</strong>${a.antesDe ? " before <em>" + escapeHtml(a.antesDe) + "</em>" : ""}` : a.tipo === "decision" ? `Add key decision <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "resolver" ? `Add to figure out: <strong>${escapeHtml(a.texto)}</strong>` : `Add note: <strong>${escapeHtml(a.texto)}</strong>`;
   log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}">${escapeHtml(m.text)}${(m.actions || []).map((a, j) => `<div class="pc-act ${a.done ? "done" : ""}"><span>${label(a)}</span>${a.done ? `<span class="note-date">${a.done === "yes" ? "✓ Added" : "Skipped"}</span>` : `<span><button type="button" class="sug-apply" onclick="pcAct(${k},${j},true)">Add</button><button type="button" class="sug-ignore" onclick="pcAct(${k},${j},false)">Skip</button></span>`}</div>`).join("")}</div>`).join("")
     : `<div class="step-empty">Ask anything about the project. For example:</div>
        <div class="step-chips">${["What should I focus on this week?", "Is anything missing from my plan?", "Am I being realistic with the timing?", "Explain how a pro would approach this project"].map(t => `<button type="button" class="ai-chip" onclick="pcSend(${JSON.stringify(t).replace(/"/g, "&quot;")})">${t}</button>`).join("")}</div>`;
@@ -6691,8 +6717,16 @@ function pcAct(k, j, yes) {
   const a = proj && proj.chat && proj.chat[k] && proj.chat[k].actions && proj.chat[k].actions[j];
   if (!a || a.done) return;
   if (yes) {
-    if (a.tipo === "capitulo") { addChapter(proj.id, a.titulo, a.antesDe); logChanges(proj, "Mentor", [`Added chapter "${a.titulo}"`]); }
-    else if (a.tipo === "decision") { proj.decisiones = decisionsOf(proj).concat([{ texto: a.texto }]); logChanges(proj, "Mentor", [`Added key decision "${a.texto}"`]); }
+    const decTarget = isProject(proj) ? proj : (isChapter(proj) && IDEAS.find(x => x.id === proj.proyectoId)) || null;
+    if (a.tipo === "resuelto") {
+      const norm = x => String(x || "").trim().toLowerCase();
+      const c = (proj.cosasAResolver || []).find(c => norm(c.texto) === norm(a.pregunta)) || (proj.cosasAResolver || []).find(c => !c.resuelto && (norm(c.texto).includes(norm(a.pregunta)) || norm(a.pregunta).includes(norm(c.texto))));
+      if (c) { c.resuelto = true; c.decision = a.texto; }
+      if (decTarget) decTarget.decisiones = decisionsOf(decTarget).concat([{ texto: a.texto }]);
+      else proj.notas = (proj.notas || []).concat([{ texto: "Decided: " + a.texto, fecha: new Date().toISOString() }]);
+      logChanges(proj, "Mentor", [`Settled "${a.pregunta}" → ${a.texto}`]);
+    } else if (a.tipo === "capitulo") { addChapter(proj.id, a.titulo, a.antesDe); logChanges(proj, "Mentor", [`Added chapter "${a.titulo}"`]); }
+    else if (a.tipo === "decision") { if (decTarget) decTarget.decisiones = decisionsOf(decTarget).concat([{ texto: a.texto }]); else proj.notas = (proj.notas || []).concat([{ texto: "Decided: " + a.texto, fecha: new Date().toISOString() }]); logChanges(proj, "Mentor", [`Added key decision "${a.texto}"`]); }
     else if (a.tipo === "resolver") { proj.cosasAResolver = (proj.cosasAResolver || []).concat([{ texto: a.texto, resuelto: false }]); logChanges(proj, "Mentor", [`Added thing to figure out "${a.texto}"`]); }
     else { proj.notas = (proj.notas || []).concat([{ texto: a.texto, fecha: new Date().toISOString() }]); }
   }
@@ -6708,7 +6742,7 @@ async function pcSend(textOverride) {
   if (!text) return;
   inp.value = "";
   if (!geminiKey) {
-    try { await navigator.clipboard.writeText(PROJECT_MENTOR_RULES + "\n\n" + projectContextText(proj) + "\n\nMY QUESTION: " + text); } catch (e) {}
+    try { await navigator.clipboard.writeText(PROJECT_MENTOR_RULES + "\n\n" + chatContextText(proj) + "\n\nMY QUESTION: " + text); } catch (e) {}
     await showAlert("No Gemini key yet, so I copied your question with the whole project as context. Paste it into any AI. Add a key in Settings to talk to the mentor right here.", { title: "Prompt copied" });
     return;
   }
@@ -6720,9 +6754,9 @@ async function pcSend(textOverride) {
   renderPcChat();
   const wait = document.querySelector("#pc-log .ai-wait");
   try {
-    const hist = proj.chat.slice(-12).map((m, k) => ({ role: m.role, text: k === 0 ? projectContextText(proj) + "\n\n" + m.text : m.text }));
-    if (hist[0].role !== "user") hist.unshift({ role: "user", text: projectContextText(proj) });
-    const { text: reply, actions } = splitActions((await withThinking(wait, "pc-input", () => geminiGenerate(hist, PROJECT_MENTOR_RULES), null, t0)).trim());
+    const hist = proj.chat.slice(-12).map((m, k) => ({ role: m.role, text: k === 0 ? chatContextText(proj) + "\n\n" + m.text : m.text }));
+    if (hist[0].role !== "user") hist.unshift({ role: "user", text: chatContextText(proj) });
+    const { text: reply, actions } = splitActions((await withThinking(wait, "pc-input", () => geminiGenerate(hist, PROJECT_MENTOR_RULES, false, undefined, "low"), null, t0)).trim());
     proj.chat.push({ role: "model", text: reply, actions });
     proj.chat = proj.chat.slice(-30);
     saveIdeas();
@@ -6983,7 +7017,7 @@ function renderProjectView(p) {
   const colors = ["#fff3a8", "#ffd9df", "#cfe8ff", "#d6f2c9", "#ffe0b8", "#e6dcff"];
   const wall = `
     <div class="chapter-wall-head"><span class="block-title c-plan" style="margin:0">Chapters</span><span class="toc-total">${Math.round(total * 100)}% overall</span>
-      <button type="button" class="stuck-btn" style="margin:0" onclick="askDirector('${escapeAttr(p.id)}')">Check chapter order</button><span class="hint" tabindex="0" data-tip="Talk to your mentor: ask anything about the whole project. Check chapter order: an AI checks that your chapters make sense in that order and points out missing stages. You decide what to apply.">?</span></div>
+      <button type="button" class="stuck-btn" style="margin:0" onclick="askDirector('${escapeAttr(p.id)}')">Check chapter order</button><span class="hint" tabindex="0" data-tip="An AI checks that your chapters make sense in that order and points out missing stages. You decide what to apply.">?</span></div>
     <div class="chapter-wall">
       ${chs.map((c, k) => {
         const pr = Math.round(ideaProgress(c) * 100);
@@ -7040,7 +7074,8 @@ function renderProjectView(p) {
         <li class="resolve-item ${item.resuelto ? 'done' : ''}">
           <span class="resolve-check" onclick="toggleResolve('${p.id}', ${idx})" style="cursor:pointer">${item.resuelto ? '✓' : ''}</span>
           <div class="resolve-text-wrap" onclick="toggleResolve('${p.id}', ${idx})" style="cursor:pointer"><div class="resolve-text">${escapeHtml(item.texto)}</div>
-          ${item.busqueda ? `<div class="resolve-search">search: ${item.busqueda.map(b => `<span>${escapeHtml(b)}</span>`).join(" ")}</div>` : ""}</div>
+          ${item.decision ? `<div class="resolve-decision">→ ${escapeHtml(item.decision)}</div>` : ""}${item.busqueda && !item.resuelto ? `<div class="resolve-search">search: ${item.busqueda.map(b => `<span>${escapeHtml(b)}</span>`).join(" ")}</div>` : ""}</div>
+          ${item.resuelto ? "" : `<button type="button" class="resolve-ai-btn" onclick="figureOut('${escapeAttr(p.id)}', ${idx})">Help me decide</button>`}
           <button class="resolve-delete-btn" onclick="deleteResolverItem('${p.id}', ${idx})" title="Delete">&times;</button>
         </li>`).join("")}</ul>
       <button class="resolve-add-btn" onclick="addResolverItem('${p.id}')">+ Add thing to figure out</button>
@@ -7064,7 +7099,7 @@ function renderProjectView(p) {
           ${dueBadgeHtml(p)}${workedBadgeHtml(p)}
           <span class="badges-right">
             <button type="button" class="undo-project" onclick="revertProject('${escapeAttr(p.id)}')">Turn back into a single idea</button>
-            <button type="button" class="share-btn mentor-head-btn" onclick="openProjectChat('${escapeAttr(p.id)}')">💬 Talk to your mentor</button>
+            <button type="button" class="share-btn mentor-head-btn" title="Ask anything about the whole project — it sees every chapter, your progress and decisions" onclick="openProjectChat('${escapeAttr(p.id)}')">💬 Talk to your mentor</button>
           </span>
         </div>
       </div>
@@ -7170,7 +7205,7 @@ async function stepSend(textOverride) {
   try {
     const hist = ref.step.chat.slice(-12).map((m, k, arr) => ({ role: m.role, text: k === 0 ? stepContextText(ref) + "\n\n" + m.text : m.text }));
     if (hist[0].role !== "user") hist.unshift({ role: "user", text: stepContextText(ref) });
-    const reply = (await withThinking(wait, "step-input", () => geminiGenerate(hist, TUTOR_RULES))).trim();
+    const reply = (await withThinking(wait, "step-input", () => geminiGenerate(hist, TUTOR_RULES, false, undefined, "low"))).trim();
     ref.step.chat.push({ role: "model", text: reply });
     ref.step.chat = ref.step.chat.slice(-30);
     saveIdeas();
@@ -7229,7 +7264,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-19 06:30 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-19 07:20 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -9400,8 +9435,9 @@ function renderDetailReadMode(idea) {
             <span class="resolve-check" onclick="toggleResolve('${idea.id}', ${idx})" style="cursor:pointer">${item.resuelto ? '✓' : ''}</span>
             <div class="resolve-text-wrap" onclick="toggleResolve('${idea.id}', ${idx})" style="cursor:pointer">
               <div class="resolve-text">${escapeHtml(item.texto)}</div>
-              ${item.busqueda ? `<div class="resolve-search">search: ${item.busqueda.map(b => `<span>${escapeHtml(b)}</span>`).join(" ")}</div>` : ""}
+              ${item.decision ? `<div class="resolve-decision">→ ${escapeHtml(item.decision)}</div>` : ""}${item.busqueda && !item.resuelto ? `<div class="resolve-search">search: ${item.busqueda.map(b => `<span>${escapeHtml(b)}</span>`).join(" ")}</div>` : ""}
             </div>
+            ${item.resuelto ? "" : `<button type="button" class="resolve-ai-btn" onclick="figureOut('${escapeAttr(idea.id)}', ${idx})">Help me decide</button>`}
             <button class="resolve-delete-btn" onclick="deleteResolverItem('${idea.id}', ${idx})" title="Delete">&times;</button>
           </li>
         `).join("")}
@@ -9748,7 +9784,7 @@ async function stuckSend() {
   stuckBusy = true;
   const wait = stuckBubble("model", "…");
   try {
-    const reply = (await withThinking(wait, "stuck-input", () => geminiGenerate(stuckHistory, STUCK_SYSTEM))).trim();
+    const reply = (await withThinking(wait, "stuck-input", () => geminiGenerate(stuckHistory, STUCK_SYSTEM, false, undefined, "low"))).trim();
     stuckHistory.push({ role: "model", text: reply });
     wait.textContent = reply;
   } catch (e) {
