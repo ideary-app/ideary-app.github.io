@@ -3682,6 +3682,27 @@ SHIPPING CHANGES
     .detail-sticky-top .detail-top-row { flex-wrap: wrap; row-gap: 10px; }
     .detail-sticky-top .detail-top-row > div:last-child { flex-wrap: wrap !important; width: 100%; justify-content: flex-start; row-gap: 10px; }
   }
+
+  .badges-right { margin-left: auto; display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .detail-badges { align-items: center; }
+  @media (max-width: 600px) { .badges-right { margin-left: 0; width: 100%; justify-content: space-between; } .mentor-head-btn { order: 0; width: auto; } }
+  .collapsible > .block-title { cursor: pointer; user-select: none; }
+  .cs-caret { display: inline-block; width: 18px; font-size: .9em; opacity: .6; transition: transform .15s; }
+  .collapsed .cs-caret { transform: rotate(-90deg); }
+  .cs-summary { display: none; align-items: center; gap: 10px; font-size: .82rem; color: var(--slate); padding: 2px 0 2px 18px; }
+  .collapsed > .cs-summary { display: flex; }
+  .collapsed > :not(.block-title):not(.cs-summary) { display: none !important; }
+  .collapsed { padding-bottom: 12px !important; min-height: 0 !important; }
+  .cs-bar { width: 90px; height: 6px; border-radius: 3px; background: rgba(0,0,0,.12); overflow: hidden; }
+  .cs-bar span { display: block; height: 100%; background: currentColor; }
+  .block-title .notes-sort-btn { margin: 0 0 0 auto !important; font-size: .85rem; padding: 2px 10px; }
+  .c-notes { display: flex; align-items: center; gap: 6px; }
+  .sortnote { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px dashed var(--line); }
+  .sortnote-text { flex: 1; font-size: .9rem; }
+  .sortnote-sel { width: 190px; flex-shrink: 0; font-size: 14px !important; padding: 6px 8px !important; }
+  .sortnote-sel.ai-picked { border-color: var(--pen) !important; }
+  .sortnotes-list { max-height: 55vh; overflow-y: auto; margin-bottom: 10px; }
+  @media (max-width: 600px) { .sortnote { flex-direction: column; align-items: stretch; } .sortnote-sel { width: 100%; } }
 </style>
 </head>
 <body>
@@ -6454,6 +6475,100 @@ function startSpeechApi(id) {
 document.addEventListener("click", e => { if (micState && e.target.closest(".modal-close")) { micState.after = null; micState.cancel = true; stopMic(); } }, true);
 setTimeout(attachMics, 0);
 
+
+/* ---------- Collapsible blocks in the right column (remembered) ---------- */
+const COLLAPSE_KEY = "ideary_collapsed_v1";
+function collapsedSet() { try { return new Set(JSON.parse(localStorage.getItem(COLLAPSE_KEY) || "[]")); } catch (e) { return new Set(); } }
+function blockKey(b) { const t = b.querySelector(".block-title"); return t ? t.childNodes[t.childNodes.length > 1 && t.firstChild.classList && t.firstChild.classList.contains("dot") ? 1 : 0].textContent.trim().split("\n")[0] : ""; }
+function blockSummary(b) {
+  if (b.querySelector(".resolve-list")) {
+    const all = b.querySelectorAll(".resolve-item").length, done = b.querySelectorAll(".resolve-item.done").length;
+    return all ? `<span class="cs-bar"><span style="width:${Math.round(done / all * 100)}%"></span></span><span>${done}/${all} figured out</span>` : "<span>empty</span>";
+  }
+  if (b.querySelector(".notes-list")) { const n = b.querySelectorAll(".notes-list li").length; return `<span>${n} note${n === 1 ? "" : "s"}</span>`; }
+  if (b.classList.contains("sketch-block")) { const n = b.querySelectorAll(".sketch-thumb").length; return `<span>${n} sketch${n === 1 ? "" : "es"}</span>`; }
+  if (b.classList.contains("refs-block")) { const n = b.querySelectorAll(".ref-item").length; return `<span>${n} link${n === 1 ? "" : "s"}</span>`; }
+  return "";
+}
+function enhanceCollapsibles() {
+  const set = collapsedSet();
+  document.querySelectorAll(".detail-dashboard-sidecol .detail-block:not(.history-block)").forEach(b => {
+    const title = b.querySelector(".block-title");
+    if (!title || b.querySelector(".desc-text") || b.closest(".project-about")) return;
+    const key = "b:" + (title.className.match(/c-\w+/) || [""])[0] + ":" + (b.classList.contains("refs-block") ? "refs" : b.classList.contains("sketch-block") ? "sk" : "");
+    b.classList.add("collapsible");
+    if (!title.querySelector(".cs-caret")) {
+      const c = document.createElement("span"); c.className = "cs-caret"; c.textContent = "▾"; title.insertBefore(c, title.firstChild);
+      title.addEventListener("click", e => {
+        if (e.target.closest("button, input, label, a")) return;
+        const s2 = collapsedSet(); b.classList.toggle("collapsed") ? s2.add(key) : s2.delete(key);
+        try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...s2])); } catch (er) {}
+        updateStickyHeaderHeight();
+      });
+    }
+    let sum = b.querySelector(".cs-summary");
+    if (!sum) { sum = document.createElement("div"); sum.className = "cs-summary"; title.after(sum); }
+    sum.innerHTML = blockSummary(b);
+    b.classList.toggle("collapsed", set.has(key));
+  });
+}
+new MutationObserver(() => { clearTimeout(window._csT); window._csT = setTimeout(enhanceCollapsibles, 0); }).observe(document.getElementById("main"), { childList: true });
+
+/* ---------- Sort notes into the project / plan ---------- */
+let sortNotesId = null;
+function sortTargets(idea) {
+  return isProject(idea)
+    ? [["keep", "Keep as a note"], ["decision", "→ Key decision"], ["about", "→ What it is"], ["resolver", "→ Things to figure out"], ["delete", "Delete"]]
+    : [["keep", "Keep as a note"], ["about", "→ Description"], ["resolver", "→ Things to figure out"], ["delete", "Delete"]];
+}
+function openSortNotes(id) {
+  sortNotesId = id;
+  const idea = IDEAS.find(i => i.id === id);
+  if (!idea) return;
+  let ov = document.getElementById("sortnotes-overlay");
+  if (!ov) { ov = document.createElement("div"); ov.className = "modal-overlay"; ov.id = "sortnotes-overlay"; document.body.appendChild(ov); }
+  const opts = sortTargets(idea);
+  ov.innerHTML = `<div class="modal-box" style="max-width:600px"><div class="modal-head"><div class="modal-title">Sort your notes</div><button class="modal-close" onclick="document.getElementById('sortnotes-overlay').classList.remove('open')">&times;</button></div>
+    <p class="pw-small" style="margin-bottom:10px">Notes that became part of the ${isProject(idea) ? "project" : "idea"} can move to where they belong. Pick where each one goes.</p>
+    ${geminiKey ? `<button type="button" class="stuck-btn" id="sortnotes-ai" style="margin:0 0 10px" onclick="suggestSortNotes()">✨ Suggest where each one goes</button>` : ""}
+    <div class="sortnotes-list">${(idea.notas || []).map((n, k) => `<div class="sortnote"><div class="sortnote-text">${escapeHtml(noteText(n))}</div>
+      <select class="form-input sortnote-sel" data-k="${k}">${opts.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select></div>`).join("")}</div>
+    <button class="form-submit" onclick="applySortNotes()">Apply</button></div>`;
+  ov.classList.add("open");
+}
+async function suggestSortNotes() {
+  const idea = IDEAS.find(i => i.id === sortNotesId);
+  const btn = document.getElementById("sortnotes-ai");
+  if (!idea || !btn) return;
+  btn.disabled = true; btn.innerHTML = `<span class="ai-dots"><i></i><i></i><i></i></span> Reading your notes…`;
+  const opts = sortTargets(idea).map(o => o[0]);
+  const rules = `You help someone tidy the notes of a creative ${isProject(idea) ? "project" : "idea"}. For each note decide where it belongs: ${opts.join(", ")}. "decision" = something already decided (a choice), "about" = describes what the project is, "resolver" = an open question or something still undecided, "keep" = a loose note/log entry, "delete" = clearly obsolete or duplicated by the description or decisions. Be conservative: when unsure, "keep". Output ONLY raw JSON: {"destinos":["keep", ...]} with one entry per note, in order.`;
+  try {
+    const data = parseJsonLenient(stripJsonFences(await geminiGenerate([{ role: "user", text: `${isProject(idea) ? "PROJECT" : "IDEA"}: ${idea.titulo} — ${idea.descripcion}${isProject(idea) ? "\nKEY DECISIONS: " + decisionsOf(idea).map(d => d.texto).join(" | ") : ""}\nNOTES:\n` + idea.notas.map((n, k) => `${k + 1}. ${noteText(n)}`).join("\n") }], rules)));
+    (data.destinos || []).forEach((d, k) => { const sel = document.querySelector(`.sortnote-sel[data-k="${k}"]`); if (sel && opts.includes(d)) { sel.value = d; sel.classList.add("ai-picked"); } });
+    btn.textContent = "✓ Suggested — change anything you like";
+  } catch (e) { btn.disabled = false; btn.textContent = "⚠ " + e.message; }
+}
+function applySortNotes() {
+  const idea = IDEAS.find(i => i.id === sortNotesId);
+  if (!idea) return;
+  const keep = [], log = [];
+  (idea.notas || []).forEach((n, k) => {
+    const sel = document.querySelector(`.sortnote-sel[data-k="${k}"]`);
+    const d = sel ? sel.value : "keep", t = noteText(n);
+    if (d === "decision") { idea.decisiones = decisionsOf(idea).concat([{ texto: t }]); log.push(`Note → key decision: "${t}"`); }
+    else if (d === "about") { idea.descripcion = (idea.descripcion ? idea.descripcion.trim() + "\n" : "") + t; log.push(`Note → description: "${t}"`); }
+    else if (d === "resolver") { idea.cosasAResolver = (idea.cosasAResolver || []).concat([{ texto: t, resuelto: false }]); log.push(`Note → to figure out: "${t}"`); }
+    else if (d === "delete") { log.push(`Deleted note "${t}"`); }
+    else keep.push(n);
+  });
+  idea.notas = keep;
+  logChanges(idea, "Sorted notes", log);
+  saveIdeas();
+  document.getElementById("sortnotes-overlay").classList.remove("open");
+  render();
+}
+
 /* ---------- Project mentor chat: ask anything about the whole project ---------- */
 const PROJECT_MENTOR_RULES = `You are a veteran professional in the field of this project (a film director for a short film, a master carpenter for furniture, a head chef for a recipe…) acting as the person's mentor for the WHOLE project. You can see every chapter, its plan and progress, the key decisions, notes and open questions.
 - Answer like a good teacher: clear, concrete, applied to THIS project, short paragraphs. Guide and give options with their trade-offs; don't make the person's creative decisions for them.
@@ -6854,7 +6969,7 @@ function renderProjectView(p) {
     </div>`;
   const notesHtml = `
     <div class="detail-block">
-      <div class="block-title c-notes">Notes</div>
+      <div class="block-title c-notes">Notes${(p.notas || []).length ? `<button type="button" class="stuck-btn notes-sort-btn" onclick="event.stopPropagation();openSortNotes('${escapeAttr(p.id)}')">Sort into the project</button>` : ""}</div>
       <ul class="notes-list">${(p.notas || []).map(n => `<li>${noteDate(n) ? `<span class="note-date">${escapeHtml(fmtShortDate(noteDate(n)))}</span>` : ""}${escapeHtml(noteText(n))}</li>`).join("")}</ul>
       <input class="note-quick-add" placeholder="+ Jot a note… (Enter)" onkeydown="if(event.key==='Enter'){event.preventDefault();quickAddNote('${escapeAttr(p.id)}',this.value)}">
     </div>`;
@@ -6877,7 +6992,6 @@ function renderProjectView(p) {
         <button class="back-btn" onclick="goHome()">&larr; Back to Home</button>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <button class="tool-btn pencil" title="Edit" aria-label="Edit" onclick="startEditIdea('${p.id}')">${pencilSvg("Edit")}</button>
-          <button type="button" class="share-btn mentor-head-btn" onclick="openProjectChat('${escapeAttr(p.id)}')">💬 Talk to your mentor</button>
           <button type="button" class="share-btn" title="Share" onclick="openShare('${escapeAttr(p.id)}')">Share</button>
           <button class="tool-btn eraser" title="Erase" aria-label="Erase" onclick="deleteIdea('${p.id}')">${eraserSvg("Erase")}</button>
         </div>
@@ -6889,6 +7003,10 @@ function renderProjectView(p) {
           <span class="badge badge-status" style="background:${cfg.soft};color:${cfg.color}">${cfg.label}</span>
           <span class="badge badge-cat" style="background:var(--slate-soft);color:var(--slate)">${escapeHtml(p.categoria)}</span>
           ${dueBadgeHtml(p)}${workedBadgeHtml(p)}
+          <span class="badges-right">
+            <button type="button" class="undo-project" onclick="revertProject('${escapeAttr(p.id)}')">Turn back into a single idea</button>
+            <button type="button" class="share-btn mentor-head-btn" onclick="openProjectChat('${escapeAttr(p.id)}')">💬 Talk to your mentor</button>
+          </span>
         </div>
       </div>
     </div>
@@ -6906,7 +7024,7 @@ function renderProjectView(p) {
         <div class="detail-order-wrap">${renderHistoryBlock(p)}</div>
       </div>
     </div>
-    <div class="project-foot"><button type="button" class="undo-project" onclick="revertProject('${escapeAttr(p.id)}')">Turn this project back into a single idea</button></div>`;
+`;
 }
 function openProjectWizardWith(projId) {
   const proj = IDEAS.find(i => i.id === projId);
@@ -7052,7 +7170,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-19 03:30 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-19 06:00 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -9252,7 +9370,7 @@ function renderDetailReadMode(idea) {
   // list doesn't push the sticky header taller than the viewport.
   const notasStickyHtml = `
     <div class="detail-block">
-      <div class="block-title c-notes"><span class="dot" style="background:var(--amber)"></span>Notes</div>
+      <div class="block-title c-notes"><span class="dot" style="background:var(--amber)"></span>Notes${idea.notas.length ? `<button type="button" class="stuck-btn notes-sort-btn" onclick="event.stopPropagation();openSortNotes('${escapeAttr(idea.id)}')">Sort into the plan</button>` : ""}</div>
       <ul class="notes-list">${idea.notas.map(n => `<li>${noteDate(n) ? `<span class="note-date">${escapeHtml(fmtShortDate(noteDate(n)))}</span>` : ""}${escapeHtml(noteText(n))}</li>`).join("")}</ul>
       <input class="note-quick-add" placeholder="+ Jot a note… (Enter)" onkeydown="if(event.key==='Enter'){event.preventDefault();quickAddNote('${escapeAttr(idea.id)}',this.value)}">
     </div>`;
