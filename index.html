@@ -3751,6 +3751,12 @@ SHIPPING CHANGES
   .due-quick button { flex: 1; border: 1px dashed var(--line-strong); background: none; border-radius: 6px; padding: 3px 4px; font-family: var(--hand); font-size: .9rem; color: var(--pen); cursor: pointer; white-space: nowrap; }
   .due-quick button:hover { border-style: solid; }
   .due-clear { width: 100%; margin-top: 6px; border: none; background: none; color: var(--rust); font-family: var(--hand); font-size: .95rem; cursor: pointer; text-decoration: underline; }
+
+  .about-shut .about-what .desc-text { max-height: 7.2em; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent); mask-image: linear-gradient(to bottom, #000 55%, transparent); }
+  .about-shut .dec-list li:nth-child(n+5) { display: none; }
+  .dec-more { display: none; font-size: .82rem; color: var(--slate); margin: -2px 0 4px 26px; }
+  .about-shut .dec-more { display: block; }
+  .about-toggle { display: block; margin: 10px auto 0; }
 </style>
 </head>
 <body>
@@ -7087,6 +7093,14 @@ function ignoreSuggestion(projId, idx) {
 }
 
 /* ---- Project overview page ---- */
+const aboutOpen = {}; // projId -> expanded (one toggle for What it is + Key decisions)
+function toggleAbout(id, btn) {
+  aboutOpen[id] = !aboutOpen[id];
+  const b = btn.closest(".project-about");
+  b.classList.toggle("about-shut", !aboutOpen[id]);
+  btn.textContent = aboutOpen[id] ? "View less" : "View more";
+  updateStickyHeaderHeight();
+}
 function renderProjectView(p) {
   const chs = projectChapters(p);
   const cfg = ESTADOS[p.estado];
@@ -7129,21 +7143,23 @@ function renderProjectView(p) {
   const pending = (p.sugerencias || []).length;
   const aboutLong = (p.descripcion || "").length > 320;
   const decs = decisionsOf(p);
+  const aboutMore = aboutLong || decs.length > 4;
   const aboutHtml = `
-    <div class="detail-block project-about">
+    <div class="detail-block project-about ${aboutMore && !aboutOpen[p.id] ? "about-shut" : ""}">
       <div class="about-grid">
         <div class="about-what">
           <div class="block-title c-desc">What it is</div>
-          <div class="desc-text ${aboutLong ? "about-collapsed" : ""}" id="about-text">${(p.descripcion || "").split("\n").map(x => `<p>${escapeHtml(x)}</p>`).join("") || `<p style="opacity:.6">No description yet — tap the pencil to write one.</p>`}</div>
-          ${aboutLong ? `<button type="button" class="desc-toggle-btn" onclick="const t=document.getElementById('about-text');const o=t.classList.toggle('about-collapsed');this.textContent=o?'View more':'View less'">View more</button>` : ""}
+          <div class="desc-text" id="about-text">${(p.descripcion || "").split("\n").map(x => `<p>${escapeHtml(x)}</p>`).join("") || `<p style="opacity:.6">No description yet — tap the pencil to write one.</p>`}</div>
         </div>
         <div class="about-decisions">
           <div class="block-title c-desc">Key decisions</div>
           <div class="dec-hint">Fixed rules for this project. The director and every AI helper respect them.</div>
           <ul class="dec-list">${decs.map((d, k) => `<li><span class="dec-pin">📌</span><span class="dec-text" title="Click to edit" onclick="editDecision('${escapeAttr(p.id)}',${k})">${escapeHtml(d.texto)}</span><button type="button" class="resolve-delete-btn" title="Remove" onclick="removeDecision('${escapeAttr(p.id)}',${k})">&times;</button></li>`).join("")}</ul>
+          ${decs.length > 4 ? `<div class="dec-more">+ ${decs.length - 4} more</div>` : ""}
           <input class="note-quick-add" placeholder="+ Add a decision, e.g. Software: Blender (Enter)" onkeydown="if(event.key==='Enter'){event.preventDefault();addDecision('${escapeAttr(p.id)}',this)}">
         </div>
       </div>
+      ${aboutMore ? `<button type="button" class="desc-toggle-btn about-toggle" onclick="toggleAbout('${escapeAttr(p.id)}', this)">${aboutOpen[p.id] ? "View less" : "View more"}</button>` : ""}
     </div>`;
   const notesHtml = `
     <div class="detail-block">
@@ -7349,7 +7365,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-19 13:40 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-19 14:00 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
