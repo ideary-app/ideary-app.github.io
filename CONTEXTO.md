@@ -27,7 +27,8 @@ Es pública y gratuita, sin backend, y puede usarla cualquiera. Antes se llamaba
   La conversión se puede deshacer.
 - **Key decisions**: cada proyecto tiene una lista de decisiones ya tomadas ("Software: Blender", "Duración: 1 minuto"). Todas las funciones de IA las reciben como reglas fijas. Si el proyecto no tiene ninguna, el director propone las primeras y el usuario elige cuáles guardar.
 - **Filtro de la Home**: All / Projects / Ideas. Se recuerda la última opción. En los proyectos se muestra el avance de capítulos.
-- **Director**: la IA revisa el orden de los capítulos y propone mover o agregar capítulos, además de avisos. El usuario aplica o ignora cada sugerencia. La app valida la coherencia del orden (ver la sección 7).
+- **Talk to your mentor** (página del proyecto): chat libre con la IA sobre todo el proyecto. Recibe todos los capítulos con sus pasos y avance, About + Key decisions, notas, cosas a resolver y lecciones. Si sugiere agregar algo (capítulo, decisión, cosa a resolver, nota) lo manda en un bloque ```actions``` y el usuario toca Add/Skip en cada una. La charla se guarda en `chat` del proyecto (últimos 30 mensajes).
+- **Check chapter order** (antes "Check chapter order"): el director revisa el orden de los capítulos y propone mover o agregar capítulos, además de avisos. El usuario aplica o ignora cada sugerencia. La app valida la coherencia del orden (ver la sección 7).
 - **Explain this stage**: en cada capítulo, la IA escribe una explicación de esa etapa con tono de profesor.
 - **Change log con Undo**: un historial de los cambios hechos por la IA en cada idea. Los últimos 5 cambios de IA tienen un botón "↶ Undo" que devuelve la idea (y los capítulos, si es un proyecto) a como estaba antes. Los bocetos no se tocan.
 - **Bocetos**: se puede dibujar en la app o subir una foto.
@@ -42,7 +43,7 @@ Es pública y gratuita, sin backend, y puede usarla cualquiera. Antes se llamaba
 - **Fechas**: fecha objetivo opcional (`fechaObjetivo`, "YYYY-MM-DD") en ideas, proyectos y capítulos (badge 📅, avisa "soon"/"overdue"). "Last worked on" automático (`actualizado`, ISO) y 💤 en ideas sin cambios hace 3+ semanas.
 - **Botón "Next step →"** flotante en celular: abre directo el próximo paso sin terminar con el tutor.
 - **Bienvenida en 3 pasos** (qué es, cómo usar la IA con o sin key —con guía para sacar la key gratis— y conectar Drive). Se abre la primera vez y desde "?".
-- **Ayudas "?"** al lado de Production plan, Brain dump/I'm stuck y Ask the director.
+- **Ayudas "?"** al lado de Production plan, Brain dump/I'm stuck y Check chapter order.
 - **Personalización**: tema Day/Night (Day por defecto; Night es una paleta marrón oscuro con letra crema), color de tapa del cuaderno y cartuchera, que es el header en celular.
 - **Exportar e importar** respaldos en JSON.
 - **Aviso de nueva versión y changelog** público ("What's new").
@@ -76,7 +77,7 @@ Es pública y gratuita, sin backend, y puede usarla cualquiera. Antes se llamaba
   - About dividido en "What it is" (la descripción, colapsable) y "Key decisions" (lista editable: Enter para agregar, clic para editar, × para borrar);
   - Next up;
   - el muro de capítulos (post-its que se pueden reordenar con ← →, más "New chapter");
-  - Ask the director;
+  - Check chapter order;
   - a la derecha, Things to figure out, Notes, Sketches y Change log;
   - el link "Turn back into a single idea".
 - **Vista de capítulo**: es igual a una idea. Además tiene:

@@ -3616,6 +3616,14 @@ SHIPPING CHANGES
   html[data-theme="dark"] .ch-postit:not(.ch-add) .ch-title, html[data-theme="dark"] .ch-postit .ch-num { color: #1d150e; }
   html[data-theme="dark"] .pw-anim-note { filter: brightness(.8); }
   html[data-theme="dark"] .badge-status { filter: brightness(1.5) saturate(.8); }
+
+  .mentor-btn { background: var(--pen) !important; color: #fff !important; border-color: var(--pen) !important; }
+  html[data-theme="dark"] .mentor-btn { color: #241b14 !important; }
+  .chapter-wall-head .mentor-btn { margin-left: auto !important; }
+  .chapter-wall-head .stuck-btn:not(.mentor-btn) { margin-left: 0 !important; }
+  .pc-act { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; padding: 6px 8px; border: 1px dashed var(--line-strong); border-radius: 6px; font-size: .88rem; background: var(--panel); }
+  .pc-act.done { opacity: .6; }
+  .pc-act .sug-apply, .pc-act .sug-ignore { margin-left: 4px; }
 </style>
 </head>
 <body>
@@ -3995,6 +4003,21 @@ SHIPPING CHANGES
 
 
 <!-- MODAL: Step workspace (tutor) -->
+<div class="modal-overlay" id="pc-overlay">
+  <div class="modal-box step-ws-box" style="max-width:680px;display:flex;flex-direction:column;height:min(90vh,800px)">
+    <div class="modal-head">
+      <div class="modal-title" id="pc-title" style="font-size:1.4rem;line-height:1.2">Talk to your mentor</div>
+      <button class="modal-close" onclick="closeProjectChat()">&times;</button>
+    </div>
+    <div class="form-hint" style="margin-bottom:8px">Ask anything about the whole project. The mentor sees every chapter, your progress, key decisions and notes. If it suggests adding something, you choose.</div>
+    <div id="pc-log" class="step-log" style="flex:1"></div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <input class="form-input" id="pc-input" style="flex:1;font-size:16px" placeholder="Ask or ask for something…" onkeydown="if(event.key==='Enter'){event.preventDefault();pcSend();}">
+      <button class="form-submit" style="margin:0;width:auto;padding:0 16px" onclick="pcSend()">Send</button>
+    </div>
+    <div style="text-align:right;margin-top:6px"><button type="button" class="pw-skip" onclick="pcClear()">Clear conversation</button></div>
+  </div>
+</div>
 <div class="modal-overlay" id="step-overlay">
   <div class="modal-box step-ws-box" style="max-width:640px;display:flex;flex-direction:column;height:min(90vh,780px)">
     <div class="modal-head">
@@ -6137,7 +6160,7 @@ function renderWizard() {
   } else if (pw.step === "good") {
     html = `${pw.justCreated ? `<p class="pw-ok">✓ Project created</p>` : ""}<p class="pw-lead">The director thinks your chapter order already makes sense. 👌</p><button class="form-submit" onclick="closeProjectWizard()">Open my project</button>`;
   } else if (pw.step === "error") {
-    html = `${pw.justCreated ? `<p class="pw-ok">✓ Your project is ready — nothing was lost.</p>` : ""}<p class="pw-lead">The director couldn't review it right now: ${escapeHtml(pw.error || "")}</p><p class="pw-small">No rush: you can tap <strong>Ask the director</strong> on the project page anytime.</p><button class="form-submit" onclick="closeProjectWizard()">Open my project</button>`;
+    html = `${pw.justCreated ? `<p class="pw-ok">✓ Your project is ready — nothing was lost.</p>` : ""}<p class="pw-lead">The director couldn't review it right now: ${escapeHtml(pw.error || "")}</p><p class="pw-small">No rush: you can tap <strong>Check chapter order</strong> on the project page anytime.</p><button class="form-submit" onclick="closeProjectWizard()">Open my project</button>`;
   }
   box.innerHTML = html;
 }
@@ -6172,6 +6195,104 @@ function addChapter(projId, title, beforeTitle, descripcion) {
   chs.forEach((c, n) => { c.orden = n + 1; });
   return ch;
 }
+
+/* ---------- Project mentor chat: ask anything about the whole project ---------- */
+const PROJECT_MENTOR_RULES = `You are a veteran professional in the field of this project (a film director for a short film, a master carpenter for furniture, a head chef for a recipe…) acting as the person's mentor for the WHOLE project. You can see every chapter, its plan and progress, the key decisions, notes and open questions.
+- Answer like a good teacher: clear, concrete, applied to THIS project, short paragraphs. Guide and give options with their trade-offs; don't make the person's creative decisions for them.
+- Respect the key decisions as fixed rules. If one seems wrong, say so and explain why instead of ignoring it.
+- ORDER COHERENCE matters: never suggest doing something before what it depends on (upholstery before the legs, frosting before baking, voices before the script).
+- Use the lessons from past finished projects when relevant.
+- Answer in the language the person writes in.
+- If (and only if) your answer suggests concrete additions to the project, end with a block exactly like this (no other text after it):
+\`\`\`actions
+[{"tipo":"capitulo","titulo":"New chapter name","antesDe":"Existing chapter name or null"},{"tipo":"decision","texto":"Topic: choice"},{"tipo":"resolver","texto":"Open question to figure out"},{"tipo":"nota","texto":"Short note"}]
+\`\`\`
+Only include actions the person would clearly want offered; they will accept or skip each one.`;
+let pcProjId = null;
+function projectContextText(proj) {
+  const chs = projectChapters(proj);
+  const cosas = (proj.cosasAResolver || []).map(c => (c.resuelto ? "[solved] " : "") + c.texto);
+  return `PROJECT: ${proj.titulo} (${proj.categoria})${proj.fechaObjetivo ? " — target date " + proj.fechaObjetivo : ""}
+WHAT IT IS: ${projAbout(proj)}
+CHAPTERS IN ORDER:
+${chs.map((c, k) => `${k + 1}. ${c.titulo} — ${Math.round(ideaProgress(c) * 100)}% done${c.estado === "completada" ? " (completed)" : ""}${c.fechaObjetivo ? ", target " + c.fechaObjetivo : ""}
+   ${(c.fases || []).map(f => (f.pasos || []).map(st => { const h = (typeof st === "object" && st.hecho) || 0; return (h === 2 ? "[x] " : h === 1 ? "[~] " : "[ ] ") + stepText(st); }).join(" | ")).join(" | ") || "(no plan yet)"}`).join("\n")}
+${cosas.length ? "THINGS TO FIGURE OUT: " + cosas.join(" | ") : ""}
+${(proj.notas || []).length ? "NOTES: " + proj.notas.map(noteText).join(" | ") : ""}${lessonsFor(proj)}`;
+}
+function openProjectChat(projId) {
+  pcProjId = projId;
+  const proj = IDEAS.find(i => i.id === projId);
+  if (!proj) return;
+  document.getElementById("pc-title").textContent = "Talk to your mentor · " + proj.titulo;
+  renderPcChat();
+  document.getElementById("pc-overlay").classList.add("open");
+  setTimeout(() => document.getElementById("pc-input").focus(), 50);
+}
+function closeProjectChat() { document.getElementById("pc-overlay").classList.remove("open"); render(); }
+function pcClear() { const p = IDEAS.find(i => i.id === pcProjId); if (!p) return; p.chat = []; saveIdeas(); renderPcChat(); }
+function splitActions(text) {
+  const m = text.match(/```actions\s*([\s\S]*?)```\s*$/);
+  if (!m) return { text: text.trim(), actions: [] };
+  let actions = [];
+  try { actions = parseJsonLenient(m[1]); } catch (e) {}
+  return { text: text.slice(0, m.index).trim(), actions: Array.isArray(actions) ? actions.filter(a => a && (a.titulo || a.texto)).slice(0, 6) : [] };
+}
+function renderPcChat() {
+  const proj = IDEAS.find(i => i.id === pcProjId);
+  const log = document.getElementById("pc-log");
+  const chat = (proj && proj.chat) || [];
+  const label = a => a.tipo === "capitulo" ? `Add chapter <strong>${escapeHtml(a.titulo)}</strong>${a.antesDe ? " before <em>" + escapeHtml(a.antesDe) + "</em>" : ""}` : a.tipo === "decision" ? `Add key decision <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "resolver" ? `Add to figure out: <strong>${escapeHtml(a.texto)}</strong>` : `Add note: <strong>${escapeHtml(a.texto)}</strong>`;
+  log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}">${escapeHtml(m.text)}${(m.actions || []).map((a, j) => `<div class="pc-act ${a.done ? "done" : ""}"><span>${label(a)}</span>${a.done ? `<span class="note-date">${a.done === "yes" ? "✓ Added" : "Skipped"}</span>` : `<span><button type="button" class="sug-apply" onclick="pcAct(${k},${j},true)">Add</button><button type="button" class="sug-ignore" onclick="pcAct(${k},${j},false)">Skip</button></span>`}</div>`).join("")}</div>`).join("")
+    : `<div class="step-empty">Ask anything about the project. For example:</div>
+       <div class="step-chips">${["What should I focus on this week?", "Is anything missing from my plan?", "Am I being realistic with the timing?", "Explain how a pro would approach this project"].map(t => `<button type="button" class="ai-chip" onclick="pcSend(${JSON.stringify(t).replace(/"/g, "&quot;")})">${t}</button>`).join("")}</div>`;
+  log.scrollTop = log.scrollHeight;
+}
+function pcAct(k, j, yes) {
+  const proj = IDEAS.find(i => i.id === pcProjId);
+  const a = proj && proj.chat && proj.chat[k] && proj.chat[k].actions && proj.chat[k].actions[j];
+  if (!a || a.done) return;
+  if (yes) {
+    if (a.tipo === "capitulo") { addChapter(proj.id, a.titulo, a.antesDe); logChanges(proj, "Mentor", [`Added chapter "${a.titulo}"`]); }
+    else if (a.tipo === "decision") { proj.decisiones = decisionsOf(proj).concat([{ texto: a.texto }]); logChanges(proj, "Mentor", [`Added key decision "${a.texto}"`]); }
+    else if (a.tipo === "resolver") { proj.cosasAResolver = (proj.cosasAResolver || []).concat([{ texto: a.texto, resuelto: false }]); logChanges(proj, "Mentor", [`Added thing to figure out "${a.texto}"`]); }
+    else { proj.notas = (proj.notas || []).concat([{ texto: a.texto, fecha: new Date().toISOString() }]); }
+  }
+  a.done = yes ? "yes" : "no";
+  saveIdeas(); renderPcChat();
+}
+async function pcSend(textOverride) {
+  const proj = IDEAS.find(i => i.id === pcProjId);
+  if (!proj) return;
+  const inp = document.getElementById("pc-input");
+  const text = (textOverride || inp.value).trim();
+  if (!text) return;
+  inp.value = "";
+  if (!geminiKey) {
+    try { await navigator.clipboard.writeText(PROJECT_MENTOR_RULES + "\n\n" + projectContextText(proj) + "\n\nMY QUESTION: " + text); } catch (e) {}
+    await showAlert("No Gemini key yet, so I copied your question with the whole project as context. Paste it into any AI. Add a key in Settings to talk to the mentor right here.", { title: "Prompt copied" });
+    return;
+  }
+  proj.chat = proj.chat || [];
+  proj.chat.push({ role: "user", text });
+  renderPcChat();
+  const log = document.getElementById("pc-log");
+  const wait = document.createElement("div"); wait.className = "step-msg model"; wait.textContent = "…"; log.appendChild(wait); log.scrollTop = log.scrollHeight;
+  try {
+    const hist = proj.chat.slice(-12).map((m, k) => ({ role: m.role, text: k === 0 ? projectContextText(proj) + "\n\n" + m.text : m.text }));
+    if (hist[0].role !== "user") hist.unshift({ role: "user", text: projectContextText(proj) });
+    const { text: reply, actions } = splitActions((await geminiGenerate(hist, PROJECT_MENTOR_RULES)).trim());
+    proj.chat.push({ role: "model", text: reply, actions });
+    proj.chat = proj.chat.slice(-30);
+    saveIdeas();
+  } catch (e) {
+    proj.chat.pop();
+    wait.textContent = "⚠ " + e.message;
+    return;
+  }
+  renderPcChat();
+}
+
 function askDirector(projId) { openProjectWizard(projId, "review"); }
 function quickAddChapter(projId, input) {
   if (addChapter(projId, input.value)) { saveIdeas(); render(); }
@@ -6416,7 +6537,8 @@ function renderProjectView(p) {
   const colors = ["#fff3a8", "#ffd9df", "#cfe8ff", "#d6f2c9", "#ffe0b8", "#e6dcff"];
   const wall = `
     <div class="chapter-wall-head"><span class="block-title c-plan" style="margin:0">Chapters</span><span class="toc-total">${Math.round(total * 100)}% overall</span>
-      <button type="button" class="stuck-btn" style="margin:0" onclick="askDirector('${escapeAttr(p.id)}')">Ask the director</button><span class="hint" tabindex="0" data-tip="An AI with experience in this kind of project checks that your chapters are in an order that makes sense, and points out missing stages. You decide what to apply.">?</span></div>
+      <button type="button" class="stuck-btn mentor-btn" style="margin:0" onclick="openProjectChat('${escapeAttr(p.id)}')">💬 Talk to your mentor</button>
+      <button type="button" class="stuck-btn" style="margin:0" onclick="askDirector('${escapeAttr(p.id)}')">Check chapter order</button><span class="hint" tabindex="0" data-tip="Talk to your mentor: ask anything about the whole project. Check chapter order: an AI checks that your chapters make sense in that order and points out missing stages. You decide what to apply.">?</span></div>
     <div class="chapter-wall">
       ${chs.map((c, k) => {
         const pr = Math.round(ideaProgress(c) * 100);
@@ -6657,13 +6779,15 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-18 10:20 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-19 01:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
     version: "1.2.0",
     public: true,
     items: [
+      "Talk to your mentor: ask anything about your whole project; it sees every chapter and can suggest chapters, decisions or questions you choose to add",
+      "\"Ask the director\" is now called \"Check chapter order\", which is what it does",
       "Today: the next steps of what you're working on, right on the home page",
       "Target dates, \"last worked on\" and a 💤 on ideas you haven't touched in a while",
       "References: save links (YouTube shows a preview) and ask the AI what to look for",
