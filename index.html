@@ -3752,10 +3752,11 @@ SHIPPING CHANGES
   .due-quick button:hover { border-style: solid; }
   .due-clear { width: 100%; margin-top: 6px; border: none; background: none; color: var(--rust); font-family: var(--hand); font-size: .95rem; cursor: pointer; text-decoration: underline; }
 
-  .about-shut .about-what .desc-text { max-height: 7.2em; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent); mask-image: linear-gradient(to bottom, #000 55%, transparent); }
-  .about-shut .dec-list li:nth-child(n+5) { display: none; }
+  .about-shut .about-what .desc-text { max-height: none; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent); mask-image: linear-gradient(to bottom, #000 55%, transparent); }
+  .about-shut .about-grid { max-height: 140px; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent); mask-image: linear-gradient(to bottom, #000 70%, transparent); }
+  .about-toggle.hidden { display: none; }
   .dec-more { display: none; font-size: .82rem; color: var(--slate); margin: -2px 0 4px 26px; }
-  .about-shut .dec-more { display: block; }
+  .about-shut .dec-more { display: none; }
   .about-toggle { display: block; margin: 10px auto 0; }
 </style>
 </head>
@@ -6609,7 +6610,18 @@ function blockSummary(b) {
   if (b.classList.contains("refs-block")) { const n = b.querySelectorAll(".ref-item").length; return `<span>${n} link${n === 1 ? "" : "s"}</span>`; }
   return "";
 }
+function fitAbout() {
+  document.querySelectorAll(".project-about").forEach(b => {
+    const g = b.querySelector(".about-grid"), t = b.querySelector(".about-toggle");
+    if (!g || !t) return;
+    const shut = b.classList.contains("about-shut");
+    const over = shut ? g.scrollHeight > g.clientHeight + 4 : g.scrollHeight > 144;
+    t.classList.toggle("hidden", !over && shut);
+    if (!over && shut) { g.style.maskImage = "none"; g.style.webkitMaskImage = "none"; }
+  });
+}
 function enhanceCollapsibles() {
+  fitAbout();
   const set = collapsedSet();
   document.querySelectorAll(".detail-dashboard-sidecol .detail-block:not(.history-block)").forEach(b => {
     const title = b.querySelector(".block-title");
@@ -7143,7 +7155,7 @@ function renderProjectView(p) {
   const pending = (p.sugerencias || []).length;
   const aboutLong = (p.descripcion || "").length > 320;
   const decs = decisionsOf(p);
-  const aboutMore = aboutLong || decs.length > 4;
+  const aboutMore = true;
   const aboutHtml = `
     <div class="detail-block project-about ${aboutMore && !aboutOpen[p.id] ? "about-shut" : ""}">
       <div class="about-grid">
@@ -7155,11 +7167,11 @@ function renderProjectView(p) {
           <div class="block-title c-desc">Key decisions</div>
           <div class="dec-hint">Fixed rules for this project. The director and every AI helper respect them.</div>
           <ul class="dec-list">${decs.map((d, k) => `<li><span class="dec-pin">📌</span><span class="dec-text" title="Click to edit" onclick="editDecision('${escapeAttr(p.id)}',${k})">${escapeHtml(d.texto)}</span><button type="button" class="resolve-delete-btn" title="Remove" onclick="removeDecision('${escapeAttr(p.id)}',${k})">&times;</button></li>`).join("")}</ul>
-          ${decs.length > 4 ? `<div class="dec-more">+ ${decs.length - 4} more</div>` : ""}
+          
           <input class="note-quick-add" placeholder="+ Add a decision, e.g. Software: Blender (Enter)" onkeydown="if(event.key==='Enter'){event.preventDefault();addDecision('${escapeAttr(p.id)}',this)}">
         </div>
       </div>
-      ${aboutMore ? `<button type="button" class="desc-toggle-btn about-toggle" onclick="toggleAbout('${escapeAttr(p.id)}', this)">${aboutOpen[p.id] ? "View less" : "View more"}</button>` : ""}
+      ${aboutMore ? `<button type="button" class="desc-toggle-btn about-toggle hidden" onclick="toggleAbout('${escapeAttr(p.id)}', this)">${aboutOpen[p.id] ? "View less" : "View more"}</button>` : ""}
     </div>`;
   const notesHtml = `
     <div class="detail-block">
@@ -7365,7 +7377,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-19 14:00 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-19 14:35 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {

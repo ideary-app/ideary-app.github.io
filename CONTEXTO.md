@@ -81,7 +81,7 @@ Es pública y gratuita, sin backend, y puede usarla cualquiera. Antes se llamaba
     - a la derecha, Description, Notes, Things to figure out, Sketches y Change log.
   - **En celular**, todo va apilado en una sola columna.
 - **Vista de proyecto**:
-  - About dividido en "What it is" (la descripción) y "Key decisions" (lista editable: Enter para agregar, clic para editar, × para borrar). Un solo "View more / View less" pliega las dos columnas juntas (descripción recortada + primeras 4 decisiones con "+N more");
+  - About dividido en "What it is" (la descripción) y "Key decisions" (lista editable: Enter para agregar, clic para editar, × para borrar). Un solo "View more / View less" pliega las dos columnas juntas (plegado tiene una altura fija, la misma que el bloque con poco contenido, con fundido abajo; el botón solo aparece si hay más contenido);
   - Next up;
   - el muro de capítulos (post-its que se pueden reordenar con ← →, más "New chapter");
   - Check chapter order;
