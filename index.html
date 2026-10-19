@@ -3729,6 +3729,28 @@ SHIPPING CHANGES
   .sortnote-why { font-size: .76rem; line-height: 1.3; color: var(--slate); font-style: italic; }
   .sortnote-why.stale { text-decoration: line-through; opacity: .5; }
   @media (max-width: 600px) { .sortnote-pick { width: 100%; } }
+
+  .badge-due { display: inline-flex; align-items: center; gap: 4px; }
+  .due-x { border: none; background: none; color: inherit; font-size: 1rem; line-height: 1; padding: 0 0 0 4px; margin-left: 2px; cursor: pointer; opacity: .6; border-left: 1px solid currentColor; }
+  .due-x:hover { opacity: 1; color: var(--rust); }
+  .due-pop { position: fixed; z-index: 1200; width: 260px; background: var(--panel); border: 1px solid var(--line-strong); border-radius: 4px 4px 12px 4px;
+    box-shadow: 0 12px 28px rgba(40,30,10,.25); padding: 12px; font-family: var(--hand);
+    background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 27px, var(--rule) 27px, var(--rule) 28px); }
+  .due-pop::before { content: ""; position: absolute; top: -9px; left: 50%; width: 60px; height: 18px; margin-left: -30px; background: var(--tape); transform: rotate(-2deg); }
+  .due-head { display: flex; align-items: center; justify-content: space-between; font-size: 1.2rem; color: var(--pen); margin-bottom: 6px; text-transform: capitalize; }
+  .due-head button { background: none; border: 1px solid var(--line-strong); border-radius: 6px; width: 28px; height: 28px; font-size: 1.1rem; color: var(--ink); cursor: pointer; }
+  .due-dow, .due-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+  .due-dow span { font-size: .85rem; color: var(--slate); }
+  .due-grid button { height: 30px; border: none; background: none; border-radius: 50%; font-family: var(--hand); font-size: 1.05rem; color: var(--ink); cursor: pointer; }
+  .due-grid button:hover { background: var(--accent-soft); }
+  .due-grid button.today { box-shadow: inset 0 0 0 1.5px var(--line-strong); }
+  .due-grid button.past { opacity: .4; }
+  .due-grid button.sel { background: var(--pen); color: #fff; }
+  html[data-theme="dark"] .due-grid button.sel { color: #241b14; }
+  .due-quick { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+  .due-quick button { flex: 1; border: 1px dashed var(--line-strong); background: none; border-radius: 6px; padding: 3px 4px; font-family: var(--hand); font-size: .9rem; color: var(--pen); cursor: pointer; white-space: nowrap; }
+  .due-quick button:hover { border-style: solid; }
+  .due-clear { width: 100%; margin-top: 6px; border: none; background: none; color: var(--rust); font-family: var(--hand); font-size: .95rem; cursor: pointer; text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -6047,24 +6069,74 @@ function dueBadgeHtml(i) {
   const n = daysUntil(i.fechaObjetivo);
   const label = i.fechaObjetivo ? (n < 0 ? `Overdue ${-n}d` : n === 0 ? "Due today" : `Due ${fmtShortDate(i.fechaObjetivo + "T12:00:00")}`) : "Set a target date";
   const cls = !i.fechaObjetivo ? "empty" : n < 0 ? "late" : n <= 7 ? "soon" : "";
-  return `<button type="button" class="badge badge-due ${cls}" onclick="pickDueDate('${escapeAttr(i.id)}')" title="Target date">📅 ${label}</button>`;
+  return `<span class="badge badge-due ${cls}" data-id="${escapeAttr(i.id)}" role="button" tabindex="0" onclick="pickDueDate('${escapeAttr(i.id)}')" title="Target date">📅 ${label}${i.fechaObjetivo ? `<button type="button" class="due-x" title="Remove date" aria-label="Remove date" onclick="clearDue('${escapeAttr(i.id)}', event)">&times;</button>` : ""}</span>`;
 }
 function workedBadgeHtml(i) {
   if (!i.actualizado) return "";
   return `<span class="last-edited ${isDormant(i) ? "dormant" : ""}" title="${isDormant(i) ? "No changes in 3+ weeks" : "Last time you changed something here"}">${isDormant(i) ? "💤 " : ""}Last edited ${agoText(i.actualizado)}</span>`;
 }
-function pickDueDate(id) {
+/* Target date picker: a small notebook-style calendar anchored to the pill */
+let dueCal = null; // { id, y, m }
+function pickDueDate(id, anchor) {
   const idea = IDEAS.find(i => i.id === id);
   if (!idea) return;
-  const inp = document.createElement("input");
-  inp.type = "date"; inp.value = idea.fechaObjetivo || "";
-  inp.style.cssText = "position:fixed;left:50%;top:40%;opacity:0;width:1px;height:1px";
-  document.body.appendChild(inp);
-  const done = () => { idea.fechaObjetivo = inp.value || undefined; if (!inp.value) delete idea.fechaObjetivo; inp.remove(); saveIdeas(); render(); };
-  inp.addEventListener("change", done, { once: true });
-  inp.addEventListener("blur", () => setTimeout(() => inp.remove(), 300), { once: true });
-  try { inp.showPicker(); } catch (e) { inp.style.opacity = 1; inp.style.width = "auto"; inp.style.height = "auto"; inp.focus(); }
+  closeDueCal();
+  const base = idea.fechaObjetivo ? new Date(idea.fechaObjetivo + "T12:00:00") : new Date();
+  dueCal = { id, y: base.getFullYear(), m: base.getMonth(), anchor };
+  const pop = document.createElement("div"); pop.id = "due-pop"; pop.className = "due-pop";
+  document.body.appendChild(pop);
+  renderDueCal();
+  setTimeout(() => document.addEventListener("click", dueOutside, true), 0);
 }
+function dueOutside(e) { if (!e.target.closest("#due-pop") && !e.target.closest(".badge-due")) closeDueCal(); }
+function closeDueCal() { const p = document.getElementById("due-pop"); if (p) p.remove(); document.removeEventListener("click", dueOutside, true); dueCal = null; }
+function ymd(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function renderDueCal() {
+  const pop = document.getElementById("due-pop");
+  if (!pop || !dueCal) return;
+  const idea = IDEAS.find(i => i.id === dueCal.id);
+  const { y, m } = dueCal;
+  const first = new Date(y, m, 1), startDow = (first.getDay() + 6) % 7, days = new Date(y, m + 1, 0).getDate();
+  const today = ymd(new Date()), sel = idea.fechaObjetivo;
+  const cells = [];
+  for (let k = 0; k < startDow; k++) cells.push(`<span></span>`);
+  for (let d = 1; d <= days; d++) {
+    const v = ymd(new Date(y, m, d));
+    cells.push(`<button type="button" class="${v === sel ? "sel" : ""} ${v === today ? "today" : ""} ${v < today ? "past" : ""}" onclick="setDue('${v}')">${d}</button>`);
+  }
+  const add = n => { const d = new Date(); d.setDate(d.getDate() + n); return ymd(d); };
+  const eom = ymd(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0));
+  pop.innerHTML = `<div class="due-head"><button type="button" onclick="dueNav(-1)" aria-label="Previous month">‹</button>
+      <span>${first.toLocaleDateString(undefined, { month: "long", year: "numeric" })}</span>
+      <button type="button" onclick="dueNav(1)" aria-label="Next month">›</button></div>
+    <div class="due-dow">${["M", "T", "W", "T", "F", "S", "S"].map(d => `<span>${d}</span>`).join("")}</div>
+    <div class="due-grid">${cells.join("")}</div>
+    <div class="due-quick"><button type="button" onclick="setDue('${add(7)}')">In a week</button><button type="button" onclick="setDue('${add(30)}')">In a month</button><button type="button" onclick="setDue('${eom}')">End of month</button></div>
+    ${sel ? `<button type="button" class="due-clear" onclick="setDue('')">Remove date</button>` : ""}`;
+  // position under the pill, kept on screen
+  const a = document.querySelector(`.badge-due[data-id="${CSS.escape(dueCal.id)}"]`);
+  const r = a ? a.getBoundingClientRect() : { left: 20, bottom: 120 };
+  const w = pop.offsetWidth, h = pop.offsetHeight;
+  let left = Math.min(Math.max(8, r.left), window.innerWidth - w - 8);
+  let top = r.bottom + 6; if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 6);
+  pop.style.left = left + "px"; pop.style.top = top + "px";
+}
+function dueNav(d) { if (!dueCal) return; dueCal.m += d; if (dueCal.m < 0) { dueCal.m = 11; dueCal.y--; } if (dueCal.m > 11) { dueCal.m = 0; dueCal.y++; } renderDueCal(); }
+function setDue(v) {
+  const id = dueCal ? dueCal.id : null;
+  const idea = IDEAS.find(i => i.id === id);
+  closeDueCal();
+  if (!idea) return;
+  if (v) idea.fechaObjetivo = v; else delete idea.fechaObjetivo;
+  saveIdeas(); render();
+}
+function clearDue(id, e) {
+  if (e) e.stopPropagation();
+  const idea = IDEAS.find(i => i.id === id);
+  if (!idea) return;
+  delete idea.fechaObjetivo; saveIdeas(); render();
+}
+window.addEventListener("scroll", () => { if (dueCal) renderDueCal(); }, { passive: true });
 function goNextStep(id) {
   const idea = IDEAS.find(i => i.id === id);
   if (!idea) return;
@@ -7277,7 +7349,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-19 13:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-19 13:40 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
