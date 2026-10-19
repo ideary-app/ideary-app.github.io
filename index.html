@@ -3651,6 +3651,37 @@ SHIPPING CHANGES
   .mic-spin { width: 16px; height: 16px; border: 2px solid var(--line-strong); border-top-color: var(--pen); border-radius: 50%; animation: micSpin .8s linear infinite; }
   @keyframes micSpin { to { transform: rotate(360deg); } }
   .mic-btn:disabled { cursor: wait; }
+
+  .ai-wait { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .ai-dots { display: inline-flex; gap: 4px; }
+  .ai-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--pen); animation: aiBounce 1.2s ease-in-out infinite; }
+  .ai-dots i:nth-child(2) { animation-delay: .15s; } .ai-dots i:nth-child(3) { animation-delay: .3s; }
+  @keyframes aiBounce { 0%, 60%, 100% { transform: translateY(0); opacity: .45; } 30% { transform: translateY(-6px); opacity: 1; } }
+  .ai-wait-txt { font-size: .85rem; color: var(--slate); } .ai-wait-txt b { font-family: var(--mono); font-weight: 500; }
+  .ai-cancel { margin-left: auto; background: none; border: 1px solid var(--line-strong); border-radius: 6px; padding: 2px 10px; font-size: .78rem; color: var(--slate); cursor: pointer; }
+  .ai-cancel:hover { color: var(--rust); border-color: var(--rust); }
+  .composer-locked { position: relative; }
+  .composer-locked::after { content: ""; position: absolute; inset: 0; border-radius: 8px; pointer-events: all; cursor: wait;
+    background: linear-gradient(100deg, transparent 20%, color-mix(in srgb, var(--panel) 70%, transparent) 50%, transparent 80%); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; }
+  .composer-locked .form-submit { opacity: .45; }
+  @keyframes shimmer { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+
+  .mentor-head-btn { background: var(--pen) !important; color: #fff !important; border-color: var(--pen) !important; }
+  html[data-theme="dark"] .mentor-head-btn { color: #241b14 !important; }
+  .last-edited { font-size: .78rem; color: var(--slate); align-self: center; padding: 0 4px; }
+  .last-edited.dormant { color: #8a6a3c; }
+  .project-foot { text-align: center; margin: 26px 0 10px; }
+  .ai-err { color: var(--rust); }
+
+  .share-btn { white-space: nowrap; flex-shrink: 0; }
+  @media (max-width: 600px) {
+    .mentor-head-btn { order: 9; width: 100%; padding: 8px 12px; transform: none; }
+  }
+
+  @media (max-width: 600px) {
+    .detail-sticky-top .detail-top-row { flex-wrap: wrap; row-gap: 10px; }
+    .detail-sticky-top .detail-top-row > div:last-child { flex-wrap: wrap !important; width: 100%; justify-content: flex-start; row-gap: 10px; }
+  }
 </style>
 </head>
 <body>
@@ -5217,10 +5248,48 @@ function aiUsageHtml() {
   const u = aiUsage(), today = u.day === new Date().toISOString().slice(0, 10);
   return `<strong>Today:</strong> ${today ? u.req : 0} AI request${today && u.req === 1 ? "" : "s"}${today && u.tok ? ` (~${Math.round(u.tok / 1000)}k tokens)` : ""} from this device · ${u.total || 0} in total.<br>The free tier has a per-minute and a daily limit that depend on the model; you can see yours in <a href="https://aistudio.google.com/usage" target="_blank" rel="noopener">Google AI Studio</a>.`;
 }
+
+/* ---------- AI waiting state: animated "thinking", timer, Cancel, locked composer ---------- */
+let aiCtrlUser = null; // AbortController of the request the user can cancel
+function composerRow(inputId) { const el = document.getElementById(inputId); return el && (el.closest(".mic-wrap") ? el.closest(".mic-wrap").parentNode : el.parentNode); }
+function lockComposer(inputId, on) {
+  const row = composerRow(inputId);
+  if (!row) return;
+  if (!!on === row.classList.contains("composer-locked")) return;
+  row.classList.toggle("composer-locked", !!on);
+  row.querySelectorAll("button, input, textarea").forEach(b => {
+    if (b.classList.contains("mic-btn") && micState && micState.id === inputId && !on) return;
+    if (on) { b.dataset.wasDis = b.disabled ? "1" : ""; b.disabled = true; } else if (b.dataset.wasDis !== undefined) { b.disabled = b.dataset.wasDis === "1"; delete b.dataset.wasDis; }
+  });
+}
+function thinkingHtml(label) { return `<span class="ai-dots"><i></i><i></i><i></i></span><span class="ai-wait-txt">${label || "Thinking"}… <b>0s</b></span><button type="button" class="ai-cancel" onclick="if(aiCtrlUser)aiCtrlUser.abort('user')">Cancel</button>`; }
+function tickThinking(waitEl, t0) {
+  const sec = Math.round((Date.now() - t0) / 1000);
+  const b = waitEl.querySelector(".ai-wait-txt b"); if (b) b.textContent = sec + "s";
+}
+async function withThinking(waitEl, inputId, fn, label, t0) {
+  t0 = t0 || Date.now();
+  waitEl.classList.add("ai-wait");
+  waitEl.innerHTML = thinkingHtml(label);
+  const tick = setInterval(() => {
+    // the bubble may have been re-rendered (modal closed and reopened): follow the live one
+    const live = document.querySelector(".ai-wait[data-t0='" + t0 + "']");
+    if (live) tickThinking(live, t0);
+  }, 1000);
+  waitEl.dataset.t0 = t0;
+  if (inputId) lockComposer(inputId, true);
+  try { return await fn(); }
+  finally {
+    clearInterval(tick);
+    document.querySelectorAll(".ai-wait[data-t0='" + t0 + "']").forEach(e => { e.classList.remove("ai-wait"); e.innerHTML = ""; });
+    if (inputId) lockComposer(inputId, false);
+  }
+}
 async function geminiGenerate(history, system, retried, modelOverride) {
   const model = modelOverride || await geminiResolveModel(false);
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 90000);
+  aiCtrlUser = ctrl;
+  const timer = setTimeout(() => ctrl.abort("timeout"), 90000);
   let res;
   try {
     res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(geminiKey)}`, {
@@ -5235,7 +5304,8 @@ async function geminiGenerate(history, system, retried, modelOverride) {
     });
   } catch (e) {
     clearTimeout(timer);
-    if (e.name === "AbortError") throw new Error("Gemini took too long to answer. Try again in a moment.");
+    if (ctrl.signal.reason === "user") throw new Error("Cancelled. You can send it again.");
+    if (e.name === "AbortError" || ctrl.signal.aborted) throw new Error("Gemini took too long to answer (90s). Try again, or ask something shorter.");
     throw new Error("Couldn't reach Gemini. Check your internet connection and try again.");
   }
   clearTimeout(timer);
@@ -5332,7 +5402,7 @@ async function aiChatRun() {
   aiChatBusy = true;
   const wait = aiChatAddBubble("model", "…");
   try {
-    const reply = await geminiGenerate(aiChatHistory);
+    const reply = await withThinking(wait, "ai-chat-input", () => geminiGenerate(aiChatHistory));
     aiChatHistory.push({ role: "model", text: reply });
     const cleaned = stripJsonFences(reply).trim();
     let parsed = null;
@@ -5919,7 +5989,7 @@ function dueBadgeHtml(i) {
 }
 function workedBadgeHtml(i) {
   if (!i.actualizado) return "";
-  return `<span class="badge badge-worked ${isDormant(i) ? "dormant" : ""}" title="Last worked on">${isDormant(i) ? "💤 " : "✎ "}${agoText(i.actualizado)}</span>`;
+  return `<span class="last-edited ${isDormant(i) ? "dormant" : ""}" title="${isDormant(i) ? "No changes in 3+ weeks" : "Last time you changed something here"}">${isDormant(i) ? "💤 " : ""}Last edited ${agoText(i.actualizado)}</span>`;
 }
 function pickDueDate(id) {
   const idea = IDEAS.find(i => i.id === id);
@@ -6267,6 +6337,7 @@ function micUi(id, state) {
   b.innerHTML = state === "rec" ? `<span class="mic-stop"></span>` : state === "busy" ? `<span class="mic-spin"></span>` : MIC_SVG;
   b.title = state === "rec" ? "Stop" : state === "busy" ? "Turning your voice into text…" : "Talk instead of typing";
   el.readOnly = state !== "idle";
+  lockComposer(id, state === "busy");
   el.classList.toggle("mic-hidden", state !== "idle");
   const bar = state === "idle" ? document.getElementById("micbar-" + id) : micBar(id);
   if (state === "idle") { if (bar) bar.remove(); }
@@ -6308,7 +6379,7 @@ async function toggleMic(id) {
     const buf = new Uint8Array(an.fftSize);
     const bars = () => Array.from(document.querySelectorAll(`#micbar-${id} .mic-waves i`));
     const tick = () => {
-      if (micState !== st) return;
+      if (micState !== st || st.stopped) return;
       an.getByteTimeDomainData(buf);
       let sum = 0; for (let k = 0; k < buf.length; k++) { const v = (buf[k] - 128) / 128; sum += v * v; }
       const lvl = Math.min(1, Math.sqrt(sum / buf.length) * 4);
@@ -6327,6 +6398,7 @@ function stopMic() {
   const st = micState;
   if (!st) return;
   if (st.speech) { micState = null; try { st.speech.stop(); } catch (e) {} clearInterval(st.timer); micUi(st.id, "idle"); if (st.after) setTimeout(st.after, 50); return; }
+  st.stopped = true;
   micUi(st.id, "busy");
   try { st.rec.stop(); } catch (e) {}
   st.stream.getTracks().forEach(t => t.stop());
@@ -6343,13 +6415,15 @@ async function finishRecording(st) {
   try {
     const b64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = rej; r.readAsDataURL(blob); });
     const model = await geminiResolveModel(false);
+    const tctrl = new AbortController(); const tt = setTimeout(() => tctrl.abort(), 60000);
     const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(geminiKey)}`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" }, signal: tctrl.signal,
       body: JSON.stringify({ contents: [{ role: "user", parts: [
         { inlineData: { mimeType: blob.type || "audio/webm", data: b64 } },
         { text: "Transcribe this voice note exactly as spoken, in the language(s) spoken (it may mix Spanish and English). Add normal punctuation and remove filler sounds (eh, um) and false starts. Output ONLY the transcription. If there is no speech, output exactly: [no speech]" }
       ] }], generationConfig: { temperature: 0 } })
     });
+    clearTimeout(tt);
     if (!resp.ok) { let m = "Error " + resp.status; try { const j = await resp.json(); m = j.error.message || m; } catch (e) {} throw new Error(resp.status === 429 ? "Gemini quota used up for now — try again later." : resp.status === 503 ? "Gemini is very busy right now — try again in a minute." : m); }
     const j = await resp.json();
     countAiUse(j.usageMetadata && j.usageMetadata.totalTokenCount);
@@ -6361,7 +6435,7 @@ async function finishRecording(st) {
     if (st.after) setTimeout(st.after, 50); else { const el = document.getElementById(st.id); if (el) el.focus(); }
   } catch (e) {
     done();
-    await showAlert(e.message, { title: "Voice note failed" });
+    await showAlert(e.name === "AbortError" ? "Turning your voice into text took too long. Try again, or record a shorter note." : e.message, { title: "Voice note failed" });
   }
 }
 function startSpeechApi(id) {
@@ -6393,6 +6467,7 @@ const PROJECT_MENTOR_RULES = `You are a veteran professional in the field of thi
 \`\`\`
 Only include actions the person would clearly want offered; they will accept or skip each one.`;
 let pcProjId = null;
+const pcPending = {}; // projId -> start time of an answer in progress
 function projectContextText(proj) {
   const chs = projectChapters(proj);
   const cosas = (proj.cosasAResolver || []).map(c => (c.resuelto ? "[solved] " : "") + c.texto);
@@ -6430,6 +6505,11 @@ function renderPcChat() {
   log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}">${escapeHtml(m.text)}${(m.actions || []).map((a, j) => `<div class="pc-act ${a.done ? "done" : ""}"><span>${label(a)}</span>${a.done ? `<span class="note-date">${a.done === "yes" ? "✓ Added" : "Skipped"}</span>` : `<span><button type="button" class="sug-apply" onclick="pcAct(${k},${j},true)">Add</button><button type="button" class="sug-ignore" onclick="pcAct(${k},${j},false)">Skip</button></span>`}</div>`).join("")}</div>`).join("")
     : `<div class="step-empty">Ask anything about the project. For example:</div>
        <div class="step-chips">${["What should I focus on this week?", "Is anything missing from my plan?", "Am I being realistic with the timing?", "Explain how a pro would approach this project"].map(t => `<button type="button" class="ai-chip" onclick="pcSend(${JSON.stringify(t).replace(/"/g, "&quot;")})">${t}</button>`).join("")}</div>`;
+  if (pcPending[pcProjId]) {
+    const w = document.createElement("div"); w.className = "step-msg model ai-wait"; w.dataset.t0 = pcPending[pcProjId];
+    w.innerHTML = thinkingHtml(); tickThinking(w, pcPending[pcProjId]); log.appendChild(w);
+  }
+  lockComposer("pc-input", !!pcPending[pcProjId]);
   log.scrollTop = log.scrollHeight;
 }
 function pcAct(k, j, yes) {
@@ -6458,24 +6538,31 @@ async function pcSend(textOverride) {
     await showAlert("No Gemini key yet, so I copied your question with the whole project as context. Paste it into any AI. Add a key in Settings to talk to the mentor right here.", { title: "Prompt copied" });
     return;
   }
+  if (pcPending[proj.id]) return;
   proj.chat = proj.chat || [];
   proj.chat.push({ role: "user", text });
+  const t0 = Date.now();
+  pcPending[proj.id] = t0;
   renderPcChat();
-  const log = document.getElementById("pc-log");
-  const wait = document.createElement("div"); wait.className = "step-msg model"; wait.textContent = "…"; log.appendChild(wait); log.scrollTop = log.scrollHeight;
+  const wait = document.querySelector("#pc-log .ai-wait");
   try {
     const hist = proj.chat.slice(-12).map((m, k) => ({ role: m.role, text: k === 0 ? projectContextText(proj) + "\n\n" + m.text : m.text }));
     if (hist[0].role !== "user") hist.unshift({ role: "user", text: projectContextText(proj) });
-    const { text: reply, actions } = splitActions((await geminiGenerate(hist, PROJECT_MENTOR_RULES)).trim());
+    const { text: reply, actions } = splitActions((await withThinking(wait, "pc-input", () => geminiGenerate(hist, PROJECT_MENTOR_RULES), null, t0)).trim());
     proj.chat.push({ role: "model", text: reply, actions });
     proj.chat = proj.chat.slice(-30);
     saveIdeas();
   } catch (e) {
+    delete pcPending[proj.id];
     proj.chat.pop();
-    wait.textContent = "⚠ " + e.message;
+    if (pcProjId === proj.id) renderPcChat();
+    const live = document.getElementById("pc-log");
+    if (live && pcProjId === proj.id) { const er = document.createElement("div"); er.className = "step-msg model ai-err"; er.textContent = "⚠ " + e.message + (/Cancelled/.test(e.message) ? "" : " Your question is below — tap Send to try again."); live.appendChild(er); live.scrollTop = 1e9; }
+    const inp2 = document.getElementById("pc-input"); if (inp2 && !inp2.value) inp2.value = text;
     return;
   }
-  renderPcChat();
+  delete pcPending[proj.id];
+  if (pcProjId === proj.id) renderPcChat();
 }
 
 function askDirector(projId) { openProjectWizard(projId, "review"); }
@@ -6722,7 +6809,6 @@ function renderProjectView(p) {
   const colors = ["#fff3a8", "#ffd9df", "#cfe8ff", "#d6f2c9", "#ffe0b8", "#e6dcff"];
   const wall = `
     <div class="chapter-wall-head"><span class="block-title c-plan" style="margin:0">Chapters</span><span class="toc-total">${Math.round(total * 100)}% overall</span>
-      <button type="button" class="stuck-btn mentor-btn" style="margin:0" onclick="openProjectChat('${escapeAttr(p.id)}')">💬 Talk to your mentor</button>
       <button type="button" class="stuck-btn" style="margin:0" onclick="askDirector('${escapeAttr(p.id)}')">Check chapter order</button><span class="hint" tabindex="0" data-tip="Talk to your mentor: ask anything about the whole project. Check chapter order: an AI checks that your chapters make sense in that order and points out missing stages. You decide what to apply.">?</span></div>
     <div class="chapter-wall">
       ${chs.map((c, k) => {
@@ -6791,6 +6877,7 @@ function renderProjectView(p) {
         <button class="back-btn" onclick="goHome()">&larr; Back to Home</button>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <button class="tool-btn pencil" title="Edit" aria-label="Edit" onclick="startEditIdea('${p.id}')">${pencilSvg("Edit")}</button>
+          <button type="button" class="share-btn mentor-head-btn" onclick="openProjectChat('${escapeAttr(p.id)}')">💬 Talk to your mentor</button>
           <button type="button" class="share-btn" title="Share" onclick="openShare('${escapeAttr(p.id)}')">Share</button>
           <button class="tool-btn eraser" title="Erase" aria-label="Erase" onclick="deleteIdea('${p.id}')">${eraserSvg("Erase")}</button>
         </div>
@@ -6802,7 +6889,6 @@ function renderProjectView(p) {
           <span class="badge badge-status" style="background:${cfg.soft};color:${cfg.color}">${cfg.label}</span>
           <span class="badge badge-cat" style="background:var(--slate-soft);color:var(--slate)">${escapeHtml(p.categoria)}</span>
           ${dueBadgeHtml(p)}${workedBadgeHtml(p)}
-          <button type="button" class="undo-project" onclick="revertProject('${escapeAttr(p.id)}')">Turn back into a single idea</button>
         </div>
       </div>
     </div>
@@ -6819,7 +6905,8 @@ function renderProjectView(p) {
         <div class="detail-order-sketch">${renderSketchBlock(p)}${renderReferencesBlock(p)}</div>
         <div class="detail-order-wrap">${renderHistoryBlock(p)}</div>
       </div>
-    </div>`;
+    </div>
+    <div class="project-foot"><button type="button" class="undo-project" onclick="revertProject('${escapeAttr(p.id)}')">Turn this project back into a single idea</button></div>`;
 }
 function openProjectWizardWith(projId) {
   const proj = IDEAS.find(i => i.id === projId);
@@ -6906,7 +6993,7 @@ async function stepSend(textOverride) {
   try {
     const hist = ref.step.chat.slice(-12).map((m, k, arr) => ({ role: m.role, text: k === 0 ? stepContextText(ref) + "\n\n" + m.text : m.text }));
     if (hist[0].role !== "user") hist.unshift({ role: "user", text: stepContextText(ref) });
-    const reply = (await geminiGenerate(hist, TUTOR_RULES)).trim();
+    const reply = (await withThinking(wait, "step-input", () => geminiGenerate(hist, TUTOR_RULES))).trim();
     ref.step.chat.push({ role: "model", text: reply });
     ref.step.chat = ref.step.chat.slice(-30);
     saveIdeas();
@@ -6965,7 +7052,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-19 02:20 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-19 03:30 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -9484,7 +9571,7 @@ async function stuckSend() {
   stuckBusy = true;
   const wait = stuckBubble("model", "…");
   try {
-    const reply = (await geminiGenerate(stuckHistory, STUCK_SYSTEM)).trim();
+    const reply = (await withThinking(wait, "stuck-input", () => geminiGenerate(stuckHistory, STUCK_SYSTEM))).trim();
     stuckHistory.push({ role: "model", text: reply });
     wait.textContent = reply;
   } catch (e) {
@@ -9585,7 +9672,7 @@ function updateCompactHeader() {
   const sc = document.scrollingElement || document.documentElement;
   const y = Math.max(window.scrollY || 0, sc.scrollTop || 0, (document.querySelector(".main") || {}).scrollTop || 0);
   const was = h.classList.contains("compact");
-  const now = was ? y > 40 : y > 220;
+  const now = false; // the header keeps its full look while scrolling (author preference)
   if (now !== was) { h.classList.toggle("compact", now); updateStickyHeaderHeight(); }
 }
 window.addEventListener("scroll", updateCompactHeader, { passive: true, capture: true });
