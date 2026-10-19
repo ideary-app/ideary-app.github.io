@@ -3624,6 +3624,17 @@ SHIPPING CHANGES
   .pc-act { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; padding: 6px 8px; border: 1px dashed var(--line-strong); border-radius: 6px; font-size: .88rem; background: var(--panel); }
   .pc-act.done { opacity: .6; }
   .pc-act .sug-apply, .pc-act .sug-ignore { margin-left: 4px; }
+
+  .mic-btn { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 42px; height: 42px; padding: 0 10px;
+    border: 1.5px solid var(--line-strong); border-radius: 999px; background: var(--panel); color: var(--pen); cursor: pointer; font: 600 .85rem var(--sans); }
+  .mic-btn:hover { border-color: var(--pen); }
+  .mic-btn.rec { background: #c8382f; border-color: #c8382f; color: #fff; }
+  .mic-btn.busy { color: var(--slate); }
+  .mic-dot { width: 9px; height: 9px; border-radius: 50%; background: #fff; animation: micPulse 1s ease-in-out infinite; }
+  @keyframes micPulse { 50% { opacity: .3; } }
+  .mic-wrap { position: relative; }
+  .mic-wrap textarea { padding-right: 56px !important; }
+  .mic-btn.in-area { position: absolute; right: 8px; bottom: 10px; }
 </style>
 </head>
 <body>
@@ -6196,6 +6207,112 @@ function addChapter(projId, title, beforeTitle, descripcion) {
   return ch;
 }
 
+
+/* ---------- Voice input: tap the mic, talk, get text (like dictation) ----------
+   With a Gemini key: records audio and Gemini transcribes it (good with
+   Spanish/English mixed, punctuation included). Without a key: the browser's
+   own speech recognition, where available (Chrome, Edge, Safari). */
+const MIC_TARGETS = ["pc-input", "step-input", "step-work", "ai-chat-input", "stuck-input", "brain-dump-text"];
+let micState = null; // { id, rec, chunks, stream, t0, timer, speech }
+const MIC_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>`;
+function attachMics() {
+  MIC_TARGETS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.mic) return;
+    el.dataset.mic = "1";
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "mic-btn"; b.id = "mic-" + id; b.title = "Talk instead of typing"; b.innerHTML = MIC_SVG;
+    b.onclick = () => toggleMic(id);
+    if (el.tagName === "TEXTAREA") {
+      const w = document.createElement("div"); w.className = "mic-wrap";
+      el.parentNode.insertBefore(w, el); w.appendChild(el); w.appendChild(b); b.classList.add("in-area");
+    } else el.parentNode.insertBefore(b, el.nextSibling);
+  });
+}
+function micUi(id, state, label) {
+  const b = document.getElementById("mic-" + id);
+  if (!b) return;
+  b.classList.toggle("rec", state === "rec");
+  b.classList.toggle("busy", state === "busy");
+  b.innerHTML = state === "rec" ? `<span class="mic-dot"></span>${label || ""}` : state === "busy" ? "…" : MIC_SVG;
+  b.title = state === "rec" ? "Tap to stop" : "Talk instead of typing";
+}
+function insertDictation(id, text) {
+  const el = document.getElementById(id);
+  if (!el || !text) return;
+  const v = el.value;
+  el.value = v + (v && !/\s$/.test(v) ? " " : "") + text.trim();
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+  el.focus();
+}
+async function toggleMic(id) {
+  if (micState) { const same = micState.id === id; stopMic(); if (same) return; }
+  if (!geminiKey) return startSpeechApi(id);
+  if (!navigator.mediaDevices || !window.MediaRecorder) return startSpeechApi(id);
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+  catch (e) { await showAlert("Ideary needs permission to use the microphone. Allow it in your browser (the icon next to the address bar) and try again.", { title: "Microphone blocked" }); return; }
+  const type = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"].find(t => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || "";
+  const rec = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+  const st = { id, rec, chunks: [], stream, t0: Date.now() };
+  rec.ondataavailable = e => { if (e.data && e.data.size) st.chunks.push(e.data); };
+  rec.onstop = () => finishRecording(st);
+  rec.start();
+  st.timer = setInterval(() => {
+    const sec = Math.floor((Date.now() - st.t0) / 1000);
+    micUi(id, "rec", `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`);
+    if (sec >= 300) stopMic(); // 5 min max
+  }, 500);
+  micState = st; micUi(id, "rec", "0:00");
+}
+function stopMic() {
+  const st = micState; micState = null;
+  if (!st) return;
+  clearInterval(st.timer);
+  if (st.speech) { try { st.speech.stop(); } catch (e) {} micUi(st.id, "idle"); return; }
+  try { st.rec.stop(); } catch (e) {}
+  st.stream.getTracks().forEach(t => t.stop());
+}
+async function finishRecording(st) {
+  micUi(st.id, "busy");
+  const blob = new Blob(st.chunks, { type: (st.rec.mimeType || "audio/webm").split(";")[0] });
+  if (blob.size < 2000) { micUi(st.id, "idle"); return; }
+  try {
+    const b64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = rej; r.readAsDataURL(blob); });
+    const model = await geminiResolveModel(false);
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(geminiKey)}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ role: "user", parts: [
+        { inline_data: { mime_type: blob.type || "audio/webm", data: b64 } },
+        { text: "Transcribe this voice note exactly as spoken, in the language(s) spoken (it may mix Spanish and English). Add normal punctuation and remove filler sounds (eh, um) and false starts. Output ONLY the transcription, nothing else." }
+      ] }], generationConfig: { temperature: 0 } })
+    });
+    if (!resp.ok) { let m = "Error " + resp.status; try { const j = await resp.json(); m = j.error.message || m; } catch (e) {} throw new Error(resp.status === 429 ? "Gemini quota used up for now — try again later." : m); }
+    const j = await resp.json();
+    countAiUse(j.usageMetadata && j.usageMetadata.totalTokenCount);
+    const text = ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || []).map(p => p.text || "").join("").trim();
+    insertDictation(st.id, text);
+  } catch (e) {
+    await showAlert("Couldn't turn your voice into text: " + e.message, { title: "Voice note failed" });
+  }
+  micUi(st.id, "idle");
+}
+function startSpeechApi(id) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { showAlert("Your browser can't do voice typing on its own. Add a free Gemini key in Settings and the mic will work everywhere.", { title: "Voice needs a Gemini key here" }); return; }
+  const sp = new SR();
+  sp.lang = navigator.language || "es-AR"; sp.continuous = true; sp.interimResults = false;
+  sp.onresult = e => { for (let k = e.resultIndex; k < e.results.length; k++) if (e.results[k].isFinal) insertDictation(id, e.results[k][0].transcript); };
+  sp.onend = () => { if (micState && micState.speech === sp) { micState = null; micUi(id, "idle"); } };
+  sp.onerror = () => {};
+  sp.start();
+  micState = { id, speech: sp, t0: Date.now() };
+  micState.timer = setInterval(() => { const sec = Math.floor((Date.now() - micState.t0) / 1000); micUi(id, "rec", `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`); }, 500);
+  micUi(id, "rec", "0:00");
+}
+document.addEventListener("click", e => { if (micState && e.target.closest(".modal-close")) stopMic(); }, true);
+setTimeout(attachMics, 0);
+
 /* ---------- Project mentor chat: ask anything about the whole project ---------- */
 const PROJECT_MENTOR_RULES = `You are a veteran professional in the field of this project (a film director for a short film, a master carpenter for furniture, a head chef for a recipe…) acting as the person's mentor for the WHOLE project. You can see every chapter, its plan and progress, the key decisions, notes and open questions.
 - Answer like a good teacher: clear, concrete, applied to THIS project, short paragraphs. Guide and give options with their trade-offs; don't make the person's creative decisions for them.
@@ -6779,13 +6896,14 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-19 01:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-19 01:40 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
     version: "1.2.0",
     public: true,
     items: [
+      "Voice input: tap the mic and talk instead of typing, in any AI chat, the tutor and Brain dump",
       "Talk to your mentor: ask anything about your whole project; it sees every chapter and can suggest chapters, decisions or questions you choose to add",
       "\"Ask the director\" is now called \"Check chapter order\", which is what it does",
       "Today: the next steps of what you're working on, right on the home page",
