@@ -3723,6 +3723,12 @@ SHIPPING CHANGES
 
   .collapsible > .block-title { justify-content: flex-start !important; gap: 6px; }
   .collapsible > .block-title > span:last-child:not(.cs-caret):not(:nth-child(2)), .collapsible > .block-title > button:last-child { margin-left: auto !important; }
+
+  .sortnote-pick { width: 210px; flex-shrink: 0; display: flex; flex-direction: column; gap: 3px; }
+  .sortnote-pick .sortnote-sel { width: 100%; }
+  .sortnote-why { font-size: .76rem; line-height: 1.3; color: var(--slate); font-style: italic; }
+  .sortnote-why.stale { text-decoration: line-through; opacity: .5; }
+  @media (max-width: 600px) { .sortnote-pick { width: 100%; } }
 </style>
 </head>
 <body>
@@ -6567,7 +6573,7 @@ function openSortNotes(id) {
     <p class="pw-small" style="margin-bottom:10px">Notes that became part of the ${isProject(idea) ? "project" : "idea"} can move to where they belong. Pick where each one goes.</p>
     ${geminiKey ? `<button type="button" class="stuck-btn" id="sortnotes-ai" style="margin:0 0 10px" onclick="suggestSortNotes()">✨ Suggest where each one goes</button>` : ""}
     <div class="sortnotes-list">${(idea.notas || []).map((n, k) => `<div class="sortnote"><div class="sortnote-text">${escapeHtml(noteText(n))}</div>
-      <select class="form-input sortnote-sel" data-k="${k}">${opts.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select></div>`).join("")}</div>
+      <div class="sortnote-pick"><select class="form-input sortnote-sel" data-k="${k}">${opts.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select></div></div>`).join("")}</div>
     <button class="form-submit" onclick="applySortNotes()">Apply</button></div>`;
   ov.classList.add("open");
 }
@@ -6582,15 +6588,21 @@ async function suggestSortNotes() {
   const prog = document.createElement("div"); prog.className = "sort-progress";
   prog.innerHTML = `<span class="ai-dots"><i></i><i></i><i></i></span><span class="sort-count">Reading your notes… 0 of ${total}</span><span class="cs-bar"><span style="width:0%"></span></span>`;
   btn.replaceWith(prog);
-  const rules = `You help someone tidy the notes of a creative ${isProject(idea) ? "project" : "idea"}. For each note decide where it belongs: ${opts.join(", ")}. "decision" = something already decided (a choice), "about" = describes what the project is, "resolver" = an open question or something still undecided, "keep" = a loose note/log entry, "delete" = clearly obsolete or duplicated by the description or decisions. Be conservative: when unsure, "keep". Output ONE line per note, exactly like "3: keep", using the note numbers given, and nothing else.`;
+  const rules = `You help someone tidy the notes of a creative ${isProject(idea) ? "project" : "idea"}. For each note decide where it belongs: ${opts.join(", ")}. "decision" = something already decided (a choice), "about" = describes what the project is, "resolver" = an open question or something still undecided, "keep" = a loose note/log entry, "delete" = clearly obsolete or duplicated by the description or decisions. Be conservative: when unsure, "keep". Output ONE line per note, exactly like "3: keep | why, in max 12 words", using the note numbers given, and nothing else. The "why" must be concrete for THIS note (e.g. "already in the description", "a choice you already made", "still undecided", "no longer applies after choosing full 3D"), written in the same language as the notes.`;
   const head = `${isProject(idea) ? "PROJECT" : "IDEA"}: ${idea.titulo} — ${idea.descripcion}${isProject(idea) ? "\nKEY DECISIONS: " + decisionsOf(idea).map(d => d.texto).join(" | ") : ""}\n`;
   let done = 0;
-  const unlockRow = (k, d) => {
+  const unlockRow = (k, d, why) => {
     const sel = document.querySelector(`.sortnote-sel[data-k="${k}"]`);
     if (!sel) return;
     const row = sel.closest(".sortnote");
     sel.disabled = false;
     if (d && opts.includes(d)) { sel.value = d; sel.classList.add("ai-picked"); }
+    if (why) {
+      let w = row.querySelector(".sortnote-why");
+      if (!w) { w = document.createElement("div"); w.className = "sortnote-why"; sel.after(w); }
+      w.textContent = "* " + why; w.dataset.for = sel.value;
+      sel.onchange = () => w.classList.toggle("stale", sel.value !== w.dataset.for);
+    }
     if (row.classList.contains("pending")) { row.classList.remove("pending"); row.classList.add("just-sorted"); done++; }
     row.scrollIntoView({ block: "nearest", behavior: "smooth" });
     prog.querySelector(".sort-count").textContent = `Sorted ${done} of ${total}`;
@@ -6603,8 +6615,9 @@ async function suggestSortNotes() {
       const prompt = head + "NOTES TO SORT NOW:\n" + idx.map(k => `${k + 1}. ${noteText(notes[k])}`).join("\n");
       const reply = await geminiGenerate([{ role: "user", text: prompt }], rules, false, undefined, "none");
       const got = {};
-      reply.split("\n").forEach(line => { const m = line.match(/^\s*(\d+)\s*[:.)-]\s*([a-z]+)/i); if (m) got[+m[1] - 1] = m[2].toLowerCase(); });
-      for (const k of idx) { unlockRow(k, got[k]); await new Promise(r => setTimeout(r, 90)); }
+      const why = {};
+      reply.split("\n").forEach(line => { const m = line.match(/^\s*(\d+)\s*[:.)-]\s*([a-z]+)\s*(?:[|\-–—:]\s*(.+))?$/i); if (m) { got[+m[1] - 1] = m[2].toLowerCase(); if (m[3]) why[+m[1] - 1] = m[3].trim(); } });
+      for (const k of idx) { unlockRow(k, got[k], why[k]); await new Promise(r => setTimeout(r, 90)); }
     }
     prog.innerHTML = `✓ Sorted ${total} of ${total} — change anything you like, then Apply`;
     prog.classList.add("done");
@@ -7264,7 +7277,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-19 07:20 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-19 13:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
