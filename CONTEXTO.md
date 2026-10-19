@@ -31,8 +31,8 @@ Es pública y gratuita, sin backend, y puede usarla cualquiera. Antes se llamaba
 - **Voz (micrófono)**: botón 🎤 en los chats de IA (mentor, tutor, Develop idea, I'm stuck), en "Your work" del paso y en Brain dump. Con key: graba audio y Gemini lo transcribe (mezcla español/inglés, con puntuación, máx. 5 min); sin key: reconocimiento de voz del navegador si existe. Mientras graba, el campo se reemplaza por barras de audio en vivo (nivel real del micrófono) y no se puede escribir; ■ para y transcribe, y Send/Enter para, transcribe y envía. Si no llega sonido o no se entienden palabras, avisa con un mensaje claro.
 - **Esperas de IA visibles:** todos los chats muestran puntitos animados, segundos transcurridos y Cancel; el campo y Send quedan bloqueados mientras la IA responde o mientras se transcribe la voz. Si cerrás el chat del mentor y lo reabrís, la respuesta en curso se sigue viendo. Si falla, el error se muestra y la pregunta vuelve a la caja.
 - **Header de ideas/proyectos:** no se achica al scrollear (preferencia del autor). Muestra "Last edited …" como texto (no botón). "Turn back into a single idea" y "💬 Talk to your mentor" van a la derecha de la fila de etiquetas del header del proyecto (visibles sin scrollear).
-- **Bloques colapsables** (columna derecha: Things to figure out, Notes, Sketches, References): clic en el título; colapsado muestra un resumen (barra "x/y figured out", cantidad de notas/bocetos/links). Se recuerda por dispositivo (`ideary_collapsed_v1`).
-- **Sort notes** ("Sort into the project/plan"): elegís a dónde va cada nota (Key decision, What it is/Description, Things to figure out, borrar o dejarla). Con key, "Suggest" propone destinos y el usuario confirma.
+- **Bloques colapsables** (columna derecha: Things to figure out, Notes, Sketches, References): clic en el título; colapsado muestra un resumen (barra "x/y figured out", cantidad de notas/bocetos/links). Arrancan plegados; se recuerdan los que abrís, por dispositivo (`ideary_expanded_v1`).
+- **Sort notes** ("Sort into the project/plan"): elegís a dónde va cada nota (Key decision, What it is/Description, Things to figure out, borrar o dejarla). Con key, "Suggest" propone destinos en streaming: se ven ordenándose una por una con contador ("Sorted 3 of 30") y barra; el usuario confirma.
 - **Check chapter order** (antes "Check chapter order"): el director revisa el orden de los capítulos y propone mover o agregar capítulos, además de avisos. El usuario aplica o ignora cada sugerencia. La app valida la coherencia del orden (ver la sección 7).
 - **Explain this stage**: en cada capítulo, la IA escribe una explicación de esa etapa con tono de profesor.
 - **Change log con Undo**: un historial de los cambios hechos por la IA en cada idea. Los últimos 5 cambios de IA tienen un botón "↶ Undo" que devuelve la idea (y los capítulos, si es un proyecto) a como estaba antes. Los bocetos no se tocan.
@@ -165,7 +165,7 @@ Todo tiene un aire hecho a mano y algo rotado.
 | Sesión de Drive y token | `ideary_drive_session_v1`, `ideary_gtoken_v1` |
 | Key y modelo de Gemini | `ideary_gemini_key_v1`, `ideary_gemini_model_v1` |
 | Tapa, cartuchera, tema | `ideary_cover_v1`, `ideary_case_v1`, `ideas_producciones_tema` |
-| Varios | `ideary_collapsed_v1`, `ideary_ai_usage_v1`, `ideary_home_filter_v1`, `ideary_view`, `ideary_howto_seen_v1`, `ideary_install_banner_dismissed`, `ideary_zip_x` (posición del cierre) |
+| Varios | `ideary_expanded_v1`, `ideary_ai_usage_v1`, `ideary_home_filter_v1`, `ideary_view`, `ideary_howto_seen_v1`, `ideary_install_banner_dismissed`, `ideary_zip_x` (posición del cierre) |
 
 Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la primera vez que se carga la app.
 
