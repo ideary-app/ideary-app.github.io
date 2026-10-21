@@ -50,7 +50,7 @@ Es pública y gratuita, sin backend, y puede usarla cualquiera. Antes se llamaba
 - **Fechas**: fecha objetivo opcional (`fechaObjetivo`, "YYYY-MM-DD") en ideas, proyectos y capítulos (badge 📅, avisa "soon"/"overdue"). Se elige con un calendario propio con estilo cuaderno que abre pegado a la píldora (atajos: In a week / In a month / End of month); la × en la píldora borra la fecha. "Last worked on" automático (`actualizado`, ISO) y 💤 en ideas sin cambios hace 3+ semanas.
 - **Botón "Next step →"** flotante en celular: abre directo el próximo paso sin terminar con el tutor.
 - **Tour guiado (coach marks)**: oscurece la app y deja iluminada solo la parte que explica, con una notita al lado (Back/Next/Skip, flechas del teclado, Esc). Tour de Home (9 pasos; el último pide tocar "+ New idea" de verdad) y tours cortos la primera vez que abrís una idea con plan y un proyecto. Se recuerdan los vistos (`ideary_tours_seen_v1`); "?" y "How it works" lo repiten. Reemplaza a la bienvenida en modals.
-- **Intensidad del fondo** (0,25–1, por defecto 0,6): suaviza el mármol de la tapa y los renglones/márgenes. Se ajusta deslizando el cierre de la cartuchera: la posición del cierre ES la intensidad (izquierda del todo 25%, derecha del todo 100%), o con el slider en Settings (`ideary_bg_intensity_v1`).
+- **Intensidad del fondo** (0,25–1, por defecto 0,75): suaviza el mármol de la tapa y los renglones/márgenes. Se ajusta deslizando el cierre de la cartuchera: la posición del cierre ES la intensidad (izquierda del todo 25%, derecha del todo 100%), o con el slider de Settings, que tiene la misma pinta del cierre y va de 1 en 1 (`ideary_bg_intensity_v1`).
 - **(Anterior) Bienvenida en 3 pasos** (qué es, cómo usar la IA con o sin key —con guía para sacar la key gratis— y conectar Drive). Se abre la primera vez y desde "?".
 - **Ayudas "?"** al lado de Production plan, Brain dump/I'm stuck y Check chapter order.
 - **Personalización**: tema Day/Night (Day por defecto; Night es una paleta marrón oscuro con letra crema), color de tapa del cuaderno y cartuchera, que es el header en celular.
@@ -64,8 +64,7 @@ Es pública y gratuita, sin backend, y puede usarla cualquiera. Antes se llamaba
   - un buscador;
   - las pestañas All / Projects / Ideas, que filtran las tarjetas de estado;
   - las tarjetas de estado con la cantidad de ideas de cada uno;
-  - el post-it "How it works";
-  - el botón "Create new idea";
+  - el botón "Create new idea" justo debajo del buscador (ya no hay post-it "How it works": el tour se repite con "?");
   - un aviso para conectar Drive si no hay sesión.
 - **Sidebar**: es el índice del cuaderno. Incluye:
   - Home, "+ New idea", "?" (guía), Connect Google Drive y Settings;
@@ -287,3 +286,5 @@ Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la prim
 
 - **Home:** el aviso "Keep your ideas safe" (sin Drive) va a la derecha de la tarjeta del logo, que queda centrada; en pantallas angostas va debajo del logo, arriba del buscador.
 - **Sidebar:** el anillado del cuaderno va a la izquierda.
+
+- **Cartucheras (rediseño):** Pencils con lápices enteros (sin cortes); Coral con dibujitos sueltos en un patrón largo poco repetitivo; Brown leather y Low-profile black con textura de cuero en relieve; Checker, Mint stars y Rainbow con patrón más grande en desktop (Rainbow con franjas más gruesas).
