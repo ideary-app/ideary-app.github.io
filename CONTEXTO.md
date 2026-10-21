@@ -1,6 +1,6 @@
 # Ideary — CONTEXTO
 
-**Última actualización:** 2026-10-18 (versión 1.2.0)
+**Última actualización:** 2026-10-18 (versión 1.3.0)
 
 Este archivo sirve para entender Ideary sin haber leído las charlas en las que se construyó. Ideary es una app independiente: no comparte datos con las otras apps del autor (Receater, el inventario de casa). Solo va a aparecer como una entrada más en el futuro hub común.
 
@@ -49,7 +49,9 @@ Es pública y gratuita, sin backend, y puede usarla cualquiera. Antes se llamaba
 - **Today** (Home): los 1–3 próximos pasos de lo que está In progress (uno por proyecto), primero lo que vence antes y después lo último trabajado. Tocar uno abre ese paso con el tutor.
 - **Fechas**: fecha objetivo opcional (`fechaObjetivo`, "YYYY-MM-DD") en ideas, proyectos y capítulos (badge 📅, avisa "soon"/"overdue"). Se elige con un calendario propio con estilo cuaderno que abre pegado a la píldora (atajos: In a week / In a month / End of month); la × en la píldora borra la fecha. "Last worked on" automático (`actualizado`, ISO) y 💤 en ideas sin cambios hace 3+ semanas.
 - **Botón "Next step →"** flotante en celular: abre directo el próximo paso sin terminar con el tutor.
-- **Bienvenida en 3 pasos** (qué es, cómo usar la IA con o sin key —con guía para sacar la key gratis— y conectar Drive). Se abre la primera vez y desde "?".
+- **Tour guiado (coach marks)**: oscurece la app y deja iluminada solo la parte que explica, con una notita al lado (Back/Next/Skip, flechas del teclado, Esc). Tour de Home (9 pasos; el último pide tocar "+ New idea" de verdad) y tours cortos la primera vez que abrís una idea con plan y un proyecto. Se recuerdan los vistos (`ideary_tours_seen_v1`); "?" y "How it works" lo repiten. Reemplaza a la bienvenida en modals.
+- **Intensidad del fondo** (0,25–1, por defecto 0,6): suaviza el mármol de la tapa y los renglones/márgenes. Se ajusta bajando el cierre de la cartuchera (arrastrar hacia abajo) o con el slider en Settings (`ideary_bg_intensity_v1`).
+- **(Anterior) Bienvenida en 3 pasos** (qué es, cómo usar la IA con o sin key —con guía para sacar la key gratis— y conectar Drive). Se abre la primera vez y desde "?".
 - **Ayudas "?"** al lado de Production plan, Brain dump/I'm stuck y Check chapter order.
 - **Personalización**: tema Day/Night (Day por defecto; Night es una paleta marrón oscuro con letra crema), color de tapa del cuaderno y cartuchera, que es el header en celular.
 - **Exportar e importar** respaldos en JSON.
@@ -167,7 +169,7 @@ Todo tiene un aire hecho a mano y algo rotado.
 | Sesión de Drive y token | `ideary_drive_session_v1`, `ideary_gtoken_v1` |
 | Key y modelo de Gemini | `ideary_gemini_key_v1`, `ideary_gemini_model_v1` |
 | Tapa, cartuchera, tema | `ideary_cover_v1`, `ideary_case_v1`, `ideas_producciones_tema` |
-| Varios | `ideary_expanded_v1`, `ideary_ai_usage_v1`, `ideary_home_filter_v1`, `ideary_view`, `ideary_howto_seen_v1`, `ideary_install_banner_dismissed`, `ideary_zip_x` (posición del cierre) |
+| Varios | `ideary_tours_seen_v1`, `ideary_bg_intensity_v1`, `ideary_expanded_v1`, `ideary_ai_usage_v1`, `ideary_home_filter_v1`, `ideary_view`, `ideary_howto_seen_v1`, `ideary_install_banner_dismissed`, `ideary_zip_x` (posición del cierre) |
 
 Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la primera vez que se carga la app.
 

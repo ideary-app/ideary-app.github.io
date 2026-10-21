@@ -2524,7 +2524,7 @@ SHIPPING CHANGES
     --panel: #fffefa;          /* index card */
     --line: #e4dfcf;
     --line-strong: #cfc7ae;
-    --rule: rgba(84, 130, 190, .22);
+    --rule-base: rgba(84, 130, 190, .22); --rule: color-mix(in srgb, var(--rule-base) calc(var(--bg-int, .6) * 100%), transparent);
     --margin-line: rgba(220, 90, 90, .55);
     --accent: var(--pen);
     --accent-hover: var(--pen-dark);
@@ -2551,7 +2551,7 @@ SHIPPING CHANGES
     --panel: #25262e;
     --line: #34353f;
     --line-strong: #474855;
-    --rule: rgba(120, 150, 210, .13);
+    --rule-base: rgba(120, 150, 210, .13); --rule: color-mix(in srgb, var(--rule-base) calc(var(--bg-int, .6) * 100%), transparent);
     --margin-line: rgba(220, 100, 110, .35);
     --accent-soft: #273152;
     --postit: #4a4425;
@@ -2573,12 +2573,12 @@ SHIPPING CHANGES
   .main {
     position: relative;
     background-image:
-      linear-gradient(to right, transparent 18px, var(--margin-line) 18px, var(--margin-line) 19.5px, transparent 19.5px, transparent 23px, var(--margin-line) 23px, var(--margin-line) 24px, transparent 24px);
+      linear-gradient(to right, transparent 18px, var(--margin-soft) 18px, var(--margin-soft) 19.5px, transparent 19.5px, transparent 23px, var(--margin-soft) 23px, var(--margin-soft) 24px, transparent 24px);
     background-repeat: repeat-y;
   }
   @media (max-width: 600px) {
     .main {
-      background-image: linear-gradient(to right, transparent 8px, var(--margin-line) 8px, var(--margin-line) 9.5px, transparent 9.5px);
+      background-image: linear-gradient(to right, transparent 8px, var(--margin-soft) 8px, var(--margin-soft) 9.5px, transparent 9.5px);
     }
   }
 
@@ -2902,7 +2902,7 @@ SHIPPING CHANGES
     --panel: #fbf5e1;
     --line: #e2d6b4;
     --line-strong: #cbbb90;
-    --rule: rgba(84, 130, 190, .2);
+    --rule-base: rgba(84, 130, 190, .2); --rule: color-mix(in srgb, var(--rule-base) calc(var(--bg-int, .6) * 100%), transparent);
     --kraft: #c9a26b;
     --kraft-dark: #8a6a3c;
     --kraft-ink: #3b2a14;
@@ -3026,7 +3026,7 @@ SHIPPING CHANGES
     /* zipper pull */
     .mobile-header::after { content: none !important; }
     #zip-pull {
-      position: absolute; left: var(--zip-x, calc(100% - 38px)); bottom: -14px; width: 16px; height: 26px; z-index: 5;
+      position: absolute; left: var(--zip-x, calc(100% - 38px)); bottom: calc(-14px - var(--zip-y, 0px)); width: 16px; height: 26px; z-index: 5;
       cursor: grab; touch-action: none; transform-origin: 50% 2px; transition: transform .25s ease;
       padding: 0; border: 0;
       background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='26'><rect x='3' y='0' width='10' height='8' rx='2' fill='%23c7cbd2' stroke='%23585d66'/><rect x='4' y='7' width='8' height='18' rx='3' fill='%23dfe2e7' stroke='%23585d66'/><rect x='6.5' y='12' width='3' height='9' rx='1.5' fill='%23585d66'/></svg>") no-repeat;
@@ -3521,7 +3521,7 @@ SHIPPING CHANGES
     --panel: #2f241b;
     --line: #463627;
     --line-strong: #5d4835;
-    --rule: rgba(240, 220, 190, .07);
+    --rule-base: rgba(240, 220, 190, .07); --rule: color-mix(in srgb, var(--rule-base) calc(var(--bg-int, .6) * 100%), transparent);
     --margin-line: rgba(214, 120, 100, .35);
     --slate: #c2b09a;
     --slate-soft: #3a2d22;
@@ -3758,6 +3758,43 @@ SHIPPING CHANGES
   .dec-more { display: none; font-size: .82rem; color: var(--slate); margin: -2px 0 4px 26px; }
   .about-shut .dec-more { display: none; }
   .about-toggle { display: block; margin: 10px auto 0; }
+
+  /* ---- Background intensity ---- */
+  :root { --bg-int: .6; }
+  body[data-view="home"], [data-theme="dark"] body[data-view="home"] {
+    background-image: linear-gradient(color-mix(in srgb, var(--cover) calc((1 - var(--bg-int)) * 100%), transparent), color-mix(in srgb, var(--cover) calc((1 - var(--bg-int)) * 100%), transparent)), var(--marble) !important;
+  }
+  html { --rule-soft: var(--rule); --margin-soft: color-mix(in srgb, var(--margin-line) calc((.35 + var(--bg-int) * .65) * 100%), transparent); }
+  body, [data-theme="dark"] body { background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 31px, var(--rule-soft) 31px, var(--rule-soft) 32px); }
+  .zip-tip { position: absolute; bottom: -70px; background: var(--panel); color: var(--ink); border: 1px solid var(--line-strong); border-radius: 6px;
+    padding: 2px 8px; font: 600 .78rem var(--sans); white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 6; box-shadow: var(--card-shadow); }
+  .zip-tip.on { opacity: 1; }
+  .bg-int-row { margin-top: 12px; }
+  .bg-int-row label { display: flex; justify-content: space-between; font-family: var(--hand); font-size: 1.05rem; }
+  .bg-int-row input[type=range] { width: 100%; accent-color: var(--pen); }
+
+  /* ---- Guided tour ---- */
+  #coach { position: fixed; inset: 0; z-index: 3000; pointer-events: none; }
+  .coach-block { position: fixed; background: rgba(22, 16, 10, .62); pointer-events: all; transition: all .25s ease; }
+  html[data-theme="dark"] .coach-block { background: rgba(0, 0, 0, .7); }
+  .coach-spot { position: fixed; border-radius: 10px; box-shadow: 0 0 0 3px var(--pen), 0 0 0 7px color-mix(in srgb, var(--pen) 30%, transparent); pointer-events: none; transition: all .25s ease; animation: coachPulse 1.8s ease-in-out infinite; }
+  @keyframes coachPulse { 50% { box-shadow: 0 0 0 3px var(--pen), 0 0 0 12px color-mix(in srgb, var(--pen) 12%, transparent); } }
+  .coach-bubble { position: fixed; width: min(340px, calc(100vw - 16px)); background: var(--panel); color: var(--ink); border-radius: 4px 4px 14px 4px; padding: 14px 16px 12px;
+    box-shadow: 0 16px 34px rgba(0,0,0,.35); pointer-events: all; transition: left .25s ease, top .25s ease;
+    background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 27px, var(--rule) 27px, var(--rule) 28px); }
+  .coach-bubble::before { content: ""; position: absolute; top: -9px; left: 24px; width: 64px; height: 18px; background: var(--tape); transform: rotate(-3deg); }
+  .coach-count { font: 600 .72rem var(--mono); color: var(--slate); float: right; }
+  .coach-title { font-family: var(--hand); font-size: 1.45rem; color: var(--pen); line-height: 1.15; margin-bottom: 4px; }
+  .coach-text { font-size: .9rem; line-height: 1.5; }
+  .coach-nav { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .coach-nav > span { display: flex; gap: 6px; align-items: center; margin-left: auto; }
+  .coach-skip { background: none; border: none; color: var(--slate); font-size: .8rem; text-decoration: underline; cursor: pointer; padding: 0; }
+  .coach-back { background: none; border: 1px solid var(--line-strong); border-radius: 6px; padding: 5px 12px; font-family: var(--hand); font-size: 1rem; color: var(--ink); cursor: pointer; }
+  .coach-next { background: var(--pen); color: #fff; border: none; border-radius: 6px; padding: 6px 16px; font-family: var(--hand); font-size: 1.05rem; cursor: pointer; }
+  html[data-theme="dark"] .coach-next { color: #241b14; }
+  .coach-tapme { font-family: var(--hand); font-size: 1rem; color: var(--pen); animation: aiBounce 1.4s ease-in-out infinite; }
+
+  body:has(#coach) .install-banner, body:has(#coach) .next-fab, body:has(#coach) #save-chip { display: none !important; }
 </style>
 </head>
 <body>
@@ -3822,7 +3859,7 @@ SHIPPING CHANGES
     <div class="nav-section">
       <div style="display:flex;gap:8px;align-items:stretch;margin-bottom:8px">
         <button class="sidebar-action-btn primary" style="flex:1;margin-bottom:0" onclick="openNewIdeaForm()">+ New idea</button>
-        <button class="sidebar-action-btn sidebar-help-btn" onclick="openHowto()" title="How it works">?</button>
+        <button class="sidebar-action-btn sidebar-help-btn" onclick="closeMobileMenu();replayTour()" title="Show me around">?</button>
       </div>
       <button class="sidebar-action-btn drive-cta" id="sidebar-drive-cta" onclick="connectGoogleDrive()" style="display:none"><svg width="16" height="14" viewBox="0 0 87.3 78" style="flex-shrink:0"><path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/><path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/><path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/><path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/><path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/></svg><span>Connect Google Drive</span></button>
       <button class="sidebar-action-btn settings-btn" onclick="openSettings()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
@@ -3833,7 +3870,7 @@ SHIPPING CHANGES
       <div id="nav-categorias"></div>
     </div>
 
-    <div class="version-link" onclick="openChangelog()">v1.2.0 · What's new</div>
+    <div class="version-link" onclick="openChangelog()">v1.3.0 · What's new</div>
     <div style="text-align:center;font-family:var(--hand);font-size:.9rem;margin-top:6px"><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--slate)">Privacy</a> · <a href="terms.html" target="_blank" rel="noopener" style="color:var(--slate)">Terms</a></div>
   </div>
   </aside>
@@ -3945,6 +3982,9 @@ SHIPPING CHANGES
     <div class="settings-section">
       <div class="settings-h">Notebook cover</div>
       <div class="cover-swatches" id="cover-swatches"></div>
+      <div class="bg-int-row"><label for="bg-int-range">Background intensity <span id="bg-int-val"></span></label>
+        <input type="range" id="bg-int-range" min="25" max="100" step="5" oninput="setBgIntensity(this.value / 100, true)">
+        <div class="form-hint">Tip: you can also pull the zipper down to soften it.</div></div>
     </div>
     <div class="settings-section">
       <div class="settings-h">Pencil case <span style="font-size:.95rem;color:var(--slate)">(top bar on phones)</span></div>
@@ -5251,6 +5291,7 @@ function setThemeFromSettings(t) {
   updateThemeButtons();
 }
 function openSettings(section) {
+  setTimeout(() => setBgIntensity(bgIntensity, true), 0);
   setTimeout(() => { const el = document.getElementById("ai-usage"); if (el) el.innerHTML = aiUsageHtml(); }, 0);
   document.getElementById("ai-key-input").value = geminiKey;
   document.getElementById("ai-key-status").textContent = "";
@@ -6738,6 +6779,141 @@ function applySortNotes() {
   render();
 }
 
+
+/* ==================================================================
+   GUIDED TOUR (coach marks): the real interface stays visible, the
+   rest is dimmed and only the part being explained is lit up, with a
+   small note next to it. Some steps ask you to actually tap the thing.
+================================================================== */
+const TOUR_KEY = "ideary_tours_seen_v1";
+function toursSeen() { try { return JSON.parse(localStorage.getItem(TOUR_KEY) || "{}"); } catch (e) { return {}; } }
+function markTour(name) { const t = toursSeen(); t[name] = 1; try { localStorage.setItem(TOUR_KEY, JSON.stringify(t)); } catch (e) {} }
+const isPhone = () => window.innerWidth < 1000;
+const TOURS = {
+  home: [
+    { t: "Welcome to Ideary 👋", b: "A notebook for your creative ideas — a short film, a chair, a recipe, a game. Let me show you around in a minute. You can skip anytime." },
+    { sel: () => isPhone() ? ".mobile-icon-btn" : ".sidebar .sidebar-action-btn.primary", t: "Capture an idea", b: "Every idea starts here. Just a title is enough; you can fill in the rest later." },
+    { sel: ".today-card, .status-grid", t: "What's going on", b: "Your ideas sorted by status. When you're working on something, <strong>Today</strong> shows the next step so you know exactly what to do." },
+    { sel: ".home-filter", t: "Ideas and projects", b: "Big ideas can become <strong>projects</strong> with chapters. Switch here to see only one kind." },
+    { sel: () => isPhone() ? "#search-mobile, .mobile-search-wrap" : ".home-hero-search, .mobile-search-wrap", t: "Find anything", b: "Search titles, steps, notes… everything in your notebook." },
+    { sel: () => isPhone() ? ".mobile-menu-btn" : "#nav-categorias", t: "Your index", b: "Like the first page of a notebook: categories, ideas and project chapters. Projects open to show their chapters." },
+    { sel: () => isPhone() ? ".mobile-menu-btn" : "#sidebar-drive-cta:not([style*='none']), .settings-btn", t: "Keep it safe", b: "Connect Google Drive to see your ideas on your phone and computer. Ideary only touches its own file in your Drive." },
+    { sel: () => isPhone() ? ".mobile-menu-btn" : ".settings-btn", t: "Your AI mentor", b: "In Settings you can add a <strong>free Gemini key</strong> (there's a 2-minute guide) so the AI works right inside Ideary. Without it, every AI button gives you a prompt to paste in any AI." },
+    { sel: () => isPhone() ? ".mobile-icon-btn" : ".sidebar .sidebar-action-btn.primary", t: "Your turn ✏️", b: "Tap it and write your first idea. When you open it, I'll show you how to turn it into a plan.", tap: true }
+  ],
+  idea: [
+    { sel: ".tool-btn.marker", t: "Turn it into a plan", b: "<strong>Develop idea</strong>: an AI that knows the craft builds a step-by-step plan, explaining how to do each step." },
+    { sel: ".step-row .step-box, .step-row .step-check, .step-row", t: "Check things off", b: "Tap a box once = <strong>started</strong> (half filled). Twice = <strong>done</strong>. Like a real notebook, nothing gets crossed out." },
+    { sel: ".step-help-btn", t: "Stuck on a step?", b: "<strong>Help</strong> opens a tutor for that step. It explains like a teacher and helps you write things down. Your work stays saved on the step." },
+    { sel: ".detail-dashboard-sidecol", t: "Your side notes", b: "Things to figure out, notes, sketches and references. Tap a title to fold or unfold it." },
+    { sel: ".badge-due", t: "Give it a date", b: "Optional, but it helps: Ideary will tell you when something is close or late." }
+  ],
+  project: [
+    { sel: ".chapter-wall", t: "Chapters", b: "A project is split into chapters, like a book. Each one is a full page with its own plan. Use ← → to reorder." },
+    { sel: ".project-about", t: "What it is + key decisions", b: "Write down what's already decided (\"Software: Blender\"). Every AI helper treats it as a fixed rule." },
+    { sel: ".mentor-head-btn", t: "Talk to your mentor", b: "Ask anything about the whole project. It sees every chapter and can suggest things you choose to add. You can also talk instead of typing 🎤." },
+    { sel: ".next-up-strip", t: "Always know what's next", b: "Tap here to jump to the next step of the chapter you're on." }
+  ]
+};
+let tour = null; // { name, k, steps }
+function startTour(name, force) {
+  if (!force && toursSeen()[name]) return;
+  const steps = TOURS[name];
+  if (!steps) return;
+  endTour(true);
+  tour = { name, k: 0, steps };
+  const root = document.createElement("div"); root.id = "coach";
+  root.innerHTML = `<div class="coach-block"></div><div class="coach-block"></div><div class="coach-block"></div><div class="coach-block"></div><div class="coach-spot"></div><div class="coach-bubble" role="dialog" aria-live="polite"></div>`;
+  document.body.appendChild(root);
+  showTourStep();
+}
+function tourTarget(st) {
+  if (!st.sel) return null;
+  const sel = typeof st.sel === "function" ? st.sel() : st.sel;
+  for (const one of sel.split(",")) {
+    const el = document.querySelector(one.trim());
+    if (el && el.getBoundingClientRect().width > 0) return el;
+  }
+  return null;
+}
+function showTourStep() {
+  if (!tour) return;
+  const st = tour.steps[tour.k];
+  let el = tourTarget(st);
+  if (st.sel && !el) { // target not on screen: skip it
+    if (tour.k < tour.steps.length - 1) { tour.k++; return showTourStep(); }
+  }
+  const root = document.getElementById("coach");
+  const bubble = root.querySelector(".coach-bubble"), spot = root.querySelector(".coach-spot");
+  const last = tour.k === tour.steps.length - 1;
+  bubble.innerHTML = `<div class="coach-count">${tour.k + 1} / ${tour.steps.length}</div>
+    <div class="coach-title">${st.t}</div><div class="coach-text">${st.b}</div>
+    <div class="coach-nav"><button type="button" class="coach-skip" onclick="endTour()">${last ? "" : "Skip tour"}</button>
+      <span>${tour.k ? `<button type="button" class="coach-back" onclick="tourGoStep(-1)">Back</button>` : ""}
+      ${st.tap ? `<span class="coach-tapme">Tap the highlighted button</span><button type="button" class="coach-back" onclick="endTour()">Later</button>` : `<button type="button" class="coach-next" onclick="tourGoStep(1)">${last ? "Got it" : (!st.sel && tour.k === 0) ? "Show me" : "Next"}</button>`}</span></div>`;
+  root.classList.toggle("no-target", !el);
+  if (el) {
+    el.scrollIntoView({ block: "center", behavior: "instant" in document.documentElement.style ? "instant" : "auto" });
+    // put the cutout where the element is and wall off everything else
+    requestAnimationFrame(() => placeTour(el));
+    if (st.tap) {
+      const once = () => { markTour(tour && tour.name); endTour(true); };
+      el.addEventListener("click", once, { once: true, capture: true });
+    }
+  } else {
+    spot.style.cssText = "display:none";
+    root.querySelectorAll(".coach-block").forEach((b, i) => { b.style.cssText = i ? "display:none" : "left:0;top:0;width:100vw;height:100vh"; });
+    bubble.style.cssText = "left:50%;top:50%;transform:translate(-50%,-50%)";
+  }
+}
+function placeTour(el) {
+  const root = document.getElementById("coach");
+  if (!root || !el) return;
+  const r = el.getBoundingClientRect(), pad = 8;
+  const x = Math.max(4, r.left - pad), y = Math.max(4, r.top - pad), w = Math.min(window.innerWidth - x - 4, r.width + pad * 2), h = r.height + pad * 2;
+  const spot = root.querySelector(".coach-spot");
+  spot.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px`;
+  const [t, rgt, b, l] = root.querySelectorAll(".coach-block");
+  t.style.cssText = `left:0;top:0;width:100vw;height:${y}px`;
+  b.style.cssText = `left:0;top:${y + h}px;width:100vw;height:calc(100vh - ${y + h}px)`;
+  l.style.cssText = `left:0;top:${y}px;width:${x}px;height:${h}px`;
+  rgt.style.cssText = `left:${x + w}px;top:${y}px;width:calc(100vw - ${x + w}px);height:${h}px`;
+  // bubble: below if there's room, else above; clamped to the screen
+  const bubble = root.querySelector(".coach-bubble");
+  bubble.style.cssText = "visibility:hidden;left:0;top:0";
+  const bw = bubble.offsetWidth, bh = bubble.offsetHeight;
+  let top = y + h + 12;
+  if (top + bh > window.innerHeight - 8) top = y - bh - 12;
+  if (top < 8) top = Math.min(window.innerHeight - bh - 8, Math.max(8, y + h / 2 - bh / 2));
+  let left = Math.min(Math.max(8, x + w / 2 - bw / 2), window.innerWidth - bw - 8);
+  if (top < y + h && top + bh > y && x + w + bw + 20 < window.innerWidth) left = x + w + 14; // beside if overlapping
+  bubble.style.cssText = `left:${left}px;top:${top}px`;
+}
+function tourGoStep(d) {
+  if (!tour) return;
+  const n = tour.k + d;
+  if (n >= tour.steps.length) return endTour();
+  tour.k = Math.max(0, n);
+  showTourStep();
+}
+function endTour(silent) {
+  const root = document.getElementById("coach");
+  if (root) root.remove();
+  if (tour && !silent) markTour(tour.name);
+  tour = null;
+}
+window.addEventListener("resize", () => { if (tour) showTourStep(); });
+window.addEventListener("scroll", () => { if (tour) { const el = tourTarget(tour.steps[tour.k]); if (el) placeTour(el); } }, { passive: true });
+document.addEventListener("keydown", e => { if (!tour) return; if (e.key === "Escape") endTour(); if (e.key === "ArrowRight" && !tour.steps[tour.k].tap) tourGoStep(1); if (e.key === "ArrowLeft") tourGoStep(-1); });
+// First visit to an idea / a project: short tour of that page.
+new MutationObserver(() => {
+  if (tour || view !== "detalle") return;
+  const idea = IDEAS.find(i => i.id === viewParam);
+  if (!idea) return;
+  const name = isProject(idea) ? "project" : (idea.fases || []).some(f => (f.pasos || []).length) ? "idea" : null;
+  if (name && !toursSeen()[name] && toursSeen().home) setTimeout(() => { if (!tour && !document.querySelector(".modal-overlay.open")) startTour(name); }, 600);
+}).observe(document.getElementById("main"), { childList: true });
+
 /* ---------- Project mentor chat: ask anything about the whole project ---------- */
 const PROJECT_MENTOR_RULES = `You are a veteran professional in the field of this project (a film director for a short film, a master carpenter for furniture, a head chef for a recipe…) acting as the person's mentor for the WHOLE project. You can see every chapter, its plan and progress, the key decisions, notes and open questions.
 - Answer like a good teacher: clear, concrete, applied to THIS project, short paragraphs. Guide and give options with their trade-offs; don't make the person's creative decisions for them.
@@ -7377,9 +7553,18 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-19 14:35 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-21 18:30 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
+  {
+    version: "1.3.0",
+    public: true,
+    items: [
+      "A guided tour that lights up the real app and explains each part (replay it anytime with ?)",
+      "Softer backgrounds by default — pull the zipper down to soften them even more (or use Settings)",
+      "Talk to your mentor, voice input, Help me decide, sort your notes, and a nicer date picker"
+    ]
+  },
   {
     version: "1.2.0",
     public: true,
@@ -7668,11 +7853,14 @@ function closeHowto() {
 
 function maybeShowHowto() {
   if (!STORAGE_OK) return;
-  try {
-    if (!localStorage.getItem(HOWTO_SEEN_KEY)) {
-      setTimeout(openHowto, 800); // small delay so the app loads first
-    }
-  } catch(e) {}
+  setTimeout(() => { if (view === "home" && !document.querySelector(".modal-overlay.open")) startTour("home"); }, 900);
+}
+// "?" and "How it works": replay the guided tour of the page you're on.
+function replayTour() {
+  const idea = view === "detalle" && IDEAS.find(i => i.id === viewParam);
+  if (idea) return startTour(isProject(idea) ? "project" : "idea", true);
+  if (view !== "home") goHome();
+  setTimeout(() => startTour("home", true), 250);
 }
 
 function openChangelog() {
@@ -9212,7 +9400,7 @@ function renderStatusCardsOnly() {
   }).join("");
 
   const howtoCard = `
-    <div class="howto-status-card" onclick="openHowto()">
+    <div class="howto-status-card" onclick="replayTour()">
       <div class="howto-status-title">How it works</div>
       <div class="howto-status-items">
         <div class="howto-status-item"><span>💡</span> Tap <strong>+</strong> to capture any idea</div>
@@ -9960,6 +10148,19 @@ function updateStickyHeaderHeight() {
 
 
 // Draggable zipper pull: slide it anywhere along the pencil case.
+/* Background intensity (0.25–1): how strong the cover marble and the paper lines look.
+   Softer by default; pull the zipper down (or use Settings) to soften more. */
+const BG_KEY = "ideary_bg_intensity_v1";
+let bgIntensity = 0.6;
+try { const v = parseFloat(localStorage.getItem(BG_KEY)); if (v >= 0.25 && v <= 1) bgIntensity = v; } catch (e) {}
+function setBgIntensity(v, persist) {
+  bgIntensity = Math.max(0.25, Math.min(1, v));
+  document.documentElement.style.setProperty("--bg-int", bgIntensity.toFixed(3));
+  const r = document.getElementById("bg-int-range"); if (r && persist !== false) r.value = Math.round(bgIntensity * 100);
+  const l = document.getElementById("bg-int-val"); if (l) l.textContent = Math.round(bgIntensity * 100) + "%";
+  if (persist) { try { localStorage.setItem(BG_KEY, String(bgIntensity)); } catch (e) {} if (window._zipSyncY) window._zipSyncY(); }
+}
+setBgIntensity(bgIntensity, false);
 (function initZipPull() {
   const el = document.getElementById("zip-pull");
   if (!el) return;
@@ -9969,9 +10170,13 @@ function updateStickyHeaderHeight() {
   try { saved = parseFloat(localStorage.getItem(KEY)); } catch (e) {}
   const apply = (f) => hdr.style.setProperty("--zip-x", `calc(${(f * 100).toFixed(2)}% - 8px)`);
   if (saved >= 0 && saved <= 1) apply(saved);
-  let drag = false, lastX = 0, frac = saved;
+  let drag = false, lastX = 0, frac = saved, y0 = 0, startY = 0;
+  const MAXY = 46;
+  const setY = y => hdr.style.setProperty("--zip-y", y + "px");
+  setY(Math.round((1 - bgIntensity) / 0.75 * MAXY));
+  const tip = document.createElement("div"); tip.className = "zip-tip"; hdr.appendChild(tip);
   el.addEventListener("pointerdown", (e) => {
-    drag = true; lastX = e.clientX; el.classList.add("dragging");
+    drag = true; lastX = e.clientX; startY = e.clientY; y0 = Math.round((1 - bgIntensity) / 0.75 * MAXY); el.classList.add("dragging");
     el.setPointerCapture(e.pointerId); e.preventDefault();
   });
   el.addEventListener("pointermove", (e) => {
@@ -9982,12 +10187,22 @@ function updateStickyHeaderHeight() {
     apply(frac);
     const v = Math.max(-25, Math.min(25, (e.clientX - lastX) * -2.5));
     el.style.setProperty("--zip-rot", v + "deg"); lastX = e.clientX;
+    // pulling the zipper down softens the background
+    const y = Math.max(0, Math.min(MAXY, y0 + (e.clientY - startY)));
+    setY(y);
+    setBgIntensity(1 - (y / MAXY) * 0.75, false);
+    tip.textContent = "Background " + Math.round(bgIntensity * 100) + "%";
+    tip.style.left = Math.max(6, Math.min(el.offsetLeft - 40, hdr.clientWidth - tip.offsetWidth - 6)) + "px";
+    tip.classList.add("on");
   });
   const end = () => {
     if (!drag) return; drag = false; el.classList.remove("dragging");
     el.style.setProperty("--zip-rot", "0deg");
+    tip.classList.remove("on");
     try { if (frac != null) localStorage.setItem(KEY, String(frac)); } catch (e) {}
+    setBgIntensity(bgIntensity, true);
   };
+  window._zipSyncY = () => setY(Math.round((1 - bgIntensity) / 0.75 * MAXY));
   el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end);
 })();
 
