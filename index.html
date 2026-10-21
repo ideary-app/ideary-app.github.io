@@ -2940,13 +2940,13 @@ SHIPPING CHANGES
   .sidebar, [data-theme="dark"] .sidebar {
     background-color: var(--panel);
     background-image:
-      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='26' height='24'><circle cx='9' cy='12' r='3.6' fill='%23463c2c' fill-opacity='.55'/><path d='M9 12 C 14 4, 22 4, 25 8' stroke='%23a9adb5' stroke-width='2.4' fill='none' stroke-linecap='round'/><path d='M9 12 C 14 4, 22 4, 25 8' stroke='%23e6e8ec' stroke-width='.9' fill='none' stroke-linecap='round'/></svg>"),
-      linear-gradient(to right, transparent 26px, var(--margin-line) 26px, var(--margin-line) 27.5px, transparent 27.5px),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='26' height='24'><circle cx='17' cy='12' r='3.6' fill='%23463c2c' fill-opacity='.55'/><path d='M17 12 C 12 4, 4 4, 1 8' stroke='%23a9adb5' stroke-width='2.4' fill='none' stroke-linecap='round'/><path d='M17 12 C 12 4, 4 4, 1 8' stroke='%23e6e8ec' stroke-width='.9' fill='none' stroke-linecap='round'/></svg>"),
+      linear-gradient(to right, transparent 34px, var(--margin-line) 34px, var(--margin-line) 35.5px, transparent 35.5px),
       repeating-linear-gradient(to bottom, transparent 0, transparent 31px, var(--rule) 31px, var(--rule) 32px);
     background-repeat: repeat-y, no-repeat, repeat;
-    background-position: right 0 top 6px, 0 0, 0 0;
+    background-position: left 0 top 6px, 0 0, 0 0;
     background-size: 26px 24px, 100% 100%, auto;
-    padding: 18px 30px 18px 36px;
+    padding: 18px 22px 18px 44px;
     border-right: 1px solid var(--line-strong);
     box-shadow: 3px 0 10px rgba(60,40,10,.08);
   }
@@ -3795,6 +3795,16 @@ SHIPPING CHANGES
   .coach-tapme { font-family: var(--hand); font-size: 1rem; color: var(--pen); animation: aiBounce 1.4s ease-in-out infinite; }
 
   body:has(#coach) .install-banner, body:has(#coach) .next-fab, body:has(#coach) #save-chip { display: none !important; }
+
+  /* Home: logo card centered, Drive note to its right (below it on narrow screens) */
+  .hero-top { display: grid; grid-template-columns: 1fr minmax(0, 420px) 1fr; align-items: center; column-gap: 26px; width: 100%; }
+  .hero-top .nb-label { grid-column: 2; justify-self: center; }
+  .hero-top .home-drive-cta { grid-column: 3; justify-self: start; max-width: 300px; margin: 0 0 22px; flex-direction: column; align-items: flex-start; transform: rotate(1.4deg); }
+  @media (max-width: 1250px) {
+    .hero-top { grid-template-columns: 1fr; }
+    .hero-top .nb-label, .hero-top .home-drive-cta { grid-column: 1; justify-self: center; }
+    .hero-top .home-drive-cta { max-width: 420px; width: 100%; flex-direction: row; align-items: center; transform: rotate(.6deg); }
+  }
 </style>
 </head>
 <body>
@@ -3984,7 +3994,7 @@ SHIPPING CHANGES
       <div class="cover-swatches" id="cover-swatches"></div>
       <div class="bg-int-row"><label for="bg-int-range">Background intensity <span id="bg-int-val"></span></label>
         <input type="range" id="bg-int-range" min="25" max="100" step="5" oninput="setBgIntensity(this.value / 100, true)">
-        <div class="form-hint">Tip: you can also pull the zipper down to soften it.</div></div>
+        <div class="form-hint">Tip: you can also slide the zipper on the pencil case — left is softer, right is stronger.</div></div>
     </div>
     <div class="settings-section">
       <div class="settings-h">Pencil case <span style="font-size:.95rem;color:var(--slate)">(top bar on phones)</span></div>
@@ -7553,7 +7563,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-21 18:30 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-21 18:50 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -7561,7 +7571,7 @@ const CHANGELOG_DATA = [
     public: true,
     items: [
       "A guided tour that lights up the real app and explains each part (replay it anytime with ?)",
-      "Softer backgrounds by default — pull the zipper down to soften them even more (or use Settings)",
+      "Softer backgrounds by default — slide the zipper left to soften them, right to make them stronger (or use Settings)",
       "Talk to your mentor, voice input, Help me decide, sort your notes, and a nicer date picker"
     ]
   },
@@ -9426,6 +9436,7 @@ function renderHomeView() {
 
   return `
     <div class="home-hero">
+      <div class="hero-top">
       <div class="nb-label">
       <div class="home-hero-logo-row">
         <svg class="home-hero-logo" width="100" height="100" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
@@ -9438,6 +9449,8 @@ function renderHomeView() {
       </div>
       <div class="home-hero-desc">Capture your creative ideas, develop them into a real plan with the help of AI, and track your progress until they're done.</div>
       </div>
+      ${(!driveReady && !driveExpired) ? `<div class="home-drive-cta"><div><strong>Keep your ideas safe</strong><span>Connect Google Drive to sync across devices and never lose them.</span></div><button type="button" onclick="connectGoogleDrive()"><svg width="16" height="14" viewBox="0 0 87.3 78" style="flex-shrink:0"><path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/><path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/><path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/><path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/><path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/></svg>Connect Google Drive</button></div>` : ""}
+      </div>
 
       <div class="search-wrap home-hero-search">
         <span class="search-icon">
@@ -9448,7 +9461,7 @@ function renderHomeView() {
     </div>
 
     <div id="home-results-area">${currentSearch ? resultsHtml : `
-      ${(!driveReady && !driveExpired) ? `<div class="home-drive-cta"><div><strong>Keep your ideas safe</strong><span>Connect Google Drive to sync across devices and never lose them.</span></div><button type="button" onclick="connectGoogleDrive()"><svg width="16" height="14" viewBox="0 0 87.3 78" style="flex-shrink:0"><path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/><path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/><path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/><path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/><path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/></svg>Connect Google Drive</button></div>` : ""}
+
       ${statusCardsHtml}
       <button class="home-create-btn" onclick="openNewIdeaForm()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -10168,15 +10181,14 @@ setBgIntensity(bgIntensity, false);
   const KEY = "ideary_zip_x";
   let saved = null;
   try { saved = parseFloat(localStorage.getItem(KEY)); } catch (e) {}
+  // The pull's position IS the background intensity: far left 25%, far right 100%.
   const apply = (f) => hdr.style.setProperty("--zip-x", `calc(${(f * 100).toFixed(2)}% - 8px)`);
-  if (saved >= 0 && saved <= 1) apply(saved);
-  let drag = false, lastX = 0, frac = saved, y0 = 0, startY = 0;
-  const MAXY = 46;
-  const setY = y => hdr.style.setProperty("--zip-y", y + "px");
-  setY(Math.round((1 - bgIntensity) / 0.75 * MAXY));
+  const fracFromInt = () => { const r = hdr.getBoundingClientRect(), lo = 14 / (r.width || 400); return lo + ((bgIntensity - 0.25) / 0.75) * (1 - 2 * lo); };
+  apply(fracFromInt());
+  let drag = false, lastX = 0, frac = saved;
   const tip = document.createElement("div"); tip.className = "zip-tip"; hdr.appendChild(tip);
   el.addEventListener("pointerdown", (e) => {
-    drag = true; lastX = e.clientX; startY = e.clientY; y0 = Math.round((1 - bgIntensity) / 0.75 * MAXY); el.classList.add("dragging");
+    drag = true; lastX = e.clientX; el.classList.add("dragging");
     el.setPointerCapture(e.pointerId); e.preventDefault();
   });
   el.addEventListener("pointermove", (e) => {
@@ -10187,10 +10199,8 @@ setBgIntensity(bgIntensity, false);
     apply(frac);
     const v = Math.max(-25, Math.min(25, (e.clientX - lastX) * -2.5));
     el.style.setProperty("--zip-rot", v + "deg"); lastX = e.clientX;
-    // pulling the zipper down softens the background
-    const y = Math.max(0, Math.min(MAXY, y0 + (e.clientY - startY)));
-    setY(y);
-    setBgIntensity(1 - (y / MAXY) * 0.75, false);
+    const lo = 14 / r.width;
+    setBgIntensity(0.25 + ((frac - lo) / (1 - 2 * lo)) * 0.75, false);
     tip.textContent = "Background " + Math.round(bgIntensity * 100) + "%";
     tip.style.left = Math.max(6, Math.min(el.offsetLeft - 40, hdr.clientWidth - tip.offsetWidth - 6)) + "px";
     tip.classList.add("on");
@@ -10202,7 +10212,10 @@ setBgIntensity(bgIntensity, false);
     try { if (frac != null) localStorage.setItem(KEY, String(frac)); } catch (e) {}
     setBgIntensity(bgIntensity, true);
   };
-  window._zipSyncY = () => setY(Math.round((1 - bgIntensity) / 0.75 * MAXY));
+  window._zipSyncY = () => apply(fracFromInt());
+  window.addEventListener("resize", () => apply(fracFromInt()));
+  window.addEventListener("load", () => apply(fracFromInt()));
+  setTimeout(() => apply(fracFromInt()), 300);
   el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end);
 })();
 

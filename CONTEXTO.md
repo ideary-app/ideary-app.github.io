@@ -50,7 +50,7 @@ Es pública y gratuita, sin backend, y puede usarla cualquiera. Antes se llamaba
 - **Fechas**: fecha objetivo opcional (`fechaObjetivo`, "YYYY-MM-DD") en ideas, proyectos y capítulos (badge 📅, avisa "soon"/"overdue"). Se elige con un calendario propio con estilo cuaderno que abre pegado a la píldora (atajos: In a week / In a month / End of month); la × en la píldora borra la fecha. "Last worked on" automático (`actualizado`, ISO) y 💤 en ideas sin cambios hace 3+ semanas.
 - **Botón "Next step →"** flotante en celular: abre directo el próximo paso sin terminar con el tutor.
 - **Tour guiado (coach marks)**: oscurece la app y deja iluminada solo la parte que explica, con una notita al lado (Back/Next/Skip, flechas del teclado, Esc). Tour de Home (9 pasos; el último pide tocar "+ New idea" de verdad) y tours cortos la primera vez que abrís una idea con plan y un proyecto. Se recuerdan los vistos (`ideary_tours_seen_v1`); "?" y "How it works" lo repiten. Reemplaza a la bienvenida en modals.
-- **Intensidad del fondo** (0,25–1, por defecto 0,6): suaviza el mármol de la tapa y los renglones/márgenes. Se ajusta bajando el cierre de la cartuchera (arrastrar hacia abajo) o con el slider en Settings (`ideary_bg_intensity_v1`).
+- **Intensidad del fondo** (0,25–1, por defecto 0,6): suaviza el mármol de la tapa y los renglones/márgenes. Se ajusta deslizando el cierre de la cartuchera: la posición del cierre ES la intensidad (izquierda del todo 25%, derecha del todo 100%), o con el slider en Settings (`ideary_bg_intensity_v1`).
 - **(Anterior) Bienvenida en 3 pasos** (qué es, cómo usar la IA con o sin key —con guía para sacar la key gratis— y conectar Drive). Se abre la primera vez y desde "?".
 - **Ayudas "?"** al lado de Production plan, Brain dump/I'm stuck y Check chapter order.
 - **Personalización**: tema Day/Night (Day por defecto; Night es una paleta marrón oscuro con letra crema), color de tapa del cuaderno y cartuchera, que es el header en celular.
@@ -75,7 +75,7 @@ Es pública y gratuita, sin backend, y puede usarla cualquiera. Antes se llamaba
   - la versión y "What's new".
 
   En celular la sidebar es un menú lateral.
-- **Header en celular**: es una cartuchera con cierre. El tirador del cierre se puede arrastrar y la posición queda guardada.
+- **Header**: es una cartuchera con cierre. El tirador del cierre funciona como slider de intensidad del fondo.
 - **Vista de idea**:
   - **Arriba**, una tarjeta fija con cinta y lomo de color. Muestra el título y los botones Edit (lápiz), Develop idea (marcador) y Erase (goma). Al scrollear se achica.
   - **En desktop hay dos columnas**:
@@ -284,3 +284,6 @@ Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la prim
 - **Link en vivo para compartir:** requeriría un servidor; hoy se comparte una copia (PDF, página .html o texto).
 - **Regla de diseño de superficies:** fichas (bloques con cinta) para información; post-its (amarillo/rosa) para lo que escribe el usuario (notas, cosas a resolver, capítulos); cinta solo en elementos destacados. Respetarla en UI nueva.
 - **Regla de mantenimiento:** cada cambio de la app tiene que actualizar este `CONTEXTO.md` en el mismo commit.
+
+- **Home:** el aviso "Keep your ideas safe" (sin Drive) va a la derecha de la tarjeta del logo, que queda centrada; en pantallas angostas va debajo del logo, arriba del buscador.
+- **Sidebar:** el anillado del cuaderno va a la izquierda.
