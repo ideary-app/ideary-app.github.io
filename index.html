@@ -3564,7 +3564,7 @@ SHIPPING CHANGES
   .hint { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%;
     border: 1.3px solid currentColor; font: 700 11px/1 var(--sans); color: var(--slate); cursor: help; margin-left: 6px; flex-shrink: 0; opacity: .8; }
   .hint:hover, .hint:focus { opacity: 1; outline: none; color: var(--pen); }
-  .hint:hover::after, .hint:focus::after { content: attr(data-tip); position: absolute; z-index: 50; top: 24px; right: -8px; width: 240px;
+  .hint-off-legacy::after { content: attr(data-tip); position: absolute; z-index: 50; top: 24px; right: -8px; width: 240px;
     background: var(--panel); color: var(--ink); border: 1px solid var(--line-strong); box-shadow: var(--card-shadow); border-radius: 6px;
     padding: 8px 10px; font: 400 .82rem/1.45 var(--sans); text-align: left; white-space: normal; }
 
@@ -3832,6 +3832,35 @@ SHIPPING CHANGES
   .zip-range::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 30px; margin-top: -4px; border: none; background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='26'><rect x='3' y='0' width='10' height='8' rx='2' fill='%23c7cbd2' stroke='%23585d66'/><rect x='4' y='7' width='8' height='18' rx='3' fill='%23dfe2e7' stroke='%23585d66'/><rect x='6.5' y='12' width='3' height='9' rx='1.5' fill='%23585d66'/></svg>") center / contain no-repeat; filter: drop-shadow(1px 2px 1px rgba(0,0,0,.35)); }
   .zip-range::-moz-range-thumb { width: 18px; height: 30px; border: none; border-radius: 0; background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='26'><rect x='3' y='0' width='10' height='8' rx='2' fill='%23c7cbd2' stroke='%23585d66'/><rect x='4' y='7' width='8' height='18' rx='3' fill='%23dfe2e7' stroke='%23585d66'/><rect x='6.5' y='12' width='3' height='9' rx='1.5' fill='%23585d66'/></svg>") center / contain no-repeat; }
   .bg-int-ends { display: flex; justify-content: space-between; font-size: .75rem; color: var(--slate); }
+
+  .hint-bubble { position: fixed; z-index: 3500; width: min(260px, calc(100vw - 16px)); background: var(--panel); color: var(--ink); border: 1px solid var(--line-strong);
+    box-shadow: var(--card-shadow); border-radius: 6px; padding: 8px 10px; font: 400 .82rem/1.45 var(--sans); pointer-events: none; }
+  /* Production plan header: title on one line, tools on the next on phones */
+  @media (max-width: 600px) {
+    .detail-block > .block-title.c-plan { flex-wrap: wrap !important; row-gap: 8px; }
+    .detail-block > .block-title.c-plan > span:first-child { white-space: nowrap; }
+    .detail-block > .block-title.c-plan > span:last-child { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+    .stuck-btn { white-space: nowrap; }
+  }
+
+  /* ---- Mobile polish ---- */
+  .pc-sub { display: block; font-family: var(--sans); font-size: .82rem; color: var(--slate); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  #pc-title { min-width: 0; }
+  .status-preview > div { display: flex; min-width: 0; align-items: baseline; }
+  .status-preview > div, .status-preview .pv-proj { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .status-preview .pv-proj { min-width: 0; flex: 0 1 auto; }
+  .status-preview .pv-prog { flex-shrink: 0; }
+  .collapsed > .block-title > button:not(.notes-sort-btn), .collapsed > .block-title > span:last-child:not(.cs-caret):not(:nth-child(2)), .collapsed > .block-title > label { display: none !important; }
+  .ch-add-input { min-width: 0; width: 100%; }
+  body:has(.install-banner:not([style*="none"])) .next-fab { bottom: 96px; }
+  @media (max-width: 600px) {
+    .modal-title { overflow-wrap: anywhere; }
+    .detail-badges { row-gap: 8px; }
+    .home-filter button { padding: 5px 12px 3px; font-size: 1rem; }
+    .chapter-wall { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .ch-title { overflow-wrap: anywhere; }
+    .sug-head, .pc-act span { overflow-wrap: anywhere; }
+  }
 </style>
 </head>
 <body>
@@ -4224,7 +4253,7 @@ SHIPPING CHANGES
     <div class="form-hint" style="margin-bottom:8px">Ask anything about the whole project. The mentor sees every chapter, your progress, key decisions and notes. If it suggests adding something, you choose.</div>
     <div id="pc-log" class="step-log" style="flex:1"></div>
     <div style="display:flex;gap:8px;margin-top:8px">
-      <input class="form-input" id="pc-input" style="flex:1;font-size:16px" placeholder="Ask or ask for something…" onkeydown="if(event.key==='Enter'){event.preventDefault();pcSend();}">
+      <input class="form-input" id="pc-input" style="flex:1;font-size:16px" placeholder="Ask anything…" onkeydown="if(event.key==='Enter'){event.preventDefault();pcSend();}">
       <button class="form-submit" style="margin:0;width:auto;padding:0 16px" onclick="pcSend()">Send</button>
     </div>
     <div style="text-align:right;margin-top:6px"><button type="button" class="pw-skip" onclick="pcClear()">Clear conversation</button></div>
@@ -6704,7 +6733,7 @@ function enhanceCollapsibles() {
   const set = collapsedSet();
   document.querySelectorAll(".detail-dashboard-sidecol .detail-block:not(.history-block)").forEach(b => {
     const title = b.querySelector(".block-title");
-    if (!title || b.querySelector(".desc-text") || b.closest(".project-about")) return;
+    if (!title || title.classList.contains("c-desc") || b.querySelector(".desc-text") || b.closest(".project-about")) return;
     const key = "b:" + (title.className.match(/c-\w+/) || [""])[0] + ":" + (b.classList.contains("refs-block") ? "refs" : b.classList.contains("sketch-block") ? "sk" : "");
     b.classList.add("collapsible");
     if (!title.querySelector(".cs-caret")) {
@@ -6952,6 +6981,26 @@ new MutationObserver(() => {
   if (name && !toursSeen()[name] && toursSeen().home) setTimeout(() => { if (!tour && !document.querySelector(".modal-overlay.open")) startTour(name); }, 600);
 }).observe(document.getElementById("main"), { childList: true });
 
+
+/* Help "?" bubbles: positioned in JS so they never leave the screen; tap to open on phones */
+(function hints() {
+  let tipEl = null, owner = null;
+  const hide = () => { if (tipEl) tipEl.remove(); tipEl = null; owner = null; };
+  const show = h => {
+    hide(); owner = h;
+    tipEl = document.createElement("div"); tipEl.className = "hint-bubble"; tipEl.textContent = h.dataset.tip;
+    document.body.appendChild(tipEl);
+    const r = h.getBoundingClientRect(), w = tipEl.offsetWidth, ht = tipEl.offsetHeight;
+    let left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), window.innerWidth - w - 8);
+    let top = r.bottom + 8; if (top + ht > window.innerHeight - 8) top = Math.max(8, r.top - ht - 8);
+    tipEl.style.left = left + "px"; tipEl.style.top = top + "px";
+  };
+  document.addEventListener("mouseover", e => { const h = e.target.closest && e.target.closest(".hint"); if (h && h !== owner && matchMedia("(hover: hover)").matches) show(h); });
+  document.addEventListener("mouseout", e => { const h = e.target.closest && e.target.closest(".hint"); if (h && h === owner && !h.contains(e.relatedTarget) && matchMedia("(hover: hover)").matches) hide(); });
+  document.addEventListener("click", e => { const h = e.target.closest && e.target.closest(".hint"); if (h) { e.stopPropagation(); e.preventDefault(); h === owner ? hide() : show(h); } else hide(); }, true);
+  window.addEventListener("scroll", hide, { passive: true });
+})();
+
 /* ---------- Project mentor chat: ask anything about the whole project ---------- */
 const PROJECT_MENTOR_RULES = `You are a veteran professional in the field of this project (a film director for a short film, a master carpenter for furniture, a head chef for a recipe…) acting as the person's mentor for the WHOLE project. You can see every chapter, its plan and progress, the key decisions, notes and open questions.
 - Answer like a good teacher: clear, concrete, applied to THIS project, short paragraphs. Guide and give options with their trade-offs; don't make the person's creative decisions for them.
@@ -6999,7 +7048,7 @@ function openProjectChat(projId) {
   pcProjId = projId;
   const proj = IDEAS.find(i => i.id === projId);
   if (!proj) return;
-  document.getElementById("pc-title").textContent = "Talk to your mentor · " + proj.titulo;
+  document.getElementById("pc-title").innerHTML = `Talk to your mentor<span class="pc-sub">${escapeHtml(proj.titulo)}</span>`;
   document.querySelector("#pc-overlay .form-hint").textContent = isProject(proj) ? "Ask anything about the whole project. The mentor sees every chapter, your progress, key decisions and notes. If it suggests adding something, you choose." : "Ask anything about this " + (isChapter(proj) ? "chapter" : "idea") + ". The mentor sees its plan, notes and things to figure out. If it suggests adding something, you choose.";
   renderPcChat();
   document.getElementById("pc-overlay").classList.add("open");
@@ -7363,7 +7412,7 @@ function renderProjectView(p) {
       }).join("")}
       <div class="ch-postit ch-add" style="--pc:transparent;--rot:0deg">
         <div class="ch-num">New chapter</div>
-        <input class="ch-add-input" placeholder="Name it and press Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();quickAddChapter('${escapeAttr(p.id)}',this)}">
+        <input class="ch-add-input" placeholder="Name + Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();quickAddChapter('${escapeAttr(p.id)}',this)}">
       </div>
     </div>`;
   const pending = (p.sugerencias || []).length;
@@ -7591,7 +7640,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-21 19:40 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-22 13:50 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -10141,6 +10190,7 @@ function closePhasePicker() {
 }
 window.addEventListener("scroll", () => { if (openPhasePickerId) closePhasePicker(); }, { passive: true });
 function render() {
+  if (typeof closeDueCal === "function") closeDueCal();
   setTimeout(refreshLastSaved, 0);
   closePhasePicker();
   document.body.dataset.view = (view === "detalle" && !IDEAS.find(i => i.id === viewParam)) ? "home" : view;

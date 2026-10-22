@@ -288,3 +288,5 @@ Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la prim
 - **Sidebar:** el anillado del cuaderno va a la izquierda.
 
 - **Cartucheras (rediseño):** Pencils con lápices enteros (sin cortes); Coral con dibujitos sueltos en un patrón largo poco repetitivo; Brown leather y Low-profile black con textura de cuero en relieve; Checker, Mint stars y Rainbow con patrón más grande en desktop (Rainbow con franjas más gruesas).
+
+- **Mobile:** los "?" de ayuda se abren con un toque y su globo se posiciona por JS para no salirse de la pantalla. "Description"/"What this stage is about" no se pliegan. Hay un script de auditoría (Playwright, 360/390px) que recorre todas las pantallas y modales buscando elementos fuera de pantalla, botones cortados y títulos rotos; correrlo antes de publicar cambios de UI.
