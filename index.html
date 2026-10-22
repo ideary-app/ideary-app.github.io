@@ -3837,11 +3837,13 @@ SHIPPING CHANGES
     box-shadow: var(--card-shadow); border-radius: 6px; padding: 8px 10px; font: 400 .82rem/1.45 var(--sans); pointer-events: none; }
   /* Production plan header: title on one line, tools on the next on phones */
   @media (max-width: 600px) {
-    .detail-block > .block-title.c-plan { flex-wrap: wrap !important; row-gap: 8px; }
-    .detail-block > .block-title.c-plan > span:first-child { white-space: nowrap; }
-    .detail-block > .block-title.c-plan > span:last-child { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+    .detail-block > .block-title.c-plan { flex-wrap: nowrap !important; gap: 6px !important; }
+    .detail-block > .block-title.c-plan > span:first-child { white-space: nowrap; min-width: 0; gap: 4px !important; }
+    .block-title.c-plan .plan-tools { flex-shrink: 0; gap: 4px !important; }
+    .block-title.c-plan .plan-tools .stuck-btn { font-size: .85rem !important; padding: 2px 7px !important; }
     .stuck-btn { white-space: nowrap; }
   }
+  @media (max-width: 380px) { .detail-block > .block-title.c-plan { font-size: 1.3rem !important; } }
 
   /* ---- Mobile polish ---- */
   .pc-sub { display: block; font-family: var(--sans); font-size: .82rem; color: var(--slate); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
@@ -7640,7 +7642,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-22 13:50 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-22 14:15 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -9793,7 +9795,7 @@ function renderDetailReadMode(idea) {
 
   const fasesHtml = fasesArray.length ? `
     <div class="detail-block">
-      <div class="block-title c-plan" style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="display:flex;align-items:center;gap:8px"><span class="dot" style="background:var(--accent)"></span>Production plan<span class="hint" tabindex="0" data-tip="Tap a checkbox once = started (half filled), twice = done, again = empty. Tap a step&#39;s text or Help to work on it with a tutor.">?</span></span><span style="display:flex;gap:6px;align-items:center"><span class="hint" tabindex="0" data-tip="Brain dump: paste messy notes and the AI orders them into steps. I&#39;m stuck: the AI explains a step in a different way.">?</span><button type="button" class="stuck-btn" style="margin:0" onclick="openBrainDump('${escapeAttr(idea.id)}')">Brain dump</button><button type="button" class="stuck-btn" style="margin:0" onclick="openStuck('${escapeAttr(idea.id)}')">I'm stuck</button></span></div>
+      <div class="block-title c-plan" style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="display:flex;align-items:center;gap:8px"><span class="dot" style="background:var(--accent)"></span>Production plan<span class="hint" tabindex="0" data-tip="Checkboxes: tap once = started (half filled), twice = done, again = empty. Tap a step&#39;s text or Help to work on it with a tutor. Brain dump: paste messy notes and the AI orders them into steps. I&#39;m stuck: the AI explains a step in a different way.">?</span></span><span class="plan-tools" style="display:flex;gap:6px;align-items:center"><button type="button" class="stuck-btn" style="margin:0" onclick="openBrainDump('${escapeAttr(idea.id)}')">Brain dump</button><button type="button" class="stuck-btn" style="margin:0" onclick="openStuck('${escapeAttr(idea.id)}')">I'm stuck</button></span></div>
       ${fasesArray.map((fase, idx) => `
         <div class="phase">
           <div class="phase-head">
