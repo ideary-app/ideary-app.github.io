@@ -297,13 +297,13 @@ Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la prim
 - **Header en desktop:** logo a la izquierda; buscador y "+" en el centro; "?" (tour) y Settings a la derecha (en desktop esos botones salen de la sidebar).
 - **Tour vs. Drive:** el tour espera a que Drive termine de cargar (y no aparece con el banner de reconexión). Los tours vistos y la intensidad del fondo se guardan también en `ideary-settings.json`, así no se repiten en otros dispositivos.
 
-- **Visor de imágenes con zoom:** todas las imágenes (Images, adjuntos) se abren en un visor a pantalla completa: rueda del mouse / pellizco / doble toque para zoom, arrastrar para moverse, botones − + Fit, Esc para cerrar.
+- **Visor de imágenes:** header arriba con nombre y aviso de calidad ("Preview · 4096×… px — the original is 20000×11000 px"), a la derecha los controles (− % + Fit), "⬇ Download full res" (baja el original), Erase si corresponde y la ✕ a la derecha de todo. Abajo a la derecha flota "Keep working on this step →" cuando la imagen viene de un paso. Zoom con rueda / pellizco / doble toque, arrastrar para moverse, Esc cierra.
 
 - **Almacenamiento de imágenes (desde 1.4.0):** las imágenes ya NO van dentro del JSON. Cada imagen es un objeto `{ref, driveId?, fecha, ...}` (en `bocetos`, `adjuntos` de pasos y `adj` del chat).
   - Con Drive: carpeta **`Ideary/`** en el Drive del usuario con `ideary-data.json`, `ideary-settings.json` y la subcarpeta **`images/`** (un archivo por imagen, `<ref>.jpg|png`). Se cachean en IndexedDB.
   - Sin Drive: los archivos van a IndexedDB (`ideary_images`), con lugar para cientos de MB; el JSON en localStorage queda liviano.
   - Al conectar Drive, las imágenes locales se suben solas. Las imágenes viejas guardadas como data URL (`src`) se migran automáticamente.
-  - Calidad: se guarda el original si mide hasta 4096px (y pesa hasta 15 MB); si no, se achica a 4096px JPEG 0,9. A la IA se le manda una copia de 1280px.
+  - Calidad: si la imagen mide hasta 4096px (y pesa hasta 15 MB) se guarda tal cual. Si es más grande, la app usa una **preview de 4096px** (JPEG 0,9) y guarda además el **original intacto** (`origRef` en IndexedDB / `origDriveId` en `Ideary/images`, con `origW`/`origH`). A la IA se le manda una copia de 1280px.
   - Al borrar una imagen se borra también de IndexedDB y de Drive (con reintentos; si se borró mientras se subía, se borra al terminar la subida). Además hay una **limpieza automática**: cada ~10 min (tras sincronizar) se borran de `Ideary/images` los archivos que ninguna idea usa y que tienen más de 15 min (cubre ideas borradas, papelera vaciada, borrados fallidos).
   - Imágenes de más de 4,5 MB se suben a Drive con subida "resumable" (la simple corta en 5 MB).
 - **Backups:** "Backup / Import" ofrece **ZIP** (`ideas.json` + carpeta `images/`, calidad completa) o **un solo JSON** con las imágenes adentro como texto (data URL). Import acepta los dos (o pegar el JSON).

@@ -3923,6 +3923,30 @@ SHIPPING CHANGES
   .sketch-thumb img[data-pending] { animation: shimmer 1.2s linear infinite; background: linear-gradient(100deg, #e8e1cc 20%, #f6f1e2 50%, #e8e1cc 80%); background-size: 200% 100%; }
 
   .iv-bar .iv-link { font-family: var(--hand); font-size: 1.05rem; color: var(--pen); padding: 0 6px; }
+
+  .imgview { flex-direction: column; background: rgba(20,14,10,.94) !important; }
+  .iv-pct { min-width: 44px; text-align: center; font: 600 .85rem var(--sans); color: var(--ink); }
+  .iv-head { display: flex; align-items: center; gap: 12px; padding: 8px 10px 8px 16px; padding-top: calc(8px + env(safe-area-inset-top)); background: var(--panel); border-bottom: 1px solid var(--line-strong); }
+  .iv-title { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .iv-title span { font-family: var(--hand); font-size: 1.2rem; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .iv-title small { font-size: .74rem; color: var(--slate); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .iv-tools { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+  .iv-tools button { min-width: 34px; height: 34px; border: 1.5px solid var(--line-strong); border-radius: 8px; background: var(--paper); color: var(--ink); font: 600 .95rem var(--sans); cursor: pointer; padding: 0 9px; white-space: nowrap; }
+  .iv-tools .iv-dl { font-family: var(--hand); font-weight: 400; font-size: 1.02rem; color: var(--pen); }
+  .iv-tools .iv-erase { font-family: var(--hand); font-weight: 400; font-size: 1.02rem; color: var(--rust); border-color: var(--rust); background: none; }
+  .iv-close { width: 40px; height: 40px; border: none; background: none; font-size: 1.8rem; line-height: 1; color: var(--ink); cursor: pointer; margin-left: 4px; }
+  .iv-float { position: absolute; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 32px); }
+  .iv-float .iv-from { color: #f4ecd4; font-size: .8rem; background: rgba(0,0,0,.45); padding: 4px 10px; border-radius: 999px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .iv-float .iv-act { font-family: var(--hand); font-size: 1.1rem; background: var(--pen); color: #fff; border: none; border-radius: 999px; padding: 10px 18px; box-shadow: 0 6px 16px rgba(0,0,0,.35); cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+  html[data-theme="dark"] .iv-float .iv-act { color: #241b14; }
+  @media (max-width: 600px) {
+    .iv-head { flex-wrap: wrap; row-gap: 6px; padding-left: 12px; }
+    .iv-title { order: 1; flex: 1 1 calc(100% - 60px); }
+    .iv-close { order: 2; }
+    .iv-tools { order: 3; width: 100%; overflow-x: auto; }
+    .iv-float .iv-from { display: none; }
+    .iv-dl-l { display: none; }
+  }
 </style>
 </head>
 <body>
@@ -4002,7 +4026,7 @@ SHIPPING CHANGES
       <div id="nav-categorias"></div>
     </div>
 
-    <div class="version-link" onclick="openChangelog()">v1.4.0 · What's new</div>
+    <div class="version-link" onclick="openChangelog()">v1.4.1 · What's new</div>
     <div style="text-align:center;font-family:var(--hand);font-size:.9rem;margin-top:6px"><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--slate)">Privacy</a> · <a href="terms.html" target="_blank" rel="noopener" style="color:var(--slate)">Terms</a></div>
   </div>
   </aside>
@@ -5980,7 +6004,7 @@ function renderSketchBlock(idea) {
       </div>
       ${list.length ? `<div class="sketch-grid">${list.map(b => b.own !== undefined
           ? `<button type="button" class="sketch-thumb" onclick="viewSketch('${escapeAttr(idea.id)}',${b.own})"><img ${imgAttrs(b.o)} alt=""><span>${escapeHtml(fmtShortDate(b.fecha))}</span></button>`
-          : `<button type="button" class="sketch-thumb from-step" title="From step: ${escapeAttr(b.paso)}" onclick="viewStepImage('${escapeAttr(idea.id)}',${b.f},${b.s},this.querySelector('img').src)"><img ${imgAttrs(b.o)} alt=""><span>📎 ${escapeHtml(b.paso)}</span></button>`).join("")}</div>`
+          : `<button type="button" class="sketch-thumb from-step" title="From step: ${escapeAttr(b.paso)}" onclick="viewStepImage('${escapeAttr(idea.id)}',${b.f},${b.s},'${escapeAttr(b.o.ref || "")}')"><img ${imgAttrs(b.o)} alt=""><span>📎 ${escapeHtml(b.paso)}</span></button>`).join("")}</div>`
         : `<p class="empty-plan">Sketches, reference images, photos of a paper drawing… Images you attach to a step show up here too.</p>`}
     </div>`;
 }
@@ -6069,7 +6093,7 @@ async function addSketchPhoto(ideaId, input) {
   const idea = IDEAS.find(i => i.id === ideaId);
   if (!idea || !files.length) return;
   for (const f of files) {
-    try { idea.bocetos = (idea.bocetos || []).concat([await storeImage(await prepareImageBlob(f))]); }
+    try { idea.bocetos = (idea.bocetos || []).concat([await storeImage(await prepareImageBlob(f), { nombre: f.name })]); }
     catch (e) { await showAlert(e.message, { title: "Can't add that image" }); }
   }
   saveIdeas();
@@ -6137,6 +6161,28 @@ async function getImageBlob(o) {
   }
   return null;
 }
+async function getOriginalBlob(o) {
+  if (!o) return null;
+  if (o.origRef) {
+    let b = await idbGet(o.origRef);
+    if (b) return b;
+    if (o.origDriveId && accessToken) {
+      try { const r = await fetch(`https://www.googleapis.com/drive/v3/files/${o.origDriveId}?alt=media`, { headers: { Authorization: `Bearer ${accessToken}` } }); if (r.ok) return await r.blob(); } catch (e) {}
+    }
+  }
+  return getImageBlob(o);
+}
+async function downloadOriginal(o, btn) {
+  if (btn) { btn.disabled = true; btn.dataset.l = btn.textContent; btn.textContent = "Downloading…"; }
+  try {
+    const b = await getOriginalBlob(o);
+    if (!b) throw new Error(o.origDriveId && !accessToken ? "Reconnect Google Drive to get the original." : "The original isn't available on this device.");
+    const ext = (b.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
+    const base = (o.nombre || "ideary-image").replace(/\.[a-z0-9]+$/i, "");
+    downloadBlob(b, `${base}.${ext}`);
+  } catch (e) { await showAlert(e.message, { title: "Couldn't download" }); }
+  if (btn) { btn.disabled = false; btn.textContent = btn.dataset.l; }
+}
 async function getImageUrl(o) {
   if (!o) return null;
   if (o.src) return o.src;
@@ -6172,15 +6218,20 @@ async function hydrateImages() {
 new MutationObserver(() => { if (document.querySelector("img[data-pending]")) { clearTimeout(window._hydT); window._hydT = setTimeout(hydrateImages, 30); } }).observe(document.body, { childList: true, subtree: true });
 
 // Keep the original if it's reasonable; otherwise shrink to 4096px high-quality JPEG.
+// Returns the blob shown in the app. If it had to be reduced, the untouched original
+// is attached as blob._orig (with its size) so it can be saved for "Download full resolution".
 async function prepareImageBlob(fileOrBlob) {
   const okType = /^image\/(jpeg|png|webp|gif)$/.test(fileOrBlob.type || "");
   const bmp = await createImageBitmap(fileOrBlob).catch(() => null);
-  if (!bmp) throw new Error("Couldn't read that image.");
+  if (!bmp) throw new Error("Couldn't read that image (it may be too big for this browser to open).");
   if (okType && Math.max(bmp.width, bmp.height) <= IMG_MAX_SIDE && fileOrBlob.size <= 15e6) return fileOrBlob;
+  const keepOrig = { blob: fileOrBlob, w: bmp.width, h: bmp.height };
   const sc = Math.min(1, IMG_MAX_SIDE / Math.max(bmp.width, bmp.height));
   const c = document.createElement("canvas"); c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
   const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
-  return await new Promise(res => c.toBlob(res, "image/jpeg", 0.9));
+  const out = await new Promise(res => c.toBlob(res, "image/jpeg", 0.9));
+  out._orig = keepOrig; out._w = c.width; out._h = c.height;
+  return out;
 }
 // store a blob, return a new image object
 async function storeImage(blob, extra) {
@@ -6188,6 +6239,7 @@ async function storeImage(blob, extra) {
   await idbPut(ref, blob);
   imgUrlCache.set(ref, URL.createObjectURL(blob));
   const o = Object.assign({ ref, fecha: new Date().toISOString() }, extra || {});
+  if (blob._orig) { o.origRef = ref + "_orig"; o.origW = blob._orig.w; o.origH = blob._orig.h; o.w = blob._w; o.h = blob._h; await idbPut(o.origRef, blob._orig.blob); }
   queueImageUpload();
   return o;
 }
@@ -6248,7 +6300,8 @@ function forgetImage(o) {
   if (!o || !o.ref) return;
   setTimeout(async () => {
     if (allImageObjs().some(x => x.ref === o.ref)) return;
-    idbDel(o.ref);
+    idbDel(o.ref); if (o.origRef) idbDel(o.origRef);
+    if (o.origDriveId && accessToken) driveDeleteFile(o.origDriveId);
     if (o.driveId) { if (accessToken) await driveDeleteFile(o.driveId); }
     else deletedRefs.add(o.ref);
   }, 300);
@@ -6272,7 +6325,7 @@ async function driveImageGC(force) {
   lastImageGC = Date.now();
   try {
     const folder = await ensureDriveFolders();
-    const used = new Set(allImageObjs().map(o => o.driveId).filter(Boolean));
+    const used = new Set(allImageObjs().flatMap(o => [o.driveId, o.origDriveId]).filter(Boolean));
     const cutoff = Date.now() - 15 * 60 * 1000;
     let pageToken = "", removed = 0;
     do {
@@ -6306,6 +6359,10 @@ async function syncImages() {
     if (driveReady && accessToken) {
       const done = {};
       for (const o of allImageObjs()) {
+        if (o.origRef && !o.origDriveId) {
+          const ob = await idbGet(o.origRef);
+          if (ob) { try { o.origDriveId = await driveUploadImage(o.origRef, ob); changed = true; } catch (e) { console.error(e); } }
+        }
         if (o.driveId || !o.ref) continue;
         if (done[o.ref]) { o.driveId = done[o.ref]; changed = true; continue; }
         const b = await idbGet(o.ref);
@@ -6335,7 +6392,7 @@ async function exportWithImagesInside() {
     if (o.src) continue;
     const b = await getImageBlob(o);
     if (b) o.src = await blobToDataUrl(b);
-    delete o.driveId;
+    delete o.driveId; delete o.origDriveId; delete o.origRef;
   }
   return JSON.stringify(data, null, 2);
 }
@@ -6383,9 +6440,10 @@ async function exportZip() {
     const ext = (b.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
     o._zipName = `images/${o.ref}.${ext}`;
     files.push({ name: o._zipName, data: new Uint8Array(await b.arrayBuffer()) });
+    if (o.origRef) { const ob = await getOriginalBlob(o); if (ob) files.push({ name: `images/${o.origRef}.${(ob.type.split("/")[1] || "jpg").replace("jpeg", "jpg")}`, data: new Uint8Array(await ob.arrayBuffer()) }); }
   }
   const data = JSON.parse(JSON.stringify(IDEAS, (k, v) => k === "_zipName" ? undefined : v));
-  allImageObjs(data).forEach(o => { delete o.driveId; });
+  allImageObjs(data).forEach(o => { delete o.driveId; delete o.origDriveId; });
   allImageObjs().forEach(o => delete o._zipName);
   files.unshift({ name: "ideas.json", data: new TextEncoder().encode(JSON.stringify(data, null, 2)) });
   return makeZip(files);
@@ -6423,11 +6481,25 @@ async function importBackupFile(input) {
 }
 
 /* ---------- Zoomable image viewer: wheel / pinch / double-tap to zoom, drag to pan ---------- */
-function openImageViewer(src, actionsHtml) {
+let ivObj = null;
+// opts: { title, floatHtml (bottom-right), headerHtml (extra header buttons) }
+function openImageViewer(src, actionsHtml, o, opts) {
   closeImageViewer();
+  opts = opts || {}; ivObj = o || null;
+  const reduced = o && o.origRef, oldLow = o && !o.origRef && o.fecha && o.fecha < "2026-10-26T18:00";
+  const note = reduced ? `Preview · ${o.w || 4096}×${o.h || ""} px — the original is ${o.origW}×${o.origH} px` : oldLow ? "Saved at reduced quality (before full-resolution storage)" : "";
   const ov = document.createElement("div"); ov.id = "imgview"; ov.className = "imgview";
-  ov.innerHTML = `<div class="iv-stage"><img src="${src}" alt="" draggable="false"></div>
-    <div class="iv-bar"><button type="button" data-z="-1" aria-label="Zoom out">−</button><span class="iv-pct">100%</span><button type="button" data-z="1" aria-label="Zoom in">+</button><button type="button" data-z="0">Fit</button>${actionsHtml || ""}<button type="button" class="iv-close" aria-label="Close">&times;</button></div>`;
+  ov.innerHTML = `<div class="iv-head">
+      <div class="iv-title"><span>${escapeHtml(opts.title || (o && o.nombre) || "Image")}</span>${note ? `<small>${note}</small>` : ""}</div>
+      <div class="iv-tools">
+        <button type="button" data-z="-1" aria-label="Zoom out" title="Zoom out (−)">−</button><span class="iv-pct">100%</span><button type="button" data-z="1" aria-label="Zoom in" title="Zoom in (+)">+</button><button type="button" data-z="0" title="Fit (0)">Fit</button>
+        ${o ? `<button type="button" class="iv-dl" title="Download the original file" onclick="downloadOriginal(ivObj, this)">⬇ <span class="iv-dl-l">Download </span>full res</button>` : ""}
+        ${opts.headerHtml || ""}${actionsHtml || ""}
+      </div>
+      <button type="button" class="iv-close" aria-label="Close" title="Close (Esc)">&times;</button>
+    </div>
+    <div class="iv-stage"><img src="${src}" alt="" draggable="false"></div>
+    ${opts.floatHtml ? `<div class="iv-float">${opts.floatHtml}</div>` : ""}`;
   document.body.appendChild(ov);
   const stage = ov.querySelector(".iv-stage"), img = ov.querySelector("img"), pct = ov.querySelector(".iv-pct");
   let sc = 1, x = 0, y = 0, fit = 1;
@@ -6436,7 +6508,7 @@ function openImageViewer(src, actionsHtml) {
   const zoomAt = (f, cx, cy) => { const r = stage.getBoundingClientRect(); cx -= r.left; cy -= r.top; const ns = Math.min(fit * 12, Math.max(fit * 0.5, sc * f)); x = cx - (cx - x) * (ns / sc); y = cy - (cy - y) * (ns / sc); sc = ns; apply(); };
   img.onload = doFit; if (img.complete) setTimeout(doFit, 0);
   stage.addEventListener("wheel", e => { e.preventDefault(); zoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX, e.clientY); }, { passive: false });
-  stage.addEventListener("dblclick", e => { const r = stage.getBoundingClientRect(); if (sc > fit * 1.5) doFit(); else zoomAt(2.5, e.clientX, e.clientY); });
+  stage.addEventListener("dblclick", e => { if (sc > fit * 1.5) doFit(); else zoomAt(2.5, e.clientX, e.clientY); });
   const pts = new Map(); let last = null, lastDist = 0;
   stage.addEventListener("pointerdown", e => { stage.setPointerCapture(e.pointerId); pts.set(e.pointerId, e); last = { x: e.clientX, y: e.clientY }; stage.classList.add("grab"); });
   stage.addEventListener("pointermove", e => {
@@ -6450,11 +6522,11 @@ function openImageViewer(src, actionsHtml) {
   });
   const up = e => { pts.delete(e.pointerId); lastDist = 0; last = pts.size === 1 ? (([p]) => ({ x: p.clientX, y: p.clientY }))([...pts.values()]) : null; if (!pts.size) stage.classList.remove("grab"); };
   stage.addEventListener("pointerup", up); stage.addEventListener("pointercancel", up);
-  ov.querySelector(".iv-bar").addEventListener("click", e => {
-    const b = e.target.closest("button"); if (!b) return;
-    if (b.classList.contains("iv-close")) return closeImageViewer();
+  ov.querySelector(".iv-close").onclick = closeImageViewer;
+  ov.querySelector(".iv-tools").addEventListener("click", e => {
+    const b = e.target.closest("button[data-z]"); if (!b) return;
     if (b.dataset.z === "0") return doFit();
-    if (b.dataset.z) { const r = stage.getBoundingClientRect(); zoomAt(b.dataset.z === "1" ? 1.5 : 1 / 1.5, r.left + r.width / 2, r.top + r.height / 2); }
+    const r = stage.getBoundingClientRect(); zoomAt(b.dataset.z === "1" ? 1.5 : 1 / 1.5, r.left + r.width / 2, r.top + r.height / 2);
   });
   ov._keys = e => { if (e.key === "Escape") closeImageViewer(); if (e.key === "+" || e.key === "=") ov.querySelector('[data-z="1"]').click(); if (e.key === "-") ov.querySelector('[data-z="-1"]').click(); if (e.key === "0") doFit(); };
   document.addEventListener("keydown", ov._keys);
@@ -6462,9 +6534,11 @@ function openImageViewer(src, actionsHtml) {
   ov._fit = doFit;
 }
 function closeImageViewer() { const ov = document.getElementById("imgview"); if (!ov) return; document.removeEventListener("keydown", ov._keys); window.removeEventListener("resize", ov._fit); ov.remove(); }
-async function viewStepImage(ideaId, f, sIdx, src) {
-  if (!src || src.startsWith("data:image/svg")) { const st = (IDEAS.find(i => i.id === ideaId) || {}).fases[f].pasos[sIdx]; const a = ((st && st.adjuntos) || []).find(x => x.tipo === "img"); src = (await getImageUrl(a)) || src; }
-  openImageViewer(src, `<button type="button" class="iv-act" onclick="closeImageViewer();openStepHelp('${ideaId}',${f},${sIdx})">Keep working on this step →</button>`);
+async function viewStepImage(ideaId, f, sIdx, ref) {
+  const idea = IDEAS.find(i => i.id === ideaId), st = idea && idea.fases[f] && idea.fases[f].pasos[sIdx];
+  const a = ((st && st.adjuntos) || []).find(x => x.tipo === "img" && (!ref || x.ref === ref || x.src === ref));
+  const src = (await getImageUrl(a)) || IMG_PLACEHOLDER;
+  openImageViewer(src, "", a, { title: (a && a.nombre) || "Image", floatHtml: `<span class="iv-from">📎 ${escapeHtml(st ? st.texto : "")}</span><button type="button" class="iv-act" onclick="closeImageViewer();openStepHelp('${ideaId}',${f},${sIdx})">Keep working on this step →</button>` });
 }
 
 function viewSketch(ideaId, idx) {
@@ -6472,7 +6546,7 @@ function viewSketch(ideaId, idx) {
   if (!idea || !idea.bocetos[idx]) return;
   viewingSketch = { ideaId, idx };
   const b0 = idea.bocetos[idx];
-  getImageUrl(b0).then(u => openImageViewer(u || IMG_PLACEHOLDER, `${b0.driveId ? `<a class="iv-link" href="https://drive.google.com/file/d/${b0.driveId}/view" target="_blank" rel="noopener">Open in Drive</a>` : ""}<button type="button" class="iv-act danger" onclick="deleteSketch()">Erase</button>`));
+  getImageUrl(b0).then(u => openImageViewer(u || IMG_PLACEHOLDER, `<button type="button" class="iv-erase" onclick="deleteSketch()" title="Erase this image">Erase</button>`, b0, { title: b0.nombre || "Image · " + fmtShortDate(b0.fecha) }));
 }
 function closeSketchView() { document.getElementById("sketch-view-overlay").classList.remove("open"); viewingSketch = null; }
 async function deleteSketch() {
@@ -7507,7 +7581,7 @@ function attChipHtml(a, removeJs, openJs) {
 function viewAttachment(a) {
   if (!a) return;
   const ov = document.createElement("div"); ov.className = "modal-overlay open att-viewer";
-  if (a.tipo === "img") return getImageUrl(a).then(u => openImageViewer(u || IMG_PLACEHOLDER));
+  if (a.tipo === "img") return getImageUrl(a).then(u => openImageViewer(u || IMG_PLACEHOLDER, "", a));
   ov.innerHTML = a.tipo === "img"
     ? ``
     : `<div class="modal-box" style="max-width:720px"><div class="modal-head"><div class="modal-title">${escapeHtml(a.nombre)}</div><button class="modal-close">&times;</button></div><pre class="att-text">${escapeHtml(a.texto)}</pre></div>`;
@@ -8238,9 +8312,18 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-26 15:40 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-26 16:40 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
+  {
+    version: "1.4.1",
+    public: true,
+    items: [
+      "Huge images keep their untouched original: open one and tap “Download full res” to get it back at native size",
+      "The image viewer has a new header: name, a note when you're seeing a preview, and the zoom controls next to the ✕",
+      "“Keep working on this step” now floats at the bottom right of the viewer",
+    ],
+  },
   {
     version: "1.4.0",
     public: true,
