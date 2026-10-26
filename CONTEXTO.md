@@ -298,3 +298,11 @@ Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la prim
 - **Tour vs. Drive:** el tour espera a que Drive termine de cargar (y no aparece con el banner de reconexión). Los tours vistos y la intensidad del fondo se guardan también en `ideary-settings.json`, así no se repiten en otros dispositivos.
 
 - **Visor de imágenes con zoom:** todas las imágenes (Images, adjuntos) se abren en un visor a pantalla completa: rueda del mouse / pellizco / doble toque para zoom, arrastrar para moverse, botones − + Fit, Esc para cerrar.
+
+- **Almacenamiento de imágenes (desde 1.4.0):** las imágenes ya NO van dentro del JSON. Cada imagen es un objeto `{ref, driveId?, fecha, ...}` (en `bocetos`, `adjuntos` de pasos y `adj` del chat).
+  - Con Drive: carpeta **`Ideary/`** en el Drive del usuario con `ideary-data.json`, `ideary-settings.json` y la subcarpeta **`images/`** (un archivo por imagen, `<ref>.jpg|png`). Se cachean en IndexedDB.
+  - Sin Drive: los archivos van a IndexedDB (`ideary_images`), con lugar para cientos de MB; el JSON en localStorage queda liviano.
+  - Al conectar Drive, las imágenes locales se suben solas. Las imágenes viejas guardadas como data URL (`src`) se migran automáticamente.
+  - Calidad: se guarda el original si mide hasta 4096px (y pesa hasta 15 MB); si no, se achica a 4096px JPEG 0,9. A la IA se le manda una copia de 1280px.
+  - Al borrar una imagen que ya nadie usa, se borra también de IndexedDB y de Drive.
+- **Backups:** "Backup / Import" ofrece **ZIP** (`ideas.json` + carpeta `images/`, calidad completa) o **un solo JSON** con las imágenes adentro como texto (data URL). Import acepta los dos (o pegar el JSON).

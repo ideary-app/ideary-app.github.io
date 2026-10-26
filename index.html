@@ -85,7 +85,7 @@ and must not be renamed — existing user data depends on them)
              pasos: [ string | { texto, explicacion?, hecho?: 1|2 } ] } ],
              // hecho: 1 = started (half-filled box), 2 = done
   cosasAResolver: [ { texto, resuelto: bool, busqueda?: [string] } ],
-  bocetos?: [ { src (data URL), fecha } ],
+  bocetos?: [ { ref, driveId?, fecha } ],   // image blobs live in Drive Ideary/images or IndexedDB (see IMAGE STORAGE)
   cierre?: { funciono, noFunciono, distinto, fecha },
   dificultad?, tiempo?   // legacy, no longer shown
 }
@@ -3918,6 +3918,9 @@ SHIPPING CHANGES
   html[data-theme="dark"] .iv-bar .iv-act { color: #241b14; }
   .iv-bar .iv-act.danger { background: none; color: var(--rust); border-color: var(--rust); }
   .iv-bar .iv-close { margin-left: 6px; font-size: 1.3rem; }
+
+  .img-missing { opacity: .5; filter: grayscale(1); }
+  .sketch-thumb img[data-pending] { animation: shimmer 1.2s linear infinite; background: linear-gradient(100deg, #e8e1cc 20%, #f6f1e2 50%, #e8e1cc 80%); background-size: 200% 100%; }
 </style>
 </head>
 <body>
@@ -4420,14 +4423,16 @@ SHIPPING CHANGES
     <!-- Both panels have the same fixed height so the modal doesn't resize -->
     <!-- Backup panel -->
     <div id="bi-panel-backup" style="min-height:240px;display:flex;flex-direction:column">
-      <p class="form-hint" style="margin-bottom:12px">Download all your ideas as a JSON file. You can use it to restore your backlog later, or import it on another device.</p>
-      <div style="flex:1"></div>
-      <button class="form-submit" onclick="exportBackup()">Download backup (.json)</button>
+      <p class="form-hint" style="margin-bottom:12px">Download everything — ideas and images — to keep a copy or move it to another device.</p>
+      <button class="share-opt" onclick="backupDownload('zip')"><strong>🗂 ZIP: ideas + images folder</strong><span>ideas.json plus an images/ folder with every image at full quality. Best for lots of images.</span></button>
+      <button class="share-opt" onclick="backupDownload('json')"><strong>📄 One JSON file</strong><span>Everything in a single text file, images included inside it. Simple, but heavier.</span></button>
+      <div id="bi-backup-status" class="form-hint" style="min-height:1.3em"></div>
     </div>
 
     <!-- Import panel -->
     <div id="bi-panel-import" style="min-height:240px;display:none;flex-direction:column">
-      <p class="form-hint" style="margin-bottom:12px">Paste a backup file's contents below to restore or merge ideas. This adds ideas to your current backlog — it won't delete anything.</p>
+      <p class="form-hint" style="margin-bottom:12px">Pick a backup (.zip or .json) or paste its contents. This adds ideas to your notebook — it won't delete anything.</p>
+      <label class="share-opt" style="cursor:pointer"><strong>📂 Choose a backup file</strong><span>.zip or .json from Ideary</span><input type="file" accept=".zip,.json,application/zip,application/json" style="display:none" onchange="importBackupFile(this)"></label>
       <textarea class="form-input form-textarea" id="bi-import-textarea" style="flex:1;min-height:150px;font-family:var(--mono);font-size:0.78rem" placeholder='[{"titulo": "My idea", ...}]'></textarea>
       <button class="form-submit" style="margin-top:10px" onclick="submitBiImport()">Import ideas</button>
     </div>
@@ -4947,7 +4952,7 @@ async function initDriveSync(ideasParaCrearSiNoExiste) {
     updateDriveButtonUI();
     render();
     setSyncStatus("Synced with Google Drive.", false);
-    driveLoadSettings();
+    driveLoadSettings().then(() => syncImages());
   } catch (e) {
     console.error("Could not sync with Drive:", e);
     setSyncStatus("Could not connect to Google Drive. Working in local mode.", true);
@@ -5362,7 +5367,7 @@ async function driveLoadSettings() {
     // Drive has no key yet but this browser does: upload it once.
     if (geminiKey) await driveSaveSettings();
   } catch (e) { console.error("Settings sync failed", e); }
-  finally { driveSettingsLoaded = true; }
+  finally { driveSettingsLoaded = true; if (typeof queueImageUpload === "function") queueImageUpload(); }
 }
 
 async function driveSaveSettings() {
@@ -5818,6 +5823,9 @@ function quickAddNote(ideaId, text) {
 
 
 /* ---------- Share: printable page / PDF, standalone page, plain text ---------- */
+const shareImgCache = new Map();
+async function preloadShareImages(list) { for (const o of allImageObjs(list)) { if (o.src || shareImgCache.has(o.ref)) continue; const b = await getImageBlob(o); if (b) shareImgCache.set(o.ref, await blobToDataUrl(b)); } }
+function shareImg(o) { return o.src || shareImgCache.get(o.ref) || IMG_PLACEHOLDER; }
 function shareDoc(idea) {
   const items = isProject(idea) ? [idea].concat(projectChapters(idea)) : [idea];
   const esc = escapeHtml;
@@ -5830,7 +5838,7 @@ function shareDoc(idea) {
       ${(i.fases || []).filter(f => f.pasos && f.pasos.length).map(f => `<h3>${esc(f.nombre)}</h3><ul class="steps">${f.pasos.map(stepLine).join("")}</ul>`).join("")}
       ${(i.cosasAResolver || []).length ? `<h3>Things to figure out</h3><ul>${i.cosasAResolver.map(c => `<li>${c.resuelto ? "✓ " : "? "}${esc(c.texto)}</li>`).join("")}</ul>` : ""}
       ${(i.referencias || []).length ? `<h3>References</h3><ul>${i.referencias.map(r => `<li>${r.url ? `<a href="${escapeAttr(r.url)}">${esc(r.titulo || r.url)}</a>` : esc(r.titulo)}</li>`).join("")}</ul>` : ""}
-      ${(i.bocetos || []).length ? `<div class="sk">${i.bocetos.map(b => `<img src="${b.src}">`).join("")}</div>` : ""}
+      ${(i.bocetos || []).length ? `<div class="sk">${i.bocetos.map(b => `<img src="${shareImg(b)}">`).join("")}</div>` : ""}
     </section>`).join("");
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(idea.titulo)} — Ideary</title>
 <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
@@ -5852,6 +5860,7 @@ function shareText(idea) {
 async function openShare(id) {
   const idea = IDEAS.find(i => i.id === id);
   if (!idea) return;
+  await preloadShareImages(isProject(idea) ? [idea].concat(projectChapters(idea)) : [idea]);
   const html = shareDoc(idea);
   const choice = await showShareSheet();
   if (choice === "pdf") {
@@ -5963,12 +5972,12 @@ function renderSketchBlock(idea) {
       <div class="block-title c-plan" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>Images</span>
         <span style="display:flex;gap:6px">
           <button type="button" class="stuck-btn" style="margin:0" onclick="openSketchPad('${escapeAttr(idea.id)}')">Draw</button>
-          <label class="stuck-btn" style="margin:0;cursor:pointer">Add image<input type="file" accept="image/*" style="display:none" onchange="addSketchPhoto('${escapeAttr(idea.id)}', this)"></label>
+          <label class="stuck-btn" style="margin:0;cursor:pointer">Add image<input type="file" accept="image/*" multiple style="display:none" onchange="addSketchPhoto('${escapeAttr(idea.id)}', this)"></label>
         </span>
       </div>
       ${list.length ? `<div class="sketch-grid">${list.map(b => b.own !== undefined
-          ? `<button type="button" class="sketch-thumb" onclick="viewSketch('${escapeAttr(idea.id)}',${b.own})"><img src="${b.src}" alt=""><span>${escapeHtml(fmtShortDate(b.fecha))}</span></button>`
-          : `<button type="button" class="sketch-thumb from-step" title="From step: ${escapeAttr(b.paso)}" onclick="viewStepImage('${escapeAttr(idea.id)}',${b.f},${b.s},this.querySelector('img').src)"><img src="${b.src}" alt=""><span>📎 ${escapeHtml(b.paso)}</span></button>`).join("")}</div>`
+          ? `<button type="button" class="sketch-thumb" onclick="viewSketch('${escapeAttr(idea.id)}',${b.own})"><img ${imgAttrs(b.o)} alt=""><span>${escapeHtml(fmtShortDate(b.fecha))}</span></button>`
+          : `<button type="button" class="sketch-thumb from-step" title="From step: ${escapeAttr(b.paso)}" onclick="viewStepImage('${escapeAttr(idea.id)}',${b.f},${b.s},this.querySelector('img').src)"><img ${imgAttrs(b.o)} alt=""><span>📎 ${escapeHtml(b.paso)}</span></button>`).join("")}</div>`
         : `<p class="empty-plan">Sketches, reference images, photos of a paper drawing… Images you attach to a step show up here too.</p>`}
     </div>`;
 }
@@ -6031,8 +6040,8 @@ function sketchClear() {
 }
 function sketchSave() {
   const cv = document.getElementById("sketch-canvas");
-  // Compose on ruled paper, scaled down to keep Drive light
-  const maxW = 900, scale = Math.min(1, maxW / cv.width);
+  // Compose on ruled paper
+  const maxW = 2000, scale = Math.min(1, maxW / cv.width);
   const out = document.createElement("canvas");
   out.width = Math.round(cv.width * scale); out.height = Math.round(cv.height * scale);
   const o = out.getContext("2d");
@@ -6041,37 +6050,326 @@ function sketchSave() {
   const step = 28 * scale * (window.devicePixelRatio || 1);
   for (let y = step; y < out.height; y += step) { o.beginPath(); o.moveTo(0, y); o.lineTo(out.width, y); o.stroke(); }
   o.drawImage(cv, 0, 0, out.width, out.height);
-  const src = out.toDataURL("image/jpeg", 0.8);
   const idea = IDEAS.find(i => i.id === sketchIdeaId);
-  if (idea) {
-    idea.bocetos = idea.bocetos || [];
-    idea.bocetos.push({ src, fecha: new Date().toISOString() });
-    saveIdeas();
-  }
-  closeSketchPad();
-  if (idea) openDetail(idea.id);
+  out.toBlob(async blob => {
+    if (idea && blob) {
+      idea.bocetos = idea.bocetos || [];
+      idea.bocetos.push(await storeImage(blob));
+      saveIdeas();
+    }
+    closeSketchPad();
+    if (idea) openDetail(idea.id);
+  }, "image/jpeg", 0.88);
 }
-function addSketchPhoto(ideaId, input) {
-  const file = input.files && input.files[0];
-  if (!file) return;
-  const img = new Image();
-  const url = URL.createObjectURL(file);
-  img.onload = () => {
-    const maxSide = 1100, s = Math.min(1, maxSide / Math.max(img.width, img.height));
-    const c = document.createElement("canvas");
-    c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
-    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-    URL.revokeObjectURL(url);
-    const idea = IDEAS.find(i => i.id === ideaId);
-    if (!idea) return;
-    idea.bocetos = idea.bocetos || [];
-    idea.bocetos.push({ src: c.toDataURL("image/jpeg", 0.72), fecha: new Date().toISOString() });
-    saveIdeas();
-    openDetail(ideaId);
-  };
-  img.src = url;
+async function addSketchPhoto(ideaId, input) {
+  const files = Array.from(input.files || []); input.value = "";
+  const idea = IDEAS.find(i => i.id === ideaId);
+  if (!idea || !files.length) return;
+  for (const f of files) {
+    try { idea.bocetos = (idea.bocetos || []).concat([await storeImage(await prepareImageBlob(f))]); }
+    catch (e) { await showAlert(e.message, { title: "Can't add that image" }); }
+  }
+  saveIdeas();
+  openDetail(ideaId);
 }
 let viewingSketch = null;
+
+
+/* ==================================================================
+   IMAGE STORAGE
+   Images are NOT kept inside the ideas JSON anymore. Each image object
+   ({ref, driveId?, fecha, ...}) points to a blob that lives:
+   - with Drive: in the user's Drive, folder "Ideary/images/" (plus a local
+     cache in IndexedDB so it loads fast),
+   - without Drive: in IndexedDB (browser storage with room for hundreds of MB).
+   Old images saved as data URLs ("src") are migrated automatically.
+   Backups can embed images in the JSON or go as a .zip with an images/ folder.
+================================================================== */
+const IMG_PLACEHOLDER = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='4' height='3'><rect width='4' height='3' fill='%23e8e1cc'/></svg>";
+const IMG_MAX_SIDE = 4096;
+const imgUrlCache = new Map(); // ref -> objectURL
+let idbP = null;
+function idb() {
+  if (!idbP) idbP = new Promise((res, rej) => {
+    const r = indexedDB.open("ideary_images", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("blobs");
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+  return idbP;
+}
+async function idbGet(ref) { try { const db = await idb(); return await new Promise(res => { const t = db.transaction("blobs").objectStore("blobs").get(ref); t.onsuccess = () => res(t.result || null); t.onerror = () => res(null); }); } catch (e) { return null; } }
+async function idbPut(ref, blob) { try { const db = await idb(); await new Promise(res => { const t = db.transaction("blobs", "readwrite"); t.objectStore("blobs").put(blob, ref); t.oncomplete = res; t.onerror = res; }); } catch (e) {} }
+async function idbDel(ref) { try { const db = await idb(); await new Promise(res => { const t = db.transaction("blobs", "readwrite"); t.objectStore("blobs").delete(ref); t.oncomplete = res; t.onerror = res; }); } catch (e) {} }
+function newImgRef() { return "img_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function dataUrlToBlob(u) { const [h, b] = u.split(","); const mime = (h.match(/:(.*?);/) || [, "image/jpeg"])[1]; const bin = atob(b); const a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return new Blob([a], { type: mime }); }
+function blobToDataUrl(b) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(b); }); }
+// every image object in the data (sketches, step attachments, chat attachments)
+function allImageObjs(list) {
+  const out = [];
+  (list || IDEAS).forEach(i => {
+    (i.bocetos || []).forEach(b => out.push(b));
+    (i.fases || []).forEach(f => (f.pasos || []).forEach(st => { if (typeof st === "object") (st.adjuntos || []).forEach(a => { if (a.tipo === "img") out.push(a); }); }));
+    (i.chat || []).forEach(m => (m.adj || []).forEach(a => { if (a.tipo === "img") out.push(a); }));
+  });
+  return out;
+}
+function imgObjByRef(ref) { return allImageObjs().find(o => o.ref === ref) || null; }
+// <img> attributes for an image object: real URL if known, otherwise a placeholder that gets filled in
+function imgAttrs(o) {
+  if (!o) return `src="${IMG_PLACEHOLDER}"`;
+  if (o.src) return `src="${o.src}"`;
+  const u = imgUrlCache.get(o.ref);
+  return u ? `src="${u}" data-ref="${o.ref}"` : `src="${IMG_PLACEHOLDER}" data-ref="${o.ref}" data-pending="1"`;
+}
+async function getImageBlob(o) {
+  if (!o) return null;
+  if (o.src) return dataUrlToBlob(o.src);
+  let b = await idbGet(o.ref);
+  if (b) return b;
+  if (o.driveId && accessToken) {
+    try {
+      const r = await fetch(`https://www.googleapis.com/drive/v3/files/${o.driveId}?alt=media`, { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (r.ok) { b = await r.blob(); await idbPut(o.ref, b); return b; }
+    } catch (e) {}
+  }
+  return null;
+}
+async function getImageUrl(o) {
+  if (!o) return null;
+  if (o.src) return o.src;
+  if (imgUrlCache.has(o.ref)) return imgUrlCache.get(o.ref);
+  const b = await getImageBlob(o);
+  if (!b) return null;
+  const u = URL.createObjectURL(b); imgUrlCache.set(o.ref, u); return u;
+}
+// a smaller copy for the AI (enough to understand it, light on quota)
+async function imageForAI(o, side) {
+  const b = await getImageBlob(o); if (!b) return null;
+  const bmp = await createImageBitmap(b).catch(() => null); if (!bmp) return null;
+  const sc = Math.min(1, (side || 1280) / Math.max(bmp.width, bmp.height));
+  const c = document.createElement("canvas"); c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
+  const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
+  return c.toDataURL("image/jpeg", 0.82).split(",")[1];
+}
+// fill in placeholders as images become available
+let hydrateBusy = false;
+async function hydrateImages() {
+  if (hydrateBusy) return; hydrateBusy = true;
+  try {
+    const imgs = Array.from(document.querySelectorAll("img[data-pending]"));
+    for (const el of imgs) {
+      const o = imgObjByRef(el.dataset.ref);
+      const u = await getImageUrl(o);
+      if (u) { document.querySelectorAll(`img[data-ref="${el.dataset.ref}"]`).forEach(x => { x.src = u; x.removeAttribute("data-pending"); }); }
+      else { el.removeAttribute("data-pending"); el.classList.add("img-missing"); el.title = o && o.driveId ? "Couldn't load this image from Drive" : "This image is on another device (it'll show up once that device syncs with Drive)"; }
+    }
+  } finally { hydrateBusy = false; }
+  if (document.querySelector("img[data-pending]")) setTimeout(hydrateImages, 300);
+}
+new MutationObserver(() => { if (document.querySelector("img[data-pending]")) { clearTimeout(window._hydT); window._hydT = setTimeout(hydrateImages, 30); } }).observe(document.body, { childList: true, subtree: true });
+
+// Keep the original if it's reasonable; otherwise shrink to 4096px high-quality JPEG.
+async function prepareImageBlob(fileOrBlob) {
+  const okType = /^image\/(jpeg|png|webp|gif)$/.test(fileOrBlob.type || "");
+  const bmp = await createImageBitmap(fileOrBlob).catch(() => null);
+  if (!bmp) throw new Error("Couldn't read that image.");
+  if (okType && Math.max(bmp.width, bmp.height) <= IMG_MAX_SIDE && fileOrBlob.size <= 15e6) return fileOrBlob;
+  const sc = Math.min(1, IMG_MAX_SIDE / Math.max(bmp.width, bmp.height));
+  const c = document.createElement("canvas"); c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
+  const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
+  return await new Promise(res => c.toBlob(res, "image/jpeg", 0.9));
+}
+// store a blob, return a new image object
+async function storeImage(blob, extra) {
+  const ref = newImgRef();
+  await idbPut(ref, blob);
+  imgUrlCache.set(ref, URL.createObjectURL(blob));
+  const o = Object.assign({ ref, fecha: new Date().toISOString() }, extra || {});
+  queueImageUpload();
+  return o;
+}
+
+/* ---- Drive: folder "Ideary" with the data file and "images/" ---- */
+let driveFolderId = null, driveImagesFolderId = null;
+async function driveFindFolder(name, parent) {
+  const q = encodeURIComponent(`name='${name}' and mimeType='application/vnd.google-apps.folder' and trashed=false${parent ? ` and '${parent}' in parents` : ""}`);
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!r.ok) throw new Error("Drive folder lookup failed: " + r.status);
+  const d = await r.json(); return d.files && d.files[0] ? d.files[0].id : null;
+}
+async function driveMakeFolder(name, parent) {
+  const r = await fetch("https://www.googleapis.com/drive/v3/files?fields=id", { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ name, mimeType: "application/vnd.google-apps.folder", parents: parent ? [parent] : undefined }) });
+  if (!r.ok) throw new Error("Couldn't create the Drive folder: " + r.status);
+  return (await r.json()).id;
+}
+async function driveMoveInto(fileId, folderId) {
+  try {
+    const m = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=parents`, { headers: { Authorization: `Bearer ${accessToken}` } });
+    const parents = m.ok ? ((await m.json()).parents || []) : [];
+    if (parents.includes(folderId)) return;
+    await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?addParents=${folderId}${parents.length ? "&removeParents=" + parents.join(",") : ""}`, { method: "PATCH", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: "{}" });
+  } catch (e) {}
+}
+async function ensureDriveFolders() {
+  if (driveImagesFolderId) return driveImagesFolderId;
+  driveFolderId = await driveFindFolder("Ideary") || await driveMakeFolder("Ideary");
+  driveImagesFolderId = await driveFindFolder("images", driveFolderId) || await driveMakeFolder("images", driveFolderId);
+  if (driveFileId) await driveMoveInto(driveFileId, driveFolderId);
+  if (typeof driveSettingsFileId !== "undefined" && driveSettingsFileId) await driveMoveInto(driveSettingsFileId, driveFolderId);
+  return driveImagesFolderId;
+}
+async function driveUploadImage(ref, blob) {
+  const folder = await ensureDriveFolders();
+  const ext = (blob.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
+  const meta = { name: `${ref}.${ext}`, parents: [folder] };
+  const fd = new FormData();
+  fd.append("metadata", new Blob([JSON.stringify(meta)], { type: "application/json" }));
+  fd.append("file", blob);
+  const r = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id", { method: "POST", headers: { Authorization: `Bearer ${accessToken}` }, body: fd });
+  if (!r.ok) throw new Error("Image upload failed: " + r.status);
+  return (await r.json()).id;
+}
+async function driveDeleteFile(id) { try { await fetch(`https://www.googleapis.com/drive/v3/files/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } }); } catch (e) {} }
+// remove an image everywhere when nothing points to it anymore
+function forgetImage(o) {
+  if (!o || !o.ref) return;
+  setTimeout(() => {
+    if (allImageObjs().some(x => x.ref === o.ref)) return;
+    idbDel(o.ref);
+    if (o.driveId && accessToken && driveReady) driveDeleteFile(o.driveId);
+  }, 500);
+}
+/* migrate old data-URL images + upload anything not yet in Drive */
+let imgSyncRunning = false, imgSyncAgain = false;
+function queueImageUpload() { clearTimeout(window._imgQ); window._imgQ = setTimeout(syncImages, 800); }
+async function syncImages() {
+  if (imgSyncRunning) { imgSyncAgain = true; return; }
+  imgSyncRunning = true;
+  let changed = false;
+  try {
+    // 1) old images stored inside the JSON → separate blobs
+    for (const o of allImageObjs()) {
+      if (o.src && /^data:image\//.test(o.src)) {
+        const ref = o.ref || newImgRef();
+        await idbPut(ref, dataUrlToBlob(o.src));
+        o.ref = ref; delete o.src; changed = true;
+      }
+    }
+    // 2) with Drive: upload what isn't there yet (same ref → one upload)
+    if (driveReady && accessToken) {
+      const done = {};
+      for (const o of allImageObjs()) {
+        if (o.driveId || !o.ref) continue;
+        if (done[o.ref]) { o.driveId = done[o.ref]; changed = true; continue; }
+        const b = await idbGet(o.ref);
+        if (!b) continue;
+        try { o.driveId = done[o.ref] = await driveUploadImage(o.ref, b); changed = true; }
+        catch (e) { console.error(e); break; }
+      }
+    }
+  } finally {
+    imgSyncRunning = false;
+    if (changed) saveIdeas();
+    if (imgSyncAgain) { imgSyncAgain = false; queueImageUpload(); }
+  }
+}
+// startup: migrate local images right away; with Drive, once it's ready
+setTimeout(syncImages, 1500);
+
+/* ---- Backups: JSON with images inside, or ZIP with an images/ folder ---- */
+async function exportWithImagesInside() {
+  const data = JSON.parse(JSON.stringify(IDEAS));
+  for (const o of allImageObjs(data)) {
+    if (o.src) continue;
+    const b = await getImageBlob(o);
+    if (b) o.src = await blobToDataUrl(b);
+    delete o.driveId;
+  }
+  return JSON.stringify(data, null, 2);
+}
+// minimal ZIP writer (stored, no compression — images are already compressed)
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8) { let c = 0xffffffff; for (let i = 0; i < u8.length; i++) c = CRC_T[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+function makeZip(files) { // files: [{name, data: Uint8Array}]
+  const enc = new TextEncoder(), parts = [], central = []; let off = 0;
+  for (const f of files) {
+    const nm = enc.encode(f.name), crc = crc32(f.data), sz = f.data.length;
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(8, 0, true); h.setUint32(14, crc, true); h.setUint32(18, sz, true); h.setUint32(22, sz, true); h.setUint16(26, nm.length, true);
+    parts.push(new Uint8Array(h.buffer), nm, f.data);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint32(16, crc, true); c.setUint32(20, sz, true); c.setUint32(24, sz, true); c.setUint16(28, nm.length, true); c.setUint32(42, off, true);
+    central.push(new Uint8Array(c.buffer), nm);
+    off += 30 + nm.length + sz;
+  }
+  const cSize = central.reduce((n, p) => n + p.length, 0);
+  const e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, cSize, true); e.setUint32(16, off, true);
+  return new Blob([...parts, ...central, new Uint8Array(e.buffer)], { type: "application/zip" });
+}
+async function readZip(blob) { // returns {name: Uint8Array}; supports stored + deflate
+  const buf = new Uint8Array(await blob.arrayBuffer()), dv = new DataView(buf.buffer);
+  let e = buf.length - 22; while (e >= 0 && dv.getUint32(e, true) !== 0x06054b50) e--;
+  if (e < 0) throw new Error("That doesn't look like a zip file.");
+  const n = dv.getUint16(e + 10, true); let p = dv.getUint32(e + 16, true); const out = {}; const dec = new TextDecoder();
+  for (let k = 0; k < n; k++) {
+    const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), lo = dv.getUint32(p + 42, true);
+    const name = dec.decode(buf.slice(p + 46, p + 46 + nl));
+    const lnl = dv.getUint16(lo + 26, true), lxl = dv.getUint16(lo + 28, true), start = lo + 30 + lnl + lxl;
+    let data = buf.slice(start, start + csize);
+    if (method === 8) data = new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer());
+    if (!name.endsWith("/")) out[name] = data;
+    p += 46 + nl + xl + cl;
+  }
+  return out;
+}
+async function exportZip() {
+  const files = [], seen = new Set();
+  for (const o of allImageObjs()) {
+    if (!o.ref || seen.has(o.ref)) continue; seen.add(o.ref);
+    const b = await getImageBlob(o); if (!b) continue;
+    const ext = (b.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
+    o._zipName = `images/${o.ref}.${ext}`;
+    files.push({ name: o._zipName, data: new Uint8Array(await b.arrayBuffer()) });
+  }
+  const data = JSON.parse(JSON.stringify(IDEAS, (k, v) => k === "_zipName" ? undefined : v));
+  allImageObjs(data).forEach(o => { delete o.driveId; });
+  allImageObjs().forEach(o => delete o._zipName);
+  files.unshift({ name: "ideas.json", data: new TextEncoder().encode(JSON.stringify(data, null, 2)) });
+  return makeZip(files);
+}
+function downloadBlob(blob, name) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }
+async function backupDownload(kind) {
+  const st = document.getElementById("bi-backup-status");
+  if (st) st.textContent = "Preparing… (images can take a moment)";
+  try {
+    const day = new Date().toISOString().slice(0, 10);
+    if (kind === "zip") downloadBlob(await exportZip(), `ideary-backup-${day}.zip`);
+    else downloadBlob(new Blob([await exportWithImagesInside()], { type: "application/json" }), `ideary-backup-${day}.json`);
+    if (st) st.textContent = "✓ Downloaded";
+  } catch (e) { if (st) st.textContent = "⚠ " + e.message; }
+}
+async function importBackupFile(input) {
+  const f = input.files && input.files[0]; input.value = "";
+  if (!f) return;
+  try {
+    let text;
+    if (/\.zip$/i.test(f.name) || f.type === "application/zip") {
+      const files = await readZip(f);
+      const json = files["ideas.json"] || files[Object.keys(files).find(n => n.endsWith(".json"))];
+      if (!json) throw new Error("No ideas.json inside that zip.");
+      for (const [name, data] of Object.entries(files)) {
+        const m = name.match(/^images\/(img_[\w]+)\.(\w+)$/);
+        if (m) await idbPut(m[1], new Blob([data], { type: "image/" + (m[2] === "jpg" ? "jpeg" : m[2]) }));
+      }
+      text = new TextDecoder().decode(json);
+    } else text = await f.text();
+    document.getElementById("bi-import-textarea").value = text.length > 400000 ? "" : text;
+    await submitBiImport(text);
+    queueImageUpload();
+  } catch (e) { await showAlert(e.message, { title: "Couldn't import that file" }); }
+}
 
 /* ---------- Zoomable image viewer: wheel / pinch / double-tap to zoom, drag to pan ---------- */
 function openImageViewer(src, actionsHtml) {
@@ -6113,7 +6411,8 @@ function openImageViewer(src, actionsHtml) {
   ov._fit = doFit;
 }
 function closeImageViewer() { const ov = document.getElementById("imgview"); if (!ov) return; document.removeEventListener("keydown", ov._keys); window.removeEventListener("resize", ov._fit); ov.remove(); }
-function viewStepImage(ideaId, f, sIdx, src) {
+async function viewStepImage(ideaId, f, sIdx, src) {
+  if (!src || src.startsWith("data:image/svg")) { const st = (IDEAS.find(i => i.id === ideaId) || {}).fases[f].pasos[sIdx]; const a = ((st && st.adjuntos) || []).find(x => x.tipo === "img"); src = (await getImageUrl(a)) || src; }
   openImageViewer(src, `<button type="button" class="iv-act" onclick="closeImageViewer();openStepHelp('${ideaId}',${f},${sIdx})">Keep working on this step →</button>`);
 }
 
@@ -6121,7 +6420,7 @@ function viewSketch(ideaId, idx) {
   const idea = IDEAS.find(i => i.id === ideaId);
   if (!idea || !idea.bocetos[idx]) return;
   viewingSketch = { ideaId, idx };
-  openImageViewer(idea.bocetos[idx].src, `<button type="button" class="iv-act danger" onclick="deleteSketch()">Erase</button>`);
+  getImageUrl(idea.bocetos[idx]).then(u => openImageViewer(u || IMG_PLACEHOLDER, `<button type="button" class="iv-act danger" onclick="deleteSketch()">Erase</button>`));
 }
 function closeSketchView() { document.getElementById("sketch-view-overlay").classList.remove("open"); viewingSketch = null; }
 async function deleteSketch() {
@@ -6129,7 +6428,7 @@ async function deleteSketch() {
   const ok = await showConfirm("Erase this sketch?", { title: "Erase sketch", confirmLabel: "Erase", danger: true });
   if (!ok) return;
   const idea = IDEAS.find(i => i.id === viewingSketch.ideaId);
-  if (idea) { idea.bocetos.splice(viewingSketch.idx, 1); saveIdeas(); }
+  if (idea) { const [gone] = idea.bocetos.splice(viewingSketch.idx, 1); saveIdeas(); forgetImage(gone); }
   closeImageViewer();
   closeSketchView();
   if (idea) openDetail(idea.id);
@@ -7131,16 +7430,7 @@ const ATT_TEXT_MAX = 120000;
 function readAttachment(file) {
   return new Promise((res, rej) => {
     if (/^image\//.test(file.type)) {
-      const url = URL.createObjectURL(file), img = new Image();
-      img.onload = () => {
-        const sc = Math.min(1, 1600 / Math.max(img.width, img.height));
-        const c = document.createElement("canvas"); c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
-        const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
-        URL.revokeObjectURL(url);
-        res({ tipo: "img", nombre: file.name, src: c.toDataURL("image/jpeg", 0.8), fecha: new Date().toISOString() });
-      };
-      img.onerror = () => rej(new Error("Couldn't read that image."));
-      img.src = url;
+      prepareImageBlob(file).then(b => storeImage(b, { tipo: "img", nombre: file.name })).then(res, rej);
     } else if (/^text\//.test(file.type) || /\.(txt|md|csv|json|srt|fountain)$/i.test(file.name)) {
       const r = new FileReader();
       r.onload = () => { const t = String(r.result); res({ tipo: "texto", nombre: file.name, texto: t.slice(0, ATT_TEXT_MAX), cortado: t.length > ATT_TEXT_MAX, fecha: new Date().toISOString() }); };
@@ -7153,17 +7443,19 @@ function attsText(list) {
   const t = (list || []).filter(a => a.tipo === "texto");
   return t.length ? "\nATTACHED FILES:\n" + t.map(a => `--- ${a.nombre} ---\n${a.texto.slice(0, 20000)}`).join("\n") : "";
 }
-function attsImages(list) {
-  return (list || []).filter(a => a.tipo === "img").slice(-4).map(a => ({ mime: "image/jpeg", data: a.src.split(",")[1] }));
+async function attsImages(list) {
+  const out = [];
+  for (const a of (list || []).filter(a => a.tipo === "img").slice(-4)) { const d = await imageForAI(a); if (d) out.push({ mime: "image/jpeg", data: d }); }
+  return out;
 }
 function attChipHtml(a, removeJs, openJs) {
-  return `<div class="att ${a.tipo}">${a.tipo === "img" ? `<img src="${a.src}" alt="" onclick="${openJs}">` : `<span class="att-file" onclick="${openJs}">📄</span>`}
+  return `<div class="att ${a.tipo}">${a.tipo === "img" ? `<img ${imgAttrs(a)} alt="" onclick="${openJs}">` : `<span class="att-file" onclick="${openJs}">📄</span>`}
     <span class="att-name" title="${escapeAttr(a.nombre || "")}">${escapeHtml(a.nombre || "image")}</span>${removeJs ? `<button type="button" class="att-x" title="Remove" onclick="${removeJs}">&times;</button>` : ""}</div>`;
 }
 function viewAttachment(a) {
   if (!a) return;
   const ov = document.createElement("div"); ov.className = "modal-overlay open att-viewer";
-  if (a.tipo === "img") return openImageViewer(a.src);
+  if (a.tipo === "img") return getImageUrl(a).then(u => openImageViewer(u || IMG_PLACEHOLDER));
   ov.innerHTML = a.tipo === "img"
     ? ``
     : `<div class="modal-box" style="max-width:720px"><div class="modal-head"><div class="modal-title">${escapeHtml(a.nombre)}</div><button class="modal-close">&times;</button></div><pre class="att-text">${escapeHtml(a.texto)}</pre></div>`;
@@ -7182,7 +7474,7 @@ async function addStepFiles(input) {
 }
 function removeStepAtt(k) {
   const ref = getStepRef(); if (!ref || !ref.step.adjuntos) return;
-  ref.step.adjuntos.splice(k, 1); if (!ref.step.adjuntos.length) delete ref.step.adjuntos;
+  const [gone] = ref.step.adjuntos.splice(k, 1); if (!ref.step.adjuntos.length) delete ref.step.adjuntos; forgetImage(gone);
   saveIdeas(); renderStepAtts();
 }
 function renderStepAtts() {
@@ -7198,10 +7490,10 @@ function stepTab(t) {
 }
 // every image of an idea: its own (drawn or uploaded) + the ones attached to its steps
 function ideaImages(idea) {
-  const own = (idea.bocetos || []).map((b, i) => ({ src: b.src, fecha: b.fecha, own: i }));
+  const own = (idea.bocetos || []).map((b, i) => ({ o: b, fecha: b.fecha, own: i }));
   const fromSteps = [];
   (idea.fases || []).forEach((f, fi) => (f.pasos || []).forEach((st, si) => {
-    if (typeof st === "object") (st.adjuntos || []).forEach(a => { if (a.tipo === "img") fromSteps.push({ src: a.src, fecha: a.fecha, paso: st.texto, f: fi, s: si }); });
+    if (typeof st === "object") (st.adjuntos || []).forEach(a => { if (a.tipo === "img") fromSteps.push({ o: a, fecha: a.fecha, paso: st.texto, f: fi, s: si }); });
   }));
   return own.concat(fromSteps);
 }
@@ -7244,7 +7536,7 @@ function fileAttachment(item, att, pasoTxt) {
   const steps = allStepsOf(item);
   const hit = steps.find(x => norm(x.texto) === norm(pasoTxt)) || steps.find(x => pasoTxt && (norm(x.texto).includes(norm(pasoTxt)) || norm(pasoTxt).includes(norm(x.texto))));
   if (!hit) {
-    if (att.tipo === "img") { item.bocetos = (item.bocetos || []).concat([{ src: att.src, fecha: att.fecha }]); return "Images"; }
+    if (att.tipo === "img") { item.bocetos = (item.bocetos || []).concat([{ ref: att.ref, driveId: att.driveId, src: att.src, fecha: att.fecha }]); return "Images"; }
     item.notas = (item.notas || []).concat([{ texto: `📄 ${att.nombre}: ${att.texto.slice(0, 400)}`, fecha: att.fecha }]); return "Notes";
   }
   const fase = hit.idea.fases[hit.f];
@@ -7369,7 +7661,7 @@ async function pcSend(textOverride) {
     if (sentAtts.length) {
       const last = hist[hist.length - 1];
       last.text += attsText(sentAtts) + `\n(I attached: ${sentAtts.map(a => a.nombre).join(", ")}. If it clearly belongs to a step, offer to file it there.)\nSTEPS YOU CAN FILE THINGS INTO: ${allStepsOf(proj).map(x => x.texto).slice(0, 80).join(" | ")}`;
-      last.images = attsImages(sentAtts);
+      last.images = await attsImages(sentAtts);
     }
     const { text: reply, actions } = splitActions((await withThinking(wait, "pc-input", () => geminiGenerate(hist, PROJECT_MENTOR_RULES, false, undefined, "low"), null, t0)).trim());
     proj.chat.push({ role: "model", text: reply, actions });
@@ -7833,7 +8125,7 @@ async function stepSend(textOverride) {
   try {
     const hist = ref.step.chat.slice(-12).map((m, k, arr) => ({ role: m.role, text: k === 0 ? stepContextText(ref) + "\n\n" + m.text : m.text }));
     if (hist[0].role !== "user") hist.unshift({ role: "user", text: stepContextText(ref) });
-    hist[hist.length - 1].images = attsImages(ref.step.adjuntos);
+    hist[hist.length - 1].images = await attsImages(ref.step.adjuntos);
     const reply = (await withThinking(wait, "step-input", () => geminiGenerate(hist, TUTOR_RULES, false, undefined, "low"))).trim();
     ref.step.chat.push({ role: "model", text: reply });
     ref.step.chat = ref.step.chat.slice(-30);
@@ -7894,13 +8186,17 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-26 16:20 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-26 19:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
     version: "1.4.0",
     public: true,
     items: [
+      "Images are now stored at full quality (up to 4096px) — zoom into your reference boards without them breaking",
+      "With Drive, images live in an Ideary/images folder in your Drive, so your notebook stays fast",
+      "Backups: download a ZIP (ideas + images folder) or a single JSON with everything inside; import either",
+      "Images open in a zoomable viewer; images from a step have a \"Keep working on this step\" button",
       "Attach images and text files to a step (\"My work\") — the tutor can see them",
       "Send images or files to your mentor; it can file them in the right step for you",
       "\"Sketches\" is now \"Images\" and also shows the images you attached to steps",
@@ -8120,8 +8416,8 @@ function switchBiTab(tab) {
   });
 }
 
-async function submitBiImport() {
-  const raw = stripJsonFences(document.getElementById("bi-import-textarea").value);
+async function submitBiImport(rawText) {
+  const raw = stripJsonFences(typeof rawText === "string" ? rawText : document.getElementById("bi-import-textarea").value);
   if (!raw) return;
   let parsed;
   try {
