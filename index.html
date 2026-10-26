@@ -5624,14 +5624,15 @@ async function geminiGenerate(history, system, retried, modelOverride, think) {
       return geminiGenerate(history, system, true, undefined, think);
     }
     const overloaded = res.status === 503 || /high demand|overloaded|unavailable/i.test(msg);
-    if (overloaded && !retried) {
-      // Busy model: wait a bit and retry once, on the lighter model if there is one.
-      await new Promise(r => setTimeout(r, 2500));
-      const lite = /-flash$/.test(model) ? model + "-lite" : model;
-      try { return await geminiGenerate(history, system, true, lite, think); }
-      catch (e) { if (lite !== model) return geminiGenerate(history, system, true, model, think); throw e; }
+    const tries = typeof retried === "number" ? retried : (retried ? 9 : 0);
+    if (overloaded && tries < 3) {
+      // Busy model: back off (2s, 5s, 9s) and alternate with the lighter model if there is one.
+      await new Promise(r => setTimeout(r, [2000, 5000, 9000][tries]));
+      const base = modelOverride && /-lite$/.test(modelOverride) ? modelOverride.replace(/-lite$/, "") : model;
+      const next = tries % 2 === 0 && /-flash$/.test(base) ? base + "-lite" : base;
+      return geminiGenerate(history, system, tries + 1, next, think);
     }
-    if (overloaded) msg = "Gemini is very busy right now (lots of people are using it). It's not your key or your limit — try again in a minute.";
+    if (overloaded) { console.warn("Gemini busy:", res.status, model, msg); msg = `Gemini is very busy right now — Google answered “${String(msg).slice(0, 120)}” after 4 tries. It's not your key or your limit; try again in a minute.`; }
     else if (res.status === 400 && /api key/i.test(msg)) msg = "Your Gemini API key isn't valid. Check it in Settings.";
     else if (res.status === 429) msg = "You've used up your free Gemini quota for now. It refills on its own — try again later (usually within the hour, or tomorrow for the daily limit).";
     throw new Error(msg);
@@ -8312,7 +8313,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-26 16:40 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-26 15:50 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {

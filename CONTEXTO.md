@@ -307,3 +307,5 @@ Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la prim
   - Al borrar una imagen se borra también de IndexedDB y de Drive (con reintentos; si se borró mientras se subía, se borra al terminar la subida). Además hay una **limpieza automática**: cada ~10 min (tras sincronizar) se borran de `Ideary/images` los archivos que ninguna idea usa y que tienen más de 15 min (cubre ideas borradas, papelera vaciada, borrados fallidos).
   - Imágenes de más de 4,5 MB se suben a Drive con subida "resumable" (la simple corta en 5 MB).
 - **Backups:** "Backup / Import" ofrece **ZIP** (`ideas.json` + carpeta `images/`, calidad completa) o **un solo JSON** con las imágenes adentro como texto (data URL). Import acepta los dos (o pegar el JSON).
+
+- **Gemini ocupado (503):** `geminiGenerate` reintenta hasta 3 veces con espera (2s, 5s, 9s), alternando con el modelo `-lite`; si igual falla, el mensaje muestra lo que respondió Google.
