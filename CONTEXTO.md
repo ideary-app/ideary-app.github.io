@@ -304,5 +304,6 @@ Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la prim
   - Sin Drive: los archivos van a IndexedDB (`ideary_images`), con lugar para cientos de MB; el JSON en localStorage queda liviano.
   - Al conectar Drive, las imágenes locales se suben solas. Las imágenes viejas guardadas como data URL (`src`) se migran automáticamente.
   - Calidad: se guarda el original si mide hasta 4096px (y pesa hasta 15 MB); si no, se achica a 4096px JPEG 0,9. A la IA se le manda una copia de 1280px.
-  - Al borrar una imagen que ya nadie usa, se borra también de IndexedDB y de Drive.
+  - Al borrar una imagen se borra también de IndexedDB y de Drive (con reintentos; si se borró mientras se subía, se borra al terminar la subida). Además hay una **limpieza automática**: cada ~10 min (tras sincronizar) se borran de `Ideary/images` los archivos que ninguna idea usa y que tienen más de 15 min (cubre ideas borradas, papelera vaciada, borrados fallidos).
+  - Imágenes de más de 4,5 MB se suben a Drive con subida "resumable" (la simple corta en 5 MB).
 - **Backups:** "Backup / Import" ofrece **ZIP** (`ideas.json` + carpeta `images/`, calidad completa) o **un solo JSON** con las imágenes adentro como texto (data URL). Import acepta los dos (o pegar el JSON).

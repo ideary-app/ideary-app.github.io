@@ -3921,6 +3921,8 @@ SHIPPING CHANGES
 
   .img-missing { opacity: .5; filter: grayscale(1); }
   .sketch-thumb img[data-pending] { animation: shimmer 1.2s linear infinite; background: linear-gradient(100deg, #e8e1cc 20%, #f6f1e2 50%, #e8e1cc 80%); background-size: 200% 100%; }
+
+  .iv-bar .iv-link { font-family: var(--hand); font-size: 1.05rem; color: var(--pen); padding: 0 6px; }
 </style>
 </head>
 <body>
@@ -4781,6 +4783,7 @@ function driveSyncNow(opts) {
       IDEAS = merged; // local edits still pending, keep base
     }
     writeDriveCache(false);
+    if (typeof driveImageGC === "function") setTimeout(() => driveImageGC(), 5000);
     if (JSON.stringify(IDEAS) !== before && editingIdeaId == null && !document.querySelector(".open[id$='-overlay']")) render();
   });
   return driveSyncChain.catch(e => { console.error("Drive sync failed:", e); throw e; });
@@ -6223,6 +6226,15 @@ async function driveUploadImage(ref, blob) {
   const folder = await ensureDriveFolders();
   const ext = (blob.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
   const meta = { name: `${ref}.${ext}`, parents: [folder] };
+  if (blob.size > 4.5e6) { // Drive's simple multipart upload stops at 5 MB: use a resumable upload
+    const init = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id", { method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json; charset=UTF-8", "X-Upload-Content-Type": blob.type || "image/jpeg", "X-Upload-Content-Length": String(blob.size) },
+      body: JSON.stringify(meta) });
+    if (!init.ok) throw new Error("Image upload failed: " + init.status);
+    const up = await fetch(init.headers.get("Location"), { method: "PUT", headers: { "Content-Type": blob.type || "image/jpeg" }, body: blob });
+    if (!up.ok) throw new Error("Image upload failed: " + up.status);
+    return (await up.json()).id;
+  }
   const fd = new FormData();
   fd.append("metadata", new Blob([JSON.stringify(meta)], { type: "application/json" }));
   fd.append("file", blob);
@@ -6230,15 +6242,49 @@ async function driveUploadImage(ref, blob) {
   if (!r.ok) throw new Error("Image upload failed: " + r.status);
   return (await r.json()).id;
 }
-async function driveDeleteFile(id) { try { await fetch(`https://www.googleapis.com/drive/v3/files/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } }); } catch (e) {} }
 // remove an image everywhere when nothing points to it anymore
+const deletedRefs = new Set(); // removed while their upload was still running
 function forgetImage(o) {
   if (!o || !o.ref) return;
-  setTimeout(() => {
+  setTimeout(async () => {
     if (allImageObjs().some(x => x.ref === o.ref)) return;
     idbDel(o.ref);
-    if (o.driveId && accessToken && driveReady) driveDeleteFile(o.driveId);
-  }, 500);
+    if (o.driveId) { if (accessToken) await driveDeleteFile(o.driveId); }
+    else deletedRefs.add(o.ref);
+  }, 300);
+}
+async function driveDeleteFile(id) {
+  for (let k = 0; k < 3; k++) {
+    try {
+      const r = await fetch(`https://www.googleapis.com/drive/v3/files/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } });
+      if (r.ok || r.status === 404) return true;
+    } catch (e) {}
+    await new Promise(res => setTimeout(res, 1500 * (k + 1)));
+  }
+  return false;
+}
+/* Clean-up: any file in Ideary/images that no idea points to anymore is deleted
+   (covers deleted ideas, emptied trash, failed deletes). Only files older than
+   15 minutes, so an image another device is still saving isn't touched. */
+let lastImageGC = 0;
+async function driveImageGC(force) {
+  if (!driveReady || !accessToken || (!force && Date.now() - lastImageGC < 10 * 60 * 1000)) return;
+  lastImageGC = Date.now();
+  try {
+    const folder = await ensureDriveFolders();
+    const used = new Set(allImageObjs().map(o => o.driveId).filter(Boolean));
+    const cutoff = Date.now() - 15 * 60 * 1000;
+    let pageToken = "", removed = 0;
+    do {
+      const q = encodeURIComponent(`'${folder}' in parents and trashed=false`);
+      const r = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=nextPageToken,files(id,createdTime)&pageSize=1000${pageToken ? "&pageToken=" + pageToken : ""}`, { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!r.ok) return;
+      const d = await r.json();
+      for (const f of d.files || []) if (!used.has(f.id) && new Date(f.createdTime).getTime() < cutoff) { await driveDeleteFile(f.id); removed++; }
+      pageToken = d.nextPageToken || "";
+    } while (pageToken);
+    if (removed) console.log("Ideary: removed", removed, "unused image(s) from Drive");
+  } catch (e) { console.error("Image clean-up failed", e); }
 }
 /* migrate old data-URL images + upload anything not yet in Drive */
 let imgSyncRunning = false, imgSyncAgain = false;
@@ -6264,13 +6310,18 @@ async function syncImages() {
         if (done[o.ref]) { o.driveId = done[o.ref]; changed = true; continue; }
         const b = await idbGet(o.ref);
         if (!b) continue;
-        try { o.driveId = done[o.ref] = await driveUploadImage(o.ref, b); changed = true; }
-        catch (e) { console.error(e); break; }
+        try {
+          const id = await driveUploadImage(o.ref, b);
+          if (deletedRefs.has(o.ref) || !allImageObjs().some(x => x.ref === o.ref)) { driveDeleteFile(id); deletedRefs.delete(o.ref); continue; }
+          o.driveId = done[o.ref] = id; changed = true;
+        }
+        catch (e) { console.error(e); setSyncStatus && setSyncStatus("Some images couldn't be uploaded to Drive yet — will retry.", true); setTimeout(queueImageUpload, 30000); break; }
       }
     }
   } finally {
     imgSyncRunning = false;
     if (changed) saveIdeas();
+    if (driveReady) setTimeout(() => driveImageGC(), 20000);
     if (imgSyncAgain) { imgSyncAgain = false; queueImageUpload(); }
   }
 }
@@ -6420,7 +6471,8 @@ function viewSketch(ideaId, idx) {
   const idea = IDEAS.find(i => i.id === ideaId);
   if (!idea || !idea.bocetos[idx]) return;
   viewingSketch = { ideaId, idx };
-  getImageUrl(idea.bocetos[idx]).then(u => openImageViewer(u || IMG_PLACEHOLDER, `<button type="button" class="iv-act danger" onclick="deleteSketch()">Erase</button>`));
+  const b0 = idea.bocetos[idx];
+  getImageUrl(b0).then(u => openImageViewer(u || IMG_PLACEHOLDER, `${b0.driveId ? `<a class="iv-link" href="https://drive.google.com/file/d/${b0.driveId}/view" target="_blank" rel="noopener">Open in Drive</a>` : ""}<button type="button" class="iv-act danger" onclick="deleteSketch()">Erase</button>`));
 }
 function closeSketchView() { document.getElementById("sketch-view-overlay").classList.remove("open"); viewingSketch = null; }
 async function deleteSketch() {
@@ -8186,7 +8238,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-26 19:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-26 15:40 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
