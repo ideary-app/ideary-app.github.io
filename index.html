@@ -3905,6 +3905,19 @@ SHIPPING CHANGES
   .att-view-img img { max-width: 96vw; max-height: 92vh; display: block; border-radius: 4px; }
   .att-text { white-space: pre-wrap; font: .85rem/1.5 var(--mono); max-height: 70vh; overflow: auto; background: var(--paper); padding: 12px; border-radius: 6px; }
   .sketch-thumb.from-step span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; display: block; }
+
+  /* ---- Zoomable image viewer ---- */
+  .imgview { position: fixed; inset: 0; z-index: 4000; background: rgba(15,11,7,.97); display: flex; flex-direction: column; }
+  .iv-stage { flex: 1; position: relative; overflow: hidden; touch-action: none; cursor: grab; }
+  .iv-stage.grab { cursor: grabbing; }
+  .iv-stage img { position: absolute; left: 0; top: 0; transform-origin: 0 0; max-width: none; user-select: none; -webkit-user-drag: none; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+  .iv-bar { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); background: var(--panel); }
+  .iv-bar button { min-width: 38px; height: 36px; border: 1.5px solid var(--line-strong); border-radius: 8px; background: var(--paper); color: var(--ink); font: 600 1rem var(--sans); cursor: pointer; padding: 0 10px; }
+  .iv-pct { font: 600 .85rem var(--mono); color: var(--slate); min-width: 48px; text-align: center; }
+  .iv-bar .iv-act { font-family: var(--hand); font-size: 1.05rem; font-weight: 400; background: var(--pen); color: #fff; border-color: var(--pen); }
+  html[data-theme="dark"] .iv-bar .iv-act { color: #241b14; }
+  .iv-bar .iv-act.danger { background: none; color: var(--rust); border-color: var(--rust); }
+  .iv-bar .iv-close { margin-left: 6px; font-size: 1.3rem; }
 </style>
 </head>
 <body>
@@ -5955,7 +5968,7 @@ function renderSketchBlock(idea) {
       </div>
       ${list.length ? `<div class="sketch-grid">${list.map(b => b.own !== undefined
           ? `<button type="button" class="sketch-thumb" onclick="viewSketch('${escapeAttr(idea.id)}',${b.own})"><img src="${b.src}" alt=""><span>${escapeHtml(fmtShortDate(b.fecha))}</span></button>`
-          : `<button type="button" class="sketch-thumb from-step" title="From step: ${escapeAttr(b.paso)}" onclick="openStepHelp('${escapeAttr(idea.id)}',${b.f},${b.s})"><img src="${b.src}" alt=""><span>📎 ${escapeHtml(b.paso)}</span></button>`).join("")}</div>`
+          : `<button type="button" class="sketch-thumb from-step" title="From step: ${escapeAttr(b.paso)}" onclick="viewStepImage('${escapeAttr(idea.id)}',${b.f},${b.s},this.querySelector('img').src)"><img src="${b.src}" alt=""><span>📎 ${escapeHtml(b.paso)}</span></button>`).join("")}</div>`
         : `<p class="empty-plan">Sketches, reference images, photos of a paper drawing… Images you attach to a step show up here too.</p>`}
     </div>`;
 }
@@ -6059,13 +6072,56 @@ function addSketchPhoto(ideaId, input) {
   img.src = url;
 }
 let viewingSketch = null;
+
+/* ---------- Zoomable image viewer: wheel / pinch / double-tap to zoom, drag to pan ---------- */
+function openImageViewer(src, actionsHtml) {
+  closeImageViewer();
+  const ov = document.createElement("div"); ov.id = "imgview"; ov.className = "imgview";
+  ov.innerHTML = `<div class="iv-stage"><img src="${src}" alt="" draggable="false"></div>
+    <div class="iv-bar"><button type="button" data-z="-1" aria-label="Zoom out">−</button><span class="iv-pct">100%</span><button type="button" data-z="1" aria-label="Zoom in">+</button><button type="button" data-z="0">Fit</button>${actionsHtml || ""}<button type="button" class="iv-close" aria-label="Close">&times;</button></div>`;
+  document.body.appendChild(ov);
+  const stage = ov.querySelector(".iv-stage"), img = ov.querySelector("img"), pct = ov.querySelector(".iv-pct");
+  let sc = 1, x = 0, y = 0, fit = 1;
+  const apply = () => { img.style.transform = `translate(${x}px, ${y}px) scale(${sc})`; pct.textContent = Math.round(sc / fit * 100) + "%"; };
+  const doFit = () => { const r = stage.getBoundingClientRect(); fit = Math.min(r.width / img.naturalWidth, r.height / img.naturalHeight, 1); sc = fit; x = (r.width - img.naturalWidth * sc) / 2; y = (r.height - img.naturalHeight * sc) / 2; apply(); };
+  const zoomAt = (f, cx, cy) => { const r = stage.getBoundingClientRect(); cx -= r.left; cy -= r.top; const ns = Math.min(fit * 12, Math.max(fit * 0.5, sc * f)); x = cx - (cx - x) * (ns / sc); y = cy - (cy - y) * (ns / sc); sc = ns; apply(); };
+  img.onload = doFit; if (img.complete) setTimeout(doFit, 0);
+  stage.addEventListener("wheel", e => { e.preventDefault(); zoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX, e.clientY); }, { passive: false });
+  stage.addEventListener("dblclick", e => { const r = stage.getBoundingClientRect(); if (sc > fit * 1.5) doFit(); else zoomAt(2.5, e.clientX, e.clientY); });
+  const pts = new Map(); let last = null, lastDist = 0;
+  stage.addEventListener("pointerdown", e => { stage.setPointerCapture(e.pointerId); pts.set(e.pointerId, e); last = { x: e.clientX, y: e.clientY }; stage.classList.add("grab"); });
+  stage.addEventListener("pointermove", e => {
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, e);
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()]; const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      if (lastDist) zoomAt(d / lastDist, (a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2);
+      lastDist = d;
+    } else if (last) { x += e.clientX - last.x; y += e.clientY - last.y; last = { x: e.clientX, y: e.clientY }; apply(); }
+  });
+  const up = e => { pts.delete(e.pointerId); lastDist = 0; last = pts.size === 1 ? (([p]) => ({ x: p.clientX, y: p.clientY }))([...pts.values()]) : null; if (!pts.size) stage.classList.remove("grab"); };
+  stage.addEventListener("pointerup", up); stage.addEventListener("pointercancel", up);
+  ov.querySelector(".iv-bar").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.classList.contains("iv-close")) return closeImageViewer();
+    if (b.dataset.z === "0") return doFit();
+    if (b.dataset.z) { const r = stage.getBoundingClientRect(); zoomAt(b.dataset.z === "1" ? 1.5 : 1 / 1.5, r.left + r.width / 2, r.top + r.height / 2); }
+  });
+  ov._keys = e => { if (e.key === "Escape") closeImageViewer(); if (e.key === "+" || e.key === "=") ov.querySelector('[data-z="1"]').click(); if (e.key === "-") ov.querySelector('[data-z="-1"]').click(); if (e.key === "0") doFit(); };
+  document.addEventListener("keydown", ov._keys);
+  window.addEventListener("resize", doFit);
+  ov._fit = doFit;
+}
+function closeImageViewer() { const ov = document.getElementById("imgview"); if (!ov) return; document.removeEventListener("keydown", ov._keys); window.removeEventListener("resize", ov._fit); ov.remove(); }
+function viewStepImage(ideaId, f, sIdx, src) {
+  openImageViewer(src, `<button type="button" class="iv-act" onclick="closeImageViewer();openStepHelp('${ideaId}',${f},${sIdx})">Keep working on this step →</button>`);
+}
+
 function viewSketch(ideaId, idx) {
   const idea = IDEAS.find(i => i.id === ideaId);
   if (!idea || !idea.bocetos[idx]) return;
   viewingSketch = { ideaId, idx };
-  document.getElementById("sketch-view-img").src = idea.bocetos[idx].src;
-  document.getElementById("sketch-erase-btn").innerHTML = eraserSvg("Erase");
-  document.getElementById("sketch-view-overlay").classList.add("open");
+  openImageViewer(idea.bocetos[idx].src, `<button type="button" class="iv-act danger" onclick="deleteSketch()">Erase</button>`);
 }
 function closeSketchView() { document.getElementById("sketch-view-overlay").classList.remove("open"); viewingSketch = null; }
 async function deleteSketch() {
@@ -6074,6 +6130,7 @@ async function deleteSketch() {
   if (!ok) return;
   const idea = IDEAS.find(i => i.id === viewingSketch.ideaId);
   if (idea) { idea.bocetos.splice(viewingSketch.idx, 1); saveIdeas(); }
+  closeImageViewer();
   closeSketchView();
   if (idea) openDetail(idea.id);
 }
@@ -7106,8 +7163,9 @@ function attChipHtml(a, removeJs, openJs) {
 function viewAttachment(a) {
   if (!a) return;
   const ov = document.createElement("div"); ov.className = "modal-overlay open att-viewer";
+  if (a.tipo === "img") return openImageViewer(a.src);
   ov.innerHTML = a.tipo === "img"
-    ? `<div class="att-view-img"><img src="${a.src}" alt=""><button class="modal-close" style="position:absolute;top:10px;right:14px;color:#fff">&times;</button></div>`
+    ? ``
     : `<div class="modal-box" style="max-width:720px"><div class="modal-head"><div class="modal-title">${escapeHtml(a.nombre)}</div><button class="modal-close">&times;</button></div><pre class="att-text">${escapeHtml(a.texto)}</pre></div>`;
   ov.addEventListener("click", e => { if (e.target === ov || e.target.closest(".modal-close")) ov.remove(); });
   document.body.appendChild(ov);
@@ -7836,7 +7894,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-26 15:40 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-26 16:20 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
