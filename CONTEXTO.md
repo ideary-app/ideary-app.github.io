@@ -1,6 +1,6 @@
 # Ideary — CONTEXTO
 
-**Última actualización:** 2026-10-18 (versión 1.3.0)
+**Última actualización:** 2026-10-18 (versión 1.4.0)
 
 Este archivo sirve para entender Ideary sin haber leído las charlas en las que se construyó. Ideary es una app independiente: no comparte datos con las otras apps del autor (Receater, el inventario de casa). Solo va a aparecer como una entrada más en el futuro hub común.
 
@@ -290,3 +290,9 @@ Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la prim
 - **Cartucheras (rediseño):** Pencils con lápices enteros (sin cortes); Coral con dibujitos sueltos en un patrón largo poco repetitivo; Brown leather y Low-profile black con textura de cuero en relieve; Checker, Mint stars y Rainbow con patrón más grande en desktop (Rainbow con franjas más gruesas).
 
 - **Mobile:** los "?" de ayuda se abren con un toque y su globo se posiciona por JS para no salirse de la pantalla. "Description"/"What this stage is about" no se pliegan. Hay un script de auditoría (Playwright, 360/390px) que recorre todas las pantallas y modales buscando elementos fuera de pantalla, botones cortados y títulos rotos; correrlo antes de publicar cambios de UI.
+
+- **Adjuntos (imágenes y archivos de texto):** en cada paso, pestaña "My work" → "📎 Add image or file" (imágenes achicadas a 1600px JPEG; texto .txt/.md/.csv/.json/.srt/.fountain hasta 120 KB) guardados en el paso (`adjuntos: [{tipo:"img"|"texto", nombre, src|texto, fecha}]`), dentro del archivo único. El tutor recibe el texto y hasta 4 imágenes (Gemini multimodal). En el chat del mentor hay 📎: la IA ve lo adjuntado y puede ofrecer "archivar" (`{"tipo":"archivar","archivo","paso"}`) para guardarlo en el paso que corresponde; si no encuentra paso, va a Images (imagen) o Notes (texto). Formatos propietarios (ej. PureRef .pur) no se leen: exportar una imagen.
+- **Images** (antes "Sketches"): dibujos e imágenes propias de la idea + las imágenes adjuntas a sus pasos (marcadas 📎 con el nombre del paso; tocar abre ese paso). Regla para el usuario: subí la imagen donde estés trabajando (el paso); aparece también en Images.
+- **Workspace del paso:** dos pestañas, "✏️ My work" (texto + adjuntos + Save / Save & mark done) y "💬 Ask the tutor" (chat; "+ Add to my work" pasa la respuesta a My work).
+- **Header en desktop:** logo a la izquierda; buscador y "+" en el centro; "?" (tour) y Settings a la derecha (en desktop esos botones salen de la sidebar).
+- **Tour vs. Drive:** el tour espera a que Drive termine de cargar (y no aparece con el banner de reconexión). Los tours vistos y la intensidad del fondo se guardan también en `ideary-settings.json`, así no se repiten en otros dispositivos.

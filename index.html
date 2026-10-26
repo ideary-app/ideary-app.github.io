@@ -3863,6 +3863,48 @@ SHIPPING CHANGES
     .ch-title { overflow-wrap: anywhere; }
     .sug-head, .pc-act span { overflow-wrap: anywhere; }
   }
+
+  /* Desktop header: logo left · search + new idea centered · help + settings right */
+  .hdr-tools { display: none; }
+  @media (min-width: 861px) {
+    .mobile-header-top { display: grid !important; grid-template-columns: 1fr auto 1fr; align-items: center; column-gap: 12px; }
+    #mobile-brand { justify-self: start; grid-column: 1; grid-row: 1; }
+    .mobile-header-top .mobile-search-wrap { grid-column: 2; grid-row: 1; width: min(520px, 42vw); flex: none !important; margin: 0 !important; }
+    .mobile-header-top .mobile-icon-btn { grid-column: 2; grid-row: 1; justify-self: end; transform: translateX(calc(100% + 10px)); }
+    .hdr-tools { display: flex; gap: 10px; justify-self: end; grid-column: 3; grid-row: 1; }
+    .hdr-tool { width: 38px; height: 38px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+      background: #f4ecd4; color: #1f2430; border: none; outline: 1.5px dashed rgba(31,36,48,.45); outline-offset: -4px; box-shadow: 0 2px 3px rgba(0,0,0,.3);
+      font: 700 1rem var(--sans); }
+    .hdr-tool:hover { transform: translateY(-1px); }
+    .sidebar .sidebar-help-btn, .sidebar .settings-btn { display: none !important; }
+    .sidebar .sidebar-action-btn.primary { flex: 1; }
+  }
+
+  /* Step workspace: two tabs instead of two stacked inputs */
+  .ws-tabs { display: flex; gap: 4px; border-bottom: 1.5px solid var(--line-strong); margin-bottom: 10px; }
+  .ws-tab { flex: 1; background: none; border: none; border-bottom: 3px solid transparent; padding: 8px 6px; font-family: var(--hand); font-size: 1.15rem; color: var(--slate); cursor: pointer; margin-bottom: -1.5px; }
+  .ws-tab.on { color: var(--pen); border-bottom-color: var(--pen); }
+  .ws-pane { flex: 1 1 0; display: flex; flex-direction: column; min-height: 0; }
+  #step-work { flex: 1 1 auto; }
+  #ws-work .mic-wrap { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 120px; }
+  #ws-work .mic-wrap textarea { flex: 1 1 auto; }
+  .ws-foot { display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-top: 10px; flex-wrap: wrap; }
+  .ws-foot .note-date { margin-right: auto; }
+  .att-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .att-list:empty { display: none; }
+  .att { display: flex; align-items: center; gap: 6px; background: var(--panel); border: 1px solid var(--line-strong); border-radius: 6px; padding: 4px 6px; max-width: 220px; }
+  .att img { width: 44px; height: 44px; object-fit: cover; border-radius: 4px; cursor: zoom-in; }
+  .att-file { font-size: 1.6rem; cursor: pointer; }
+  .att-name { font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .att-x { background: none; border: none; color: var(--slate); font-size: 1.1rem; cursor: pointer; padding: 0 2px; }
+  .att-add, .att-clip { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-family: var(--hand); font-size: 1.05rem; color: var(--pen); margin-top: 8px; align-self: flex-start;
+    border: 1.5px dashed var(--line-strong); border-radius: 6px; padding: 4px 10px; }
+  .att-clip { margin: 0; padding: 0 10px; font-size: 1.1rem; border-radius: 999px; }
+  .att-list.in-msg .att { background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.35); }
+  .att-view-img { position: relative; max-width: 96vw; max-height: 92vh; overflow: auto; }
+  .att-view-img img { max-width: 96vw; max-height: 92vh; display: block; border-radius: 4px; }
+  .att-text { white-space: pre-wrap; font: .85rem/1.5 var(--mono); max-height: 70vh; overflow: auto; background: var(--paper); padding: 12px; border-radius: 6px; }
+  .sketch-thumb.from-step span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; display: block; }
 </style>
 </head>
 <body>
@@ -3890,6 +3932,10 @@ SHIPPING CHANGES
     <button class="mobile-icon-btn" onclick="openNewIdeaForm()" aria-label="New idea" title="New idea">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </button>
+    <div class="hdr-tools">
+      <button type="button" class="hdr-tool" onclick="replayTour()" title="Show me around" aria-label="Help">?</button>
+      <button type="button" class="hdr-tool" onclick="openSettings()" title="Settings" aria-label="Settings"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+    </div>
   </div>
 </header>
 
@@ -3938,7 +3984,7 @@ SHIPPING CHANGES
       <div id="nav-categorias"></div>
     </div>
 
-    <div class="version-link" onclick="openChangelog()">v1.3.0 · What's new</div>
+    <div class="version-link" onclick="openChangelog()">v1.4.0 · What's new</div>
     <div style="text-align:center;font-family:var(--hand);font-size:.9rem;margin-top:6px"><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--slate)">Privacy</a> · <a href="terms.html" target="_blank" rel="noopener" style="color:var(--slate)">Terms</a></div>
   </div>
   </aside>
@@ -4255,29 +4301,40 @@ SHIPPING CHANGES
     <div class="form-hint" style="margin-bottom:8px">Ask anything about the whole project. The mentor sees every chapter, your progress, key decisions and notes. If it suggests adding something, you choose.</div>
     <div id="pc-log" class="step-log" style="flex:1"></div>
     <div style="display:flex;gap:8px;margin-top:8px">
+      <label class="att-clip" title="Attach an image or a text file">📎<input type="file" multiple accept="image/*,.txt,.md,.csv,.json,.srt,.fountain,text/plain" style="display:none" onchange="pcAddFiles(this)"></label>
       <input class="form-input" id="pc-input" style="flex:1;font-size:16px" placeholder="Ask anything…" onkeydown="if(event.key==='Enter'){event.preventDefault();pcSend();}">
       <button class="form-submit" style="margin:0;width:auto;padding:0 16px" onclick="pcSend()">Send</button>
     </div>
+    <div class="att-list" id="pc-atts"></div>
     <div style="text-align:right;margin-top:6px"><button type="button" class="pw-skip" onclick="pcClear()">Clear conversation</button></div>
   </div>
 </div>
 <div class="modal-overlay" id="step-overlay">
-  <div class="modal-box step-ws-box" style="max-width:640px;display:flex;flex-direction:column;height:min(90vh,780px)">
+  <div class="modal-box step-ws-box" style="max-width:660px;display:flex;flex-direction:column;height:min(90vh,800px)">
     <div class="modal-head">
       <div class="modal-title" id="step-title" style="font-size:1.4rem;line-height:1.2"></div>
       <button class="modal-close" onclick="closeStepHelp()">&times;</button>
     </div>
     <div id="step-exp" class="form-hint" style="margin-bottom:8px"></div>
-    <div id="step-log" class="step-log"></div>
-    <div style="display:flex;gap:8px;margin-top:8px">
-      <input class="form-input" id="step-input" style="flex:1;font-size:16px" placeholder="Ask the tutor about this step…" onkeydown="if(event.key==='Enter'){event.preventDefault();stepSend();}">
-      <button class="form-submit" style="margin:0;width:auto;padding:0 16px" onclick="stepSend()">Send</button>
+    <div class="ws-tabs" role="tablist">
+      <button type="button" class="ws-tab" data-tab="work" onclick="stepTab('work')">✏️ My work</button>
+      <button type="button" class="ws-tab" data-tab="tutor" onclick="stepTab('tutor')">💬 Ask the tutor</button>
     </div>
-    <div class="step-work-head"><span>Your work on this step</span><span id="step-saved" class="note-date"></span></div>
-    <textarea class="form-input form-textarea" id="step-work" style="min-height:90px;font-size:16px" placeholder="Write your answer, decisions or draft here (or add the tutor's replies)…" onblur="saveStepWork()"></textarea>
-    <div style="display:flex;gap:8px;margin-top:8px">
-      <button class="form-submit" style="margin:0" onclick="saveStepWork()">Save</button>
-      <button class="form-submit" style="margin:0;background:transparent !important;color:var(--pen) !important" onclick="stepMarkDone()">Save &amp; mark done</button>
+    <div class="ws-pane" id="ws-work">
+      <div class="form-hint" style="margin:0 0 6px">Your answer, decisions, drafts, and any images or files for this step. The tutor can see all of it.</div>
+      <textarea class="form-input form-textarea" id="step-work" style="flex:1;min-height:120px;font-size:16px" placeholder="Write here…" onblur="saveStepWork()"></textarea>
+      <div class="att-list" id="step-atts"></div>
+      <label class="att-add">📎 Add image or file<input type="file" multiple accept="image/*,.txt,.md,.csv,.json,.srt,.fountain,text/plain" style="display:none" onchange="addStepFiles(this)"></label>
+      <div class="ws-foot"><span id="step-saved" class="note-date"></span>
+        <button class="form-submit" style="margin:0;width:auto;padding:8px 18px;background:transparent !important;color:var(--pen) !important" onclick="saveStepWork()">Save</button>
+        <button class="form-submit" style="margin:0;width:auto;padding:8px 18px" onclick="stepMarkDone()">Save &amp; mark done ✓</button></div>
+    </div>
+    <div class="ws-pane" id="ws-tutor">
+      <div id="step-log" class="step-log" style="flex:1"></div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input class="form-input" id="step-input" style="flex:1;font-size:16px" placeholder="Ask about this step…" onkeydown="if(event.key==='Enter'){event.preventDefault();stepSend();}">
+        <button class="form-submit" style="margin:0;width:auto;padding:0 16px" onclick="stepSend()">Send</button>
+      </div>
     </div>
   </div>
 </div>
@@ -5268,6 +5325,7 @@ let geminiKey = "";
 let driveSettingsFileId = null;
 try { geminiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || ""; } catch (e) {}
 
+let driveSettingsLoaded = false;
 async function driveLoadSettings() {
   try {
     const sf = await driveFindByName(DRIVE_SETTINGS_FILENAME, "artdeas-settings.json", "id");
@@ -5278,6 +5336,8 @@ async function driveLoadSettings() {
         const s = await r.json();
         if (s && s.coverColor) applyCover(s.coverColor);
         if (s && s.caseStyle) applyCase(s.caseStyle);
+        if (s && s.tours) { try { localStorage.setItem(TOUR_KEY, JSON.stringify(Object.assign(toursSeen(), s.tours))); } catch (e) {} }
+        if (s && typeof s.bgIntensity === "number") setBgIntensity(s.bgIntensity, true);
         if (s && s.geminiKey) {
           if (geminiKey !== s.geminiKey) geminiModel = "";
           geminiKey = s.geminiKey;
@@ -5289,11 +5349,12 @@ async function driveLoadSettings() {
     // Drive has no key yet but this browser does: upload it once.
     if (geminiKey) await driveSaveSettings();
   } catch (e) { console.error("Settings sync failed", e); }
+  finally { driveSettingsLoaded = true; }
 }
 
 async function driveSaveSettings() {
   if (!driveReady && !accessToken) return;
-  const payload = JSON.stringify({ geminiKey, coverColor, caseStyle });
+  const payload = JSON.stringify({ geminiKey, coverColor, caseStyle, tours: toursSeen(), bgIntensity });
   if (driveSettingsFileId) {
     await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveSettingsFileId}?uploadType=media`, {
       method: "PATCH", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: payload });
@@ -5498,7 +5559,7 @@ async function geminiGenerate(history, system, retried, modelOverride, think) {
       signal: ctrl.signal,
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: system || DIRECTOR_RULES }] },
-        contents: history.map(m => ({ role: m.role, parts: [{ text: m.text }] })),
+        contents: history.map(m => ({ role: m.role, parts: [{ text: m.text }].concat((m.images || []).map(im => ({ inlineData: { mimeType: im.mime, data: im.data } }))) })),
         generationConfig: genConfig(model, 0.7, think)
       })
     });
@@ -5883,17 +5944,19 @@ function renderReferencesBlock(idea) {
 
 /* ---------- Sketches ---------- */
 function renderSketchBlock(idea) {
-  const list = idea.bocetos || [];
+  const list = ideaImages(idea);
   return `
     <div class="detail-block sketch-block">
-      <div class="block-title c-plan" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>Sketches</span>
+      <div class="block-title c-plan" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>Images</span>
         <span style="display:flex;gap:6px">
           <button type="button" class="stuck-btn" style="margin:0" onclick="openSketchPad('${escapeAttr(idea.id)}')">Draw</button>
-          <label class="stuck-btn" style="margin:0;cursor:pointer">Photo<input type="file" accept="image/*" style="display:none" onchange="addSketchPhoto('${escapeAttr(idea.id)}', this)"></label>
+          <label class="stuck-btn" style="margin:0;cursor:pointer">Add image<input type="file" accept="image/*" style="display:none" onchange="addSketchPhoto('${escapeAttr(idea.id)}', this)"></label>
         </span>
       </div>
-      ${list.length ? `<div class="sketch-grid">${list.map((b, i) => `<button type="button" class="sketch-thumb" onclick="viewSketch('${escapeAttr(idea.id)}',${i})"><img src="${b.src}" alt="Sketch ${i + 1}"><span>${escapeHtml(fmtShortDate(b.fecha))}</span></button>`).join("")}</div>`
-        : `<p class="empty-plan">Draw to think it through — ugly is fine. Or snap a photo of a paper sketch.</p>`}
+      ${list.length ? `<div class="sketch-grid">${list.map(b => b.own !== undefined
+          ? `<button type="button" class="sketch-thumb" onclick="viewSketch('${escapeAttr(idea.id)}',${b.own})"><img src="${b.src}" alt=""><span>${escapeHtml(fmtShortDate(b.fecha))}</span></button>`
+          : `<button type="button" class="sketch-thumb from-step" title="From step: ${escapeAttr(b.paso)}" onclick="openStepHelp('${escapeAttr(idea.id)}',${b.f},${b.s})"><img src="${b.src}" alt=""><span>📎 ${escapeHtml(b.paso)}</span></button>`).join("")}</div>`
+        : `<p class="empty-plan">Sketches, reference images, photos of a paper drawing… Images you attach to a step show up here too.</p>`}
     </div>`;
 }
 
@@ -6716,7 +6779,7 @@ function blockSummary(b) {
     return all ? `<span class="cs-bar"><span style="width:${Math.round(done / all * 100)}%"></span></span><span>${done}/${all} figured out</span>` : "<span>empty</span>";
   }
   if (b.querySelector(".notes-list")) { const n = b.querySelectorAll(".notes-list li").length; return `<span>${n} note${n === 1 ? "" : "s"}</span>`; }
-  if (b.classList.contains("sketch-block")) { const n = b.querySelectorAll(".sketch-thumb").length; return `<span>${n} sketch${n === 1 ? "" : "es"}</span>`; }
+  if (b.classList.contains("sketch-block")) { const n = b.querySelectorAll(".sketch-thumb").length; return `<span>${n} image${n === 1 ? "" : "s"}</span>`; }
   if (b.classList.contains("refs-block")) { const n = b.querySelectorAll(".ref-item").length; return `<span>${n} link${n === 1 ? "" : "s"}</span>`; }
   return "";
 }
@@ -6856,7 +6919,7 @@ function applySortNotes() {
 ================================================================== */
 const TOUR_KEY = "ideary_tours_seen_v1";
 function toursSeen() { try { return JSON.parse(localStorage.getItem(TOUR_KEY) || "{}"); } catch (e) { return {}; } }
-function markTour(name) { const t = toursSeen(); t[name] = 1; try { localStorage.setItem(TOUR_KEY, JSON.stringify(t)); } catch (e) {} }
+function markTour(name) { const t = toursSeen(); t[name] = 1; try { localStorage.setItem(TOUR_KEY, JSON.stringify(t)); } catch (e) {} if (driveReady) driveSaveSettings().catch(() => {}); }
 const isPhone = () => window.innerWidth < 1000;
 const TOURS = {
   home: [
@@ -6874,7 +6937,7 @@ const TOURS = {
     { sel: ".tool-btn.marker", t: "Turn it into a plan", b: "<strong>Develop idea</strong>: an AI that knows the craft builds a step-by-step plan, explaining how to do each step." },
     { sel: ".step-row .step-box, .step-row .step-check, .step-row", t: "Check things off", b: "Tap a box once = <strong>started</strong> (half filled). Twice = <strong>done</strong>. Like a real notebook, nothing gets crossed out." },
     { sel: ".step-help-btn", t: "Stuck on a step?", b: "<strong>Help</strong> opens a tutor for that step. It explains like a teacher and helps you write things down. Your work stays saved on the step." },
-    { sel: ".detail-dashboard-sidecol", t: "Your side notes", b: "Things to figure out, notes, sketches and references. Tap a title to fold or unfold it." },
+    { sel: ".detail-dashboard-sidecol", t: "Your side notes", b: "Things to figure out, notes, images and references. Tap a title to fold or unfold it." },
     { sel: ".badge-due", t: "Give it a date", b: "Optional, but it helps: Ideary will tell you when something is close or late." }
   ],
   project: [
@@ -7003,6 +7066,88 @@ new MutationObserver(() => {
   window.addEventListener("scroll", hide, { passive: true });
 })();
 
+
+/* ---------- Attachments: images and text files on steps, and in the mentor chat ----------
+   Images are shrunk (max 1600px JPEG) and text files are kept as text, all inside the
+   one data file. The AI tutor / mentor can see them (images go to Gemini as pictures). */
+const ATT_TEXT_MAX = 120000;
+function readAttachment(file) {
+  return new Promise((res, rej) => {
+    if (/^image\//.test(file.type)) {
+      const url = URL.createObjectURL(file), img = new Image();
+      img.onload = () => {
+        const sc = Math.min(1, 1600 / Math.max(img.width, img.height));
+        const c = document.createElement("canvas"); c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
+        const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        res({ tipo: "img", nombre: file.name, src: c.toDataURL("image/jpeg", 0.8), fecha: new Date().toISOString() });
+      };
+      img.onerror = () => rej(new Error("Couldn't read that image."));
+      img.src = url;
+    } else if (/^text\//.test(file.type) || /\.(txt|md|csv|json|srt|fountain)$/i.test(file.name)) {
+      const r = new FileReader();
+      r.onload = () => { const t = String(r.result); res({ tipo: "texto", nombre: file.name, texto: t.slice(0, ATT_TEXT_MAX), cortado: t.length > ATT_TEXT_MAX, fecha: new Date().toISOString() }); };
+      r.onerror = () => rej(new Error("Couldn't read that file."));
+      r.readAsText(file);
+    } else rej(new Error(`"${file.name}" can't be read here. Images and text files (.txt, .md, .csv…) work. For other files (like a PureRef board), export an image first.`));
+  });
+}
+function attsText(list) {
+  const t = (list || []).filter(a => a.tipo === "texto");
+  return t.length ? "\nATTACHED FILES:\n" + t.map(a => `--- ${a.nombre} ---\n${a.texto.slice(0, 20000)}`).join("\n") : "";
+}
+function attsImages(list) {
+  return (list || []).filter(a => a.tipo === "img").slice(-4).map(a => ({ mime: "image/jpeg", data: a.src.split(",")[1] }));
+}
+function attChipHtml(a, removeJs, openJs) {
+  return `<div class="att ${a.tipo}">${a.tipo === "img" ? `<img src="${a.src}" alt="" onclick="${openJs}">` : `<span class="att-file" onclick="${openJs}">📄</span>`}
+    <span class="att-name" title="${escapeAttr(a.nombre || "")}">${escapeHtml(a.nombre || "image")}</span>${removeJs ? `<button type="button" class="att-x" title="Remove" onclick="${removeJs}">&times;</button>` : ""}</div>`;
+}
+function viewAttachment(a) {
+  if (!a) return;
+  const ov = document.createElement("div"); ov.className = "modal-overlay open att-viewer";
+  ov.innerHTML = a.tipo === "img"
+    ? `<div class="att-view-img"><img src="${a.src}" alt=""><button class="modal-close" style="position:absolute;top:10px;right:14px;color:#fff">&times;</button></div>`
+    : `<div class="modal-box" style="max-width:720px"><div class="modal-head"><div class="modal-title">${escapeHtml(a.nombre)}</div><button class="modal-close">&times;</button></div><pre class="att-text">${escapeHtml(a.texto)}</pre></div>`;
+  ov.addEventListener("click", e => { if (e.target === ov || e.target.closest(".modal-close")) ov.remove(); });
+  document.body.appendChild(ov);
+}
+async function addStepFiles(input) {
+  const ref = getStepRef();
+  if (!ref) return;
+  for (const f of Array.from(input.files || [])) {
+    try { ref.step.adjuntos = (ref.step.adjuntos || []).concat([await readAttachment(f)]); }
+    catch (e) { await showAlert(e.message, { title: "Can't add that file" }); }
+  }
+  input.value = "";
+  saveIdeas(); renderStepAtts();
+}
+function removeStepAtt(k) {
+  const ref = getStepRef(); if (!ref || !ref.step.adjuntos) return;
+  ref.step.adjuntos.splice(k, 1); if (!ref.step.adjuntos.length) delete ref.step.adjuntos;
+  saveIdeas(); renderStepAtts();
+}
+function renderStepAtts() {
+  const ref = getStepRef(), box = document.getElementById("step-atts");
+  if (!ref || !box) return;
+  box.innerHTML = (ref.step.adjuntos || []).map((a, k) => attChipHtml(a, `removeStepAtt(${k})`, `viewAttachment(getStepRef().step.adjuntos[${k}])`)).join("");
+}
+function stepTab(t) {
+  document.querySelectorAll("#step-overlay .ws-tab").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
+  document.getElementById("ws-work").style.display = t === "work" ? "flex" : "none";
+  document.getElementById("ws-tutor").style.display = t === "tutor" ? "flex" : "none";
+  if (t === "tutor") { const l = document.getElementById("step-log"); if (l) l.scrollTop = l.scrollHeight; }
+}
+// every image of an idea: its own (drawn or uploaded) + the ones attached to its steps
+function ideaImages(idea) {
+  const own = (idea.bocetos || []).map((b, i) => ({ src: b.src, fecha: b.fecha, own: i }));
+  const fromSteps = [];
+  (idea.fases || []).forEach((f, fi) => (f.pasos || []).forEach((st, si) => {
+    if (typeof st === "object") (st.adjuntos || []).forEach(a => { if (a.tipo === "img") fromSteps.push({ src: a.src, fecha: a.fecha, paso: st.texto, f: fi, s: si }); });
+  }));
+  return own.concat(fromSteps);
+}
+
 /* ---------- Project mentor chat: ask anything about the whole project ---------- */
 const PROJECT_MENTOR_RULES = `You are a veteran professional in the field of this project (a film director for a short film, a master carpenter for furniture, a head chef for a recipe…) acting as the person's mentor for the WHOLE project. You can see every chapter, its plan and progress, the key decisions, notes and open questions.
 - Answer like a good teacher: clear, concrete, applied to THIS project, short paragraphs. Guide and give options with their trade-offs; don't make the person's creative decisions for them.
@@ -7012,10 +7157,44 @@ const PROJECT_MENTOR_RULES = `You are a veteran professional in the field of thi
 - Answer in the language the person writes in.
 - If (and only if) your answer suggests concrete additions to the project, end with a block exactly like this (no other text after it):
 \`\`\`actions
-[{"tipo":"resuelto","pregunta":"Exact text of the thing to figure out","texto":"Topic: the choice made"},{"tipo":"capitulo","titulo":"New chapter name","antesDe":"Existing chapter name or null"},{"tipo":"decision","texto":"Topic: choice"},{"tipo":"resolver","texto":"Open question to figure out"},{"tipo":"nota","texto":"Short note"}]
+[{"tipo":"archivar","archivo":"exact attached file name","paso":"Exact text of the step it belongs to"},{"tipo":"resuelto","pregunta":"Exact text of the thing to figure out","texto":"Topic: the choice made"},{"tipo":"capitulo","titulo":"New chapter name","antesDe":"Existing chapter name or null"},{"tipo":"decision","texto":"Topic: choice"},{"tipo":"resolver","texto":"Open question to figure out"},{"tipo":"nota","texto":"Short note"}]
 \`\`\`
 Only include actions the person would clearly want offered; they will accept or skip each one.
+- When the person attaches images or files, look at them and use them in your answer. If a file clearly belongs to one of the listed steps (e.g. a reference board for "Collect references"), offer an "archivar" action with that step's exact text.
 - When the person picks an option for one of the THINGS TO FIGURE OUT (or clearly settles it), offer a "resuelto" action with that thing's exact text in "pregunta" and the choice in "texto", asking briefly if they want it written into the project. "capitulo" only applies to projects.`;
+
+let pcPendingAtts = [];
+async function pcAddFiles(input) {
+  for (const f of Array.from(input.files || [])) {
+    try { pcPendingAtts.push(await readAttachment(f)); } catch (e) { await showAlert(e.message, { title: "Can't add that file" }); }
+  }
+  input.value = ""; renderPcAtts();
+}
+function renderPcAtts() {
+  const box = document.getElementById("pc-atts"); if (!box) return;
+  box.innerHTML = pcPendingAtts.map((a, k) => attChipHtml(a, `pcPendingAtts.splice(${k},1);renderPcAtts()`, `viewAttachment(pcPendingAtts[${k}])`)).join("");
+}
+// all steps of an idea or project, for filing attachments
+function allStepsOf(item) {
+  const ideas = isProject(item) ? projectChapters(item) : [item];
+  const out = [];
+  ideas.forEach(i => (i.fases || []).forEach((f, fi) => (f.pasos || []).forEach((st, si) => out.push({ idea: i, f: fi, s: si, texto: typeof st === "string" ? st : st.texto }))));
+  return out;
+}
+function fileAttachment(item, att, pasoTxt) {
+  const norm = x => String(x || "").trim().toLowerCase();
+  const steps = allStepsOf(item);
+  const hit = steps.find(x => norm(x.texto) === norm(pasoTxt)) || steps.find(x => pasoTxt && (norm(x.texto).includes(norm(pasoTxt)) || norm(pasoTxt).includes(norm(x.texto))));
+  if (!hit) {
+    if (att.tipo === "img") { item.bocetos = (item.bocetos || []).concat([{ src: att.src, fecha: att.fecha }]); return "Images"; }
+    item.notas = (item.notas || []).concat([{ texto: `📄 ${att.nombre}: ${att.texto.slice(0, 400)}`, fecha: att.fecha }]); return "Notes";
+  }
+  const fase = hit.idea.fases[hit.f];
+  let st = fase.pasos[hit.s]; if (typeof st === "string") st = fase.pasos[hit.s] = { texto: st };
+  st.adjuntos = (st.adjuntos || []).concat([att]);
+  return `step "${hit.texto}"${hit.idea !== item ? ` (${hit.idea.titulo})` : ""}`;
+}
+
 let pcProjId = null;
 const pcPending = {}; // projId -> start time of an answer in progress
 function projectContextText(proj) {
@@ -7069,8 +7248,8 @@ function renderPcChat() {
   const proj = IDEAS.find(i => i.id === pcProjId);
   const log = document.getElementById("pc-log");
   const chat = (proj && proj.chat) || [];
-  const label = a => a.tipo === "resuelto" ? `Settle <em>${escapeHtml(a.pregunta || "")}</em> → <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "capitulo" ? `Add chapter <strong>${escapeHtml(a.titulo)}</strong>${a.antesDe ? " before <em>" + escapeHtml(a.antesDe) + "</em>" : ""}` : a.tipo === "decision" ? `Add key decision <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "resolver" ? `Add to figure out: <strong>${escapeHtml(a.texto)}</strong>` : `Add note: <strong>${escapeHtml(a.texto)}</strong>`;
-  log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}">${escapeHtml(m.text)}${(m.actions || []).map((a, j) => `<div class="pc-act ${a.done ? "done" : ""}"><span>${label(a)}</span>${a.done ? `<span class="note-date">${a.done === "yes" ? "✓ Added" : "Skipped"}</span>` : `<span><button type="button" class="sug-apply" onclick="pcAct(${k},${j},true)">Add</button><button type="button" class="sug-ignore" onclick="pcAct(${k},${j},false)">Skip</button></span>`}</div>`).join("")}</div>`).join("")
+  const label = a => a.tipo === "archivar" ? `File <strong>${escapeHtml(a.archivo || "the attachment")}</strong> in step <em>${escapeHtml(a.paso || "")}</em>` : a.tipo === "resuelto" ? `Settle <em>${escapeHtml(a.pregunta || "")}</em> → <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "capitulo" ? `Add chapter <strong>${escapeHtml(a.titulo)}</strong>${a.antesDe ? " before <em>" + escapeHtml(a.antesDe) + "</em>" : ""}` : a.tipo === "decision" ? `Add key decision <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "resolver" ? `Add to figure out: <strong>${escapeHtml(a.texto)}</strong>` : `Add note: <strong>${escapeHtml(a.texto)}</strong>`;
+  log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}">${escapeHtml(m.text)}${(m.adj || []).length ? `<div class="att-list in-msg">${m.adj.map((a, j) => attChipHtml(a, "", `viewAttachment(IDEAS.find(i=>i.id==='${escapeAttr(pcProjId)}').chat[${k}].adj[${j}])`)).join("")}</div>` : ""}${(m.actions || []).map((a, j) => `<div class="pc-act ${a.done ? "done" : ""}"><span>${label(a)}</span>${a.done ? `<span class="note-date">${a.done === "yes" ? "✓ Added" : "Skipped"}</span>` : `<span><button type="button" class="sug-apply" onclick="pcAct(${k},${j},true)">Add</button><button type="button" class="sug-ignore" onclick="pcAct(${k},${j},false)">Skip</button></span>`}</div>`).join("")}</div>`).join("")
     : `<div class="step-empty">Ask anything about the project. For example:</div>
        <div class="step-chips">${["What should I focus on this week?", "Is anything missing from my plan?", "Am I being realistic with the timing?", "Explain how a pro would approach this project"].map(t => `<button type="button" class="ai-chip" onclick="pcSend(${JSON.stringify(t).replace(/"/g, "&quot;")})">${t}</button>`).join("")}</div>`;
   if (pcPending[pcProjId]) {
@@ -7086,7 +7265,11 @@ function pcAct(k, j, yes) {
   if (!a || a.done) return;
   if (yes) {
     const decTarget = isProject(proj) ? proj : (isChapter(proj) && IDEAS.find(x => x.id === proj.proyectoId)) || null;
-    if (a.tipo === "resuelto") {
+    if (a.tipo === "archivar") {
+      let att = null;
+      for (let j = proj.chat.length - 1; j >= 0 && !att; j--) (proj.chat[j].adj || []).forEach(x => { if (!att && (!a.archivo || x.nombre === a.archivo)) att = x; });
+      if (att) { const where = fileAttachment(proj, att, a.paso); logChanges(proj, "Mentor", [`Filed "${att.nombre}" in ${where}`]); }
+    } else if (a.tipo === "resuelto") {
       const norm = x => String(x || "").trim().toLowerCase();
       const c = (proj.cosasAResolver || []).find(c => norm(c.texto) === norm(a.pregunta)) || (proj.cosasAResolver || []).find(c => !c.resuelto && (norm(c.texto).includes(norm(a.pregunta)) || norm(a.pregunta).includes(norm(c.texto))));
       if (c) { c.resuelto = true; c.decision = a.texto; }
@@ -7116,7 +7299,8 @@ async function pcSend(textOverride) {
   }
   if (pcPending[proj.id]) return;
   proj.chat = proj.chat || [];
-  proj.chat.push({ role: "user", text });
+  const sentAtts = pcPendingAtts.splice(0); renderPcAtts();
+  proj.chat.push({ role: "user", text, adj: sentAtts.length ? sentAtts : undefined });
   const t0 = Date.now();
   pcPending[proj.id] = t0;
   renderPcChat();
@@ -7124,6 +7308,11 @@ async function pcSend(textOverride) {
   try {
     const hist = proj.chat.slice(-12).map((m, k) => ({ role: m.role, text: k === 0 ? chatContextText(proj) + "\n\n" + m.text : m.text }));
     if (hist[0].role !== "user") hist.unshift({ role: "user", text: chatContextText(proj) });
+    if (sentAtts.length) {
+      const last = hist[hist.length - 1];
+      last.text += attsText(sentAtts) + `\n(I attached: ${sentAtts.map(a => a.nombre).join(", ")}. If it clearly belongs to a step, offer to file it there.)\nSTEPS YOU CAN FILE THINGS INTO: ${allStepsOf(proj).map(x => x.texto).slice(0, 80).join(" | ")}`;
+      last.images = attsImages(sentAtts);
+    }
     const { text: reply, actions } = splitActions((await withThinking(wait, "pc-input", () => geminiGenerate(hist, PROJECT_MENTOR_RULES, false, undefined, "low"), null, t0)).trim());
     proj.chat.push({ role: "model", text: reply, actions });
     proj.chat = proj.chat.slice(-30);
@@ -7135,6 +7324,7 @@ async function pcSend(textOverride) {
     const live = document.getElementById("pc-log");
     if (live && pcProjId === proj.id) { const er = document.createElement("div"); er.className = "step-msg model ai-err"; er.textContent = "⚠ " + e.message + (/Cancelled/.test(e.message) ? "" : " Your question is below — tap Send to try again."); live.appendChild(er); live.scrollTop = 1e9; }
     const inp2 = document.getElementById("pc-input"); if (inp2 && !inp2.value) inp2.value = text;
+    if (sentAtts.length) { pcPendingAtts = sentAtts.concat(pcPendingAtts); renderPcAtts(); }
     return;
   }
   delete pcPending[proj.id];
@@ -7537,6 +7727,8 @@ function openStepHelp(ideaId, f, s) {
   document.getElementById("step-exp").textContent = ref.step.explicacion || "";
   document.getElementById("step-work").value = ref.step.trabajo || "";
   renderStepChat();
+  renderStepAtts();
+  stepTab(ref.step.trabajo || (ref.step.adjuntos || []).length || !(ref.step.chat || []).length ? "work" : "tutor");
   document.getElementById("step-overlay").classList.add("open");
 }
 function closeStepHelp() {
@@ -7560,7 +7752,7 @@ function stepContextText(ref) {
   return `PROJECT: ${proj ? proj.titulo + " — " + projAbout(proj) + "\nCURRENT CHAPTER: " + idea.titulo : idea.titulo + " — " + idea.descripcion}
 PLAN OF THIS ${proj ? "CHAPTER" : "IDEA"}: ${(idea.fases || []).map(f => f.nombre + ": " + (f.pasos || []).map(stepText).join(" | ")).join("\n")}
 STEP I'M WORKING ON: ${ref.step.texto}${ref.step.explicacion ? " — " + ref.step.explicacion : ""}
-${ref.step.trabajo ? "WHAT I HAVE SO FAR:\n" + ref.step.trabajo : ""}`;
+${ref.step.trabajo ? "WHAT I HAVE SO FAR:\n" + ref.step.trabajo : ""}${attsText(ref.step.adjuntos)}`;
 }
 async function stepSend(textOverride) {
   if (micHold("step-input", () => stepSend())) return;
@@ -7583,6 +7775,7 @@ async function stepSend(textOverride) {
   try {
     const hist = ref.step.chat.slice(-12).map((m, k, arr) => ({ role: m.role, text: k === 0 ? stepContextText(ref) + "\n\n" + m.text : m.text }));
     if (hist[0].role !== "user") hist.unshift({ role: "user", text: stepContextText(ref) });
+    hist[hist.length - 1].images = attsImages(ref.step.adjuntos);
     const reply = (await withThinking(wait, "step-input", () => geminiGenerate(hist, TUTOR_RULES, false, undefined, "low"))).trim();
     ref.step.chat.push({ role: "model", text: reply });
     ref.step.chat = ref.step.chat.slice(-30);
@@ -7601,6 +7794,7 @@ function useTutorReply(k) {
   const ta = document.getElementById("step-work");
   ta.value = (ta.value ? ta.value.trim() + "\n\n" : "") + m.text;
   saveStepWork();
+  stepTab("work");
 }
 function saveStepWork() {
   const ref = getStepRef();
@@ -7642,9 +7836,21 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-22 14:15 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-26 15:40 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
+  {
+    version: "1.4.0",
+    public: true,
+    items: [
+      "Attach images and text files to a step (\"My work\") — the tutor can see them",
+      "Send images or files to your mentor; it can file them in the right step for you",
+      "\"Sketches\" is now \"Images\" and also shows the images you attached to steps",
+      "Step workspace with two tabs: My work · Ask the tutor",
+      "Desktop header: search and + in the middle, help and settings on the right",
+      "The tour waits for Google Drive to load and remembers itself across devices"
+    ]
+  },
   {
     version: "1.3.0",
     public: true,
@@ -7942,7 +8148,18 @@ function closeHowto() {
 
 function maybeShowHowto() {
   if (!STORAGE_OK) return;
-  setTimeout(() => { if (view === "home" && !document.querySelector(".modal-overlay.open")) startTour("home"); }, 900);
+  // Never before Drive: if there's a Drive session, wait until it has loaded (and its settings,
+  // which also carry the tours you've already seen). Also never on top of a dialog or the reconnect banner.
+  let tries = 0;
+  const attempt = () => {
+    tries++;
+    const busy = document.querySelector(".modal-overlay.open") || document.getElementById("drive-loading-overlay") ||
+      (document.getElementById("reconnect-banner") && document.getElementById("reconnect-banner").style.display !== "none") ||
+      (getDriveSession() && !driveReady && !driveSettingsLoaded && tries < 40);
+    if (busy) return setTimeout(attempt, 500);
+    if (view === "home") startTour("home");
+  };
+  setTimeout(attempt, 1200);
 }
 // "?" and "How it works": replay the guided tour of the page you're on.
 function replayTour() {
@@ -10246,7 +10463,8 @@ function setBgIntensity(v, persist) {
   document.documentElement.style.setProperty("--bg-int", bgIntensity.toFixed(3));
   const r = document.getElementById("bg-int-range"); if (r && persist !== false) r.value = Math.round(bgIntensity * 100);
   const l = document.getElementById("bg-int-val"); if (l) l.textContent = Math.round(bgIntensity * 100) + "%";
-  if (persist) { try { localStorage.setItem(BG_KEY, String(bgIntensity)); } catch (e) {} if (window._zipSyncY) window._zipSyncY(); }
+  if (persist) { try { localStorage.setItem(BG_KEY, String(bgIntensity)); } catch (e) {} if (window._zipSyncY) window._zipSyncY();
+    clearTimeout(window._bgSaveT); window._bgSaveT = setTimeout(() => { if (typeof driveReady !== "undefined" && driveReady) driveSaveSettings().catch(() => {}); }, 1500); }
 }
 setBgIntensity(bgIntensity, false);
 (function initZipPull() {
