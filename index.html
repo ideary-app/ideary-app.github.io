@@ -5344,6 +5344,7 @@ try { geminiModel = localStorage.getItem(GEMINI_MODEL_STORAGE) || ""; } catch (e
 
 // Asks Google which models this key can use and picks the newest plain
 // "flash" one, so the app doesn't break each time a model is retired.
+let geminiAvailable = null; // model names this key can use (filled by geminiListModels)
 async function geminiListModels(key) {
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=${encodeURIComponent(key)}`);
   if (!res.ok) {
@@ -5352,7 +5353,8 @@ async function geminiListModels(key) {
     const err = new Error(msg); err.status = res.status; throw err;
   }
   const j = await res.json();
-  return (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent")).map(m => m.name.replace(/^models\//, ""));
+  geminiAvailable = (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent")).map(m => m.name.replace(/^models\//, ""));
+  return geminiAvailable;
 }
 function geminiPickModel(names) {
   const plain = names.map(n => { const m = n.match(/^gemini-(\d+(?:\.\d+)?)-flash$/); return m ? { n, v: parseFloat(m[1]) } : null; }).filter(Boolean).sort((a, b) => b.v - a.v);
@@ -5619,6 +5621,10 @@ async function geminiGenerate(history, system, retried, modelOverride, think) {
     let msg = "Gemini error " + res.status;
     try { const j = await res.json(); if (j.error && j.error.message) msg = j.error.message; } catch (e) {}
     if (res.status === 400 && /thinking/i.test(msg) && thinkCfgOK) { thinkCfgOK = false; return geminiGenerate(history, system, retried, modelOverride, think); }
+    if (modelOverride && /-lite$/.test(modelOverride) && (res.status === 404 || /not found|not supported/i.test(msg))) {
+      // The lighter model doesn't exist for this key — go back to the normal one.
+      return geminiGenerate(history, system, retried, modelOverride.replace(/-lite$/, ""), think);
+    }
     if (!retried && (res.status === 404 || /no longer available|not found|not supported/i.test(msg))) {
       await geminiResolveModel(true);
       return geminiGenerate(history, system, true, undefined, think);
@@ -5629,7 +5635,9 @@ async function geminiGenerate(history, system, retried, modelOverride, think) {
       // Busy model: back off (2s, 5s, 9s) and alternate with the lighter model if there is one.
       await new Promise(r => setTimeout(r, [2000, 5000, 9000][tries]));
       const base = modelOverride && /-lite$/.test(modelOverride) ? modelOverride.replace(/-lite$/, "") : model;
-      const next = tries % 2 === 0 && /-flash$/.test(base) ? base + "-lite" : base;
+      if (!geminiAvailable) { try { await geminiListModels(geminiKey); } catch (e) {} }
+      const liteOK = geminiAvailable && geminiAvailable.includes(base + "-lite");
+      const next = tries % 2 === 0 && liteOK ? base + "-lite" : base;
       return geminiGenerate(history, system, tries + 1, next, think);
     }
     if (overloaded) { console.warn("Gemini busy:", res.status, model, msg); msg = `Gemini is very busy right now — Google answered “${String(msg).slice(0, 120)}” after 4 tries. It's not your key or your limit; try again in a minute.`; }
@@ -8313,7 +8321,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-26 15:50 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-27 20:30 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {

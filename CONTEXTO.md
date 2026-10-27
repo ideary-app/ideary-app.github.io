@@ -308,4 +308,4 @@ Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la prim
   - Imágenes de más de 4,5 MB se suben a Drive con subida "resumable" (la simple corta en 5 MB).
 - **Backups:** "Backup / Import" ofrece **ZIP** (`ideas.json` + carpeta `images/`, calidad completa) o **un solo JSON** con las imágenes adentro como texto (data URL). Import acepta los dos (o pegar el JSON).
 
-- **Gemini ocupado (503):** `geminiGenerate` reintenta hasta 3 veces con espera (2s, 5s, 9s), alternando con el modelo `-lite`; si igual falla, el mensaje muestra lo que respondió Google.
+- **Gemini ocupado (503):** `geminiGenerate` reintenta hasta 3 veces con espera (2s, 5s, 9s), alternando con el modelo `-lite` **solo si existe** para esa key (`geminiAvailable`, de ListModels; si igual da 404 vuelve al modelo normal); si igual falla, el mensaje muestra lo que respondió Google.
