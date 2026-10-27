@@ -5644,16 +5644,19 @@ async function geminiGenerate(history, system, retried, modelOverride, think, on
     }
     const overloaded = res.status === 503 || /high demand|overloaded|unavailable/i.test(msg);
     const tries = typeof retried === "number" ? retried : (retried ? 9 : 0);
+    const quota = res.status === 429;
     if (overloaded) geminiBusy[model] = Date.now() + 120000;
-    if (overloaded && tries < 4) {
-      // Busy model: switch to another Gemini model this key can use (newest first), short pause between tries.
-      if (!geminiAvailable) { try { await geminiListModels(geminiKey); } catch (e) {} }
-      await new Promise(r => setTimeout(r, tries ? 1500 : 500));
-      return geminiGenerate(history, system, tries + 1, geminiAltModel() || model, think, onChunk);
+    if (quota) geminiBusy[model] = Date.now() + 3600000; // free quota is per model: skip this one for an hour
+    if ((overloaded || quota) && !geminiAvailable) { try { await geminiListModels(geminiKey); } catch (e) {} }
+    if ((overloaded || quota) && tries < 5 && geminiAltModel() !== null) {
+      // Busy model / no quota on it: switch to another Gemini model this key can use (newest first).
+      if (overloaded) await new Promise(r => setTimeout(r, tries ? 1500 : 500));
+      const alt = geminiAltModel();
+      if (alt) return geminiGenerate(history, system, tries + 1, alt, think, onChunk);
     }
     if (overloaded) { console.warn("Gemini busy:", res.status, model, msg); msg = `Gemini is very busy right now — Google answered “${String(msg).slice(0, 120)}” on every model I tried. It's not your key or your limit; try again in a minute.`; }
     else if (res.status === 400 && /api key/i.test(msg)) msg = "Your Gemini API key isn't valid. Check it in Settings.";
-    else if (res.status === 429) msg = "You've used up your free Gemini quota for now. It refills on its own — try again later (usually within the hour, or tomorrow for the daily limit).";
+    else if (res.status === 429) msg = "You've used up your free Gemini quota for now (on every model I tried). It refills on its own — try again later (usually within the hour, or tomorrow for the daily limit).";
     throw new Error(msg);
   }
   if (onChunk && res.body) {
@@ -8383,7 +8386,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-27 21:20 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-27 21:30 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
