@@ -313,3 +313,4 @@ Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la prim
 - **Mentor más involucrado:** cuando contás una idea suelta, el mentor propone dónde va: acción `nota` con `paso` (se agrega al "trabajo" de ese paso con 💡) o `capitulo` (nota del capítulo). Las key decisions quedan para cosas decididas.
 - **Respuestas en streaming:** `geminiGenerate(..., onChunk)` usa `streamGenerateContent?alt=sse`; el mentor muestra el texto mientras llega y usa thinking `minimal` en modelos flash 3+.
 - Si el streaming falla por red, `geminiGenerate` reintenta una vez sin streaming; el error muestra el motivo técnico.
+- **Gemini ocupado:** si un modelo responde 'high demand' se marca ocupado 2 min (`geminiBusy`) y se prueba otro modelo flash/flash-lite disponible para la key (`geminiAltModel`, más nuevo primero), hasta 4 intentos.

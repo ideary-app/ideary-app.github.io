@@ -5344,7 +5344,15 @@ try { geminiModel = localStorage.getItem(GEMINI_MODEL_STORAGE) || ""; } catch (e
 
 // Asks Google which models this key can use and picks the newest plain
 // "flash" one, so the app doesn't break each time a model is retired.
-let geminiAvailable = null; // model names this key can use (filled by geminiListModels)
+let geminiAvailable = null;
+const geminiBusy = {}; // model -> time until we avoid it (it answered "high demand")
+// Another usable chat model that isn't marked busy: plain flash first, then lite, newest version first.
+function geminiAltModel() {
+  const now = Date.now();
+  const c = (geminiAvailable || []).map(n => { const m = n.match(/^gemini-(\d+(?:\.\d+)?)-flash(-lite)?$/); return m ? { n, v: parseFloat(m[1]), lite: !!m[2] } : null; })
+    .filter(x => x && !(geminiBusy[x.n] > now)).sort((a, b) => (a.lite - b.lite) || (b.v - a.v));
+  return c.length ? c[0].n : null;
+} // model names this key can use (filled by geminiListModels)
 async function geminiListModels(key) {
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=${encodeURIComponent(key)}`);
   if (!res.ok) {
@@ -5595,7 +5603,8 @@ function genConfig(model, temperature, level) {
 }
 // onChunk(textSoFar): if given, the answer is streamed and onChunk is called as it arrives.
 async function geminiGenerate(history, system, retried, modelOverride, think, onChunk) {
-  const model = modelOverride || await geminiResolveModel(false);
+  let model = modelOverride || await geminiResolveModel(false);
+  if (!modelOverride && geminiBusy[model] > Date.now()) model = geminiAltModel() || model;
   const ctrl = new AbortController();
   aiCtrlUser = ctrl;
   const timer = setTimeout(() => ctrl.abort("timeout"), 90000);
@@ -5635,16 +5644,14 @@ async function geminiGenerate(history, system, retried, modelOverride, think, on
     }
     const overloaded = res.status === 503 || /high demand|overloaded|unavailable/i.test(msg);
     const tries = typeof retried === "number" ? retried : (retried ? 9 : 0);
-    if (overloaded && tries < 3) {
-      // Busy model: back off (2s, 5s, 9s) and alternate with the lighter model if there is one.
-      await new Promise(r => setTimeout(r, [2000, 5000, 9000][tries]));
-      const base = modelOverride && /-lite$/.test(modelOverride) ? modelOverride.replace(/-lite$/, "") : model;
+    if (overloaded) geminiBusy[model] = Date.now() + 120000;
+    if (overloaded && tries < 4) {
+      // Busy model: switch to another Gemini model this key can use (newest first), short pause between tries.
       if (!geminiAvailable) { try { await geminiListModels(geminiKey); } catch (e) {} }
-      const liteOK = geminiAvailable && geminiAvailable.includes(base + "-lite");
-      const next = tries % 2 === 0 && liteOK ? base + "-lite" : base;
-      return geminiGenerate(history, system, tries + 1, next, think, onChunk);
+      await new Promise(r => setTimeout(r, tries ? 1500 : 500));
+      return geminiGenerate(history, system, tries + 1, geminiAltModel() || model, think, onChunk);
     }
-    if (overloaded) { console.warn("Gemini busy:", res.status, model, msg); msg = `Gemini is very busy right now — Google answered “${String(msg).slice(0, 120)}” after 4 tries. It's not your key or your limit; try again in a minute.`; }
+    if (overloaded) { console.warn("Gemini busy:", res.status, model, msg); msg = `Gemini is very busy right now — Google answered “${String(msg).slice(0, 120)}” on every model I tried. It's not your key or your limit; try again in a minute.`; }
     else if (res.status === 400 && /api key/i.test(msg)) msg = "Your Gemini API key isn't valid. Check it in Settings.";
     else if (res.status === 429) msg = "You've used up your free Gemini quota for now. It refills on its own — try again later (usually within the hour, or tomorrow for the daily limit).";
     throw new Error(msg);
@@ -8376,7 +8383,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-27 21:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-27 21:20 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
