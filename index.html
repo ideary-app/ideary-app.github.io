@@ -4026,7 +4026,7 @@ SHIPPING CHANGES
       <div id="nav-categorias"></div>
     </div>
 
-    <div class="version-link" onclick="openChangelog()">v1.4.1 · What's new</div>
+    <div class="version-link" onclick="openChangelog()">v1.4.2 · What's new</div>
     <div style="text-align:center;font-family:var(--hand);font-size:.9rem;margin-top:6px"><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--slate)">Privacy</a> · <a href="terms.html" target="_blank" rel="noopener" style="color:var(--slate)">Terms</a></div>
   </div>
   </aside>
@@ -5585,7 +5585,7 @@ let thinkCfgOK = true;
 function thinkCfg(model, level) {
   if (!level || !thinkCfgOK) return null;
   if (/gemini-2\.5/.test(model)) return { thinkingBudget: level === "none" ? 0 : 1024 };
-  if (/gemini-[3-9]/.test(model)) return { thinkingLevel: "low" };
+  if (/gemini-[3-9]/.test(model)) return { thinkingLevel: (level === "none" || level === "minimal") && /flash/.test(model) ? "minimal" : "low" };
   return null;
 }
 function genConfig(model, temperature, level) {
@@ -5593,14 +5593,15 @@ function genConfig(model, temperature, level) {
   const t = thinkCfg(model, level); if (t) g.thinkingConfig = t;
   return g;
 }
-async function geminiGenerate(history, system, retried, modelOverride, think) {
+// onChunk(textSoFar): if given, the answer is streamed and onChunk is called as it arrives.
+async function geminiGenerate(history, system, retried, modelOverride, think, onChunk) {
   const model = modelOverride || await geminiResolveModel(false);
   const ctrl = new AbortController();
   aiCtrlUser = ctrl;
   const timer = setTimeout(() => ctrl.abort("timeout"), 90000);
   let res;
   try {
-    res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(geminiKey)}`, {
+    res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:${onChunk ? "streamGenerateContent?alt=sse&" : "generateContent?"}key=${encodeURIComponent(geminiKey)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: ctrl.signal,
@@ -5620,14 +5621,14 @@ async function geminiGenerate(history, system, retried, modelOverride, think) {
   if (!res.ok) {
     let msg = "Gemini error " + res.status;
     try { const j = await res.json(); if (j.error && j.error.message) msg = j.error.message; } catch (e) {}
-    if (res.status === 400 && /thinking/i.test(msg) && thinkCfgOK) { thinkCfgOK = false; return geminiGenerate(history, system, retried, modelOverride, think); }
+    if (res.status === 400 && /thinking/i.test(msg) && thinkCfgOK) { thinkCfgOK = false; return geminiGenerate(history, system, retried, modelOverride, think, onChunk); }
     if (modelOverride && /-lite$/.test(modelOverride) && (res.status === 404 || /not found|not supported/i.test(msg))) {
       // The lighter model doesn't exist for this key — go back to the normal one.
-      return geminiGenerate(history, system, retried, modelOverride.replace(/-lite$/, ""), think);
+      return geminiGenerate(history, system, retried, modelOverride.replace(/-lite$/, ""), think, onChunk);
     }
     if (!retried && (res.status === 404 || /no longer available|not found|not supported/i.test(msg))) {
       await geminiResolveModel(true);
-      return geminiGenerate(history, system, true, undefined, think);
+      return geminiGenerate(history, system, true, undefined, think, onChunk);
     }
     const overloaded = res.status === 503 || /high demand|overloaded|unavailable/i.test(msg);
     const tries = typeof retried === "number" ? retried : (retried ? 9 : 0);
@@ -5638,12 +5639,44 @@ async function geminiGenerate(history, system, retried, modelOverride, think) {
       if (!geminiAvailable) { try { await geminiListModels(geminiKey); } catch (e) {} }
       const liteOK = geminiAvailable && geminiAvailable.includes(base + "-lite");
       const next = tries % 2 === 0 && liteOK ? base + "-lite" : base;
-      return geminiGenerate(history, system, tries + 1, next, think);
+      return geminiGenerate(history, system, tries + 1, next, think, onChunk);
     }
     if (overloaded) { console.warn("Gemini busy:", res.status, model, msg); msg = `Gemini is very busy right now — Google answered “${String(msg).slice(0, 120)}” after 4 tries. It's not your key or your limit; try again in a minute.`; }
     else if (res.status === 400 && /api key/i.test(msg)) msg = "Your Gemini API key isn't valid. Check it in Settings.";
     else if (res.status === 429) msg = "You've used up your free Gemini quota for now. It refills on its own — try again later (usually within the hour, or tomorrow for the daily limit).";
     throw new Error(msg);
+  }
+  if (onChunk && res.body) {
+    // Server-sent events: each "data:" line is a partial GenerateContentResponse.
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = "", out = "", tokens = 0;
+    const stall = () => setTimeout(() => ctrl.abort("timeout"), 90000);
+    let st = stall();
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        clearTimeout(st); st = stall();
+        buf += dec.decode(value, { stream: true });
+        let nl;
+        while ((nl = buf.indexOf("\n")) >= 0) {
+          const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
+          if (!line.startsWith("data:")) continue;
+          try {
+            const j = JSON.parse(line.slice(5));
+            const ps = j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts;
+            if (ps) { out += ps.filter(p => !p.thought).map(p => p.text || "").join(""); onChunk(out); }
+            if (j.usageMetadata && j.usageMetadata.totalTokenCount) tokens = j.usageMetadata.totalTokenCount;
+          } catch (e) {}
+        }
+      }
+    } catch (e) {
+      if (ctrl.signal.reason === "user") throw new Error("Cancelled. You can send it again.");
+      if (!out) throw new Error("The connection to Gemini dropped. Try again.");
+    } finally { clearTimeout(st); }
+    countAiUse(tokens);
+    if (!out) throw new Error("Gemini returned an empty reply. Try again.");
+    return out;
   }
   const j = await res.json();
   countAiUse(j.usageMetadata && j.usageMetadata.totalTokenCount);
@@ -7642,9 +7675,10 @@ const PROJECT_MENTOR_RULES = `You are a veteran professional in the field of thi
 - Answer in the language the person writes in.
 - If (and only if) your answer suggests concrete additions to the project, end with a block exactly like this (no other text after it):
 \`\`\`actions
-[{"tipo":"archivar","archivo":"exact attached file name","paso":"Exact text of the step it belongs to"},{"tipo":"resuelto","pregunta":"Exact text of the thing to figure out","texto":"Topic: the choice made"},{"tipo":"capitulo","titulo":"New chapter name","antesDe":"Existing chapter name or null"},{"tipo":"decision","texto":"Topic: choice"},{"tipo":"resolver","texto":"Open question to figure out"},{"tipo":"nota","texto":"Short note"}]
+[{"tipo":"archivar","archivo":"exact attached file name","paso":"Exact text of the step it belongs to"},{"tipo":"resuelto","pregunta":"Exact text of the thing to figure out","texto":"Topic: the choice made"},{"tipo":"capitulo","titulo":"New chapter name","antesDe":"Existing chapter name or null"},{"tipo":"decision","texto":"Topic: choice"},{"tipo":"resolver","texto":"Open question to figure out"},{"tipo":"nota","texto":"Short note","capitulo":"Exact chapter name or null","paso":"Exact step text or null"}]
 \`\`\`
 Only include actions the person would clearly want offered; they will accept or skip each one.
+- BE INVOLVED WITH THE PROJECT: when the person shares an idea (a character trait, a scene, a material, a flavour…), figure out WHERE in the project it belongs and offer to put it there: a "nota" with "paso" set to the exact text of the step it feeds (e.g. a character idea → the step about designing the characters) and/or "capitulo" set to that chapter's exact name. Say in your answer where you'd put it and why. Only use a plain note with no place when nothing fits. A "decision" is only for things the person has firmly decided, not loose ideas.
 - When the person attaches images or files, look at them and use them in your answer. If a file clearly belongs to one of the listed steps (e.g. a reference board for "Collect references"), offer an "archivar" action with that step's exact text.
 - When the person picks an option for one of the THINGS TO FIGURE OUT (or clearly settles it), offer a "resuelto" action with that thing's exact text in "pregunta" and the choice in "texto", asking briefly if they want it written into the project. "capitulo" only applies to projects.`;
 
@@ -7733,7 +7767,7 @@ function renderPcChat() {
   const proj = IDEAS.find(i => i.id === pcProjId);
   const log = document.getElementById("pc-log");
   const chat = (proj && proj.chat) || [];
-  const label = a => a.tipo === "archivar" ? `File <strong>${escapeHtml(a.archivo || "the attachment")}</strong> in step <em>${escapeHtml(a.paso || "")}</em>` : a.tipo === "resuelto" ? `Settle <em>${escapeHtml(a.pregunta || "")}</em> → <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "capitulo" ? `Add chapter <strong>${escapeHtml(a.titulo)}</strong>${a.antesDe ? " before <em>" + escapeHtml(a.antesDe) + "</em>" : ""}` : a.tipo === "decision" ? `Add key decision <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "resolver" ? `Add to figure out: <strong>${escapeHtml(a.texto)}</strong>` : `Add note: <strong>${escapeHtml(a.texto)}</strong>`;
+  const label = a => a.tipo === "archivar" ? `File <strong>${escapeHtml(a.archivo || "the attachment")}</strong> in step <em>${escapeHtml(a.paso || "")}</em>` : a.tipo === "resuelto" ? `Settle <em>${escapeHtml(a.pregunta || "")}</em> → <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "capitulo" ? `Add chapter <strong>${escapeHtml(a.titulo)}</strong>${a.antesDe ? " before <em>" + escapeHtml(a.antesDe) + "</em>" : ""}` : a.tipo === "decision" ? `Add key decision <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "resolver" ? `Add to figure out: <strong>${escapeHtml(a.texto)}</strong>` : a.paso ? `Add to step <em>${escapeHtml(a.paso)}</em>: <strong>${escapeHtml(a.texto)}</strong>` : a.capitulo ? `Add note to <em>${escapeHtml(a.capitulo)}</em>: <strong>${escapeHtml(a.texto)}</strong>` : `Add note: <strong>${escapeHtml(a.texto)}</strong>`;
   log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}">${escapeHtml(m.text)}${(m.adj || []).length ? `<div class="att-list in-msg">${m.adj.map((a, j) => attChipHtml(a, "", `viewAttachment(IDEAS.find(i=>i.id==='${escapeAttr(pcProjId)}').chat[${k}].adj[${j}])`)).join("")}</div>` : ""}${(m.actions || []).map((a, j) => `<div class="pc-act ${a.done ? "done" : ""}"><span>${label(a)}</span>${a.done ? `<span class="note-date">${a.done === "yes" ? "✓ Added" : "Skipped"}</span>` : `<span><button type="button" class="sug-apply" onclick="pcAct(${k},${j},true)">Add</button><button type="button" class="sug-ignore" onclick="pcAct(${k},${j},false)">Skip</button></span>`}</div>`).join("")}</div>`).join("")
     : `<div class="step-empty">Ask anything about the project. For example:</div>
        <div class="step-chips">${["What should I focus on this week?", "Is anything missing from my plan?", "Am I being realistic with the timing?", "Explain how a pro would approach this project"].map(t => `<button type="button" class="ai-chip" onclick="pcSend(${JSON.stringify(t).replace(/"/g, "&quot;")})">${t}</button>`).join("")}</div>`;
@@ -7764,7 +7798,21 @@ function pcAct(k, j, yes) {
     } else if (a.tipo === "capitulo") { addChapter(proj.id, a.titulo, a.antesDe); logChanges(proj, "Mentor", [`Added chapter "${a.titulo}"`]); }
     else if (a.tipo === "decision") { if (decTarget) decTarget.decisiones = decisionsOf(decTarget).concat([{ texto: a.texto }]); else proj.notas = (proj.notas || []).concat([{ texto: "Decided: " + a.texto, fecha: new Date().toISOString() }]); logChanges(proj, "Mentor", [`Added key decision "${a.texto}"`]); }
     else if (a.tipo === "resolver") { proj.cosasAResolver = (proj.cosasAResolver || []).concat([{ texto: a.texto, resuelto: false }]); logChanges(proj, "Mentor", [`Added thing to figure out "${a.texto}"`]); }
-    else { proj.notas = (proj.notas || []).concat([{ texto: a.texto, fecha: new Date().toISOString() }]); }
+    else {
+      const norm = x => String(x || "").trim().toLowerCase();
+      const steps = a.paso ? allStepsOf(proj) : [];
+      const hit = steps.find(x => norm(x.texto) === norm(a.paso)) || steps.find(x => norm(x.texto).includes(norm(a.paso)) || norm(a.paso).includes(norm(x.texto)));
+      const chs = isProject(proj) ? projectChapters(proj) : [];
+      const ch = a.capitulo && (chs.find(c => norm(c.titulo) === norm(a.capitulo)) || chs.find(c => norm(c.titulo).includes(norm(a.capitulo))));
+      if (hit) {
+        const fase = hit.idea.fases[hit.f]; let st = fase.pasos[hit.s]; if (typeof st === "string") st = fase.pasos[hit.s] = { texto: st };
+        st.trabajo = (st.trabajo ? st.trabajo + "\n\n" : "") + "💡 " + a.texto;
+        logChanges(hit.idea, "Mentor", [`Added to step "${hit.texto}": ${a.texto}`]);
+      } else {
+        const tgt = ch || proj;
+        tgt.notas = (tgt.notas || []).concat([{ texto: a.texto, fecha: new Date().toISOString() }]);
+      }
+    }
   }
   a.done = yes ? "yes" : "no";
   saveIdeas(); renderPcChat();
@@ -7798,7 +7846,11 @@ async function pcSend(textOverride) {
       last.text += attsText(sentAtts) + `\n(I attached: ${sentAtts.map(a => a.nombre).join(", ")}. If it clearly belongs to a step, offer to file it there.)\nSTEPS YOU CAN FILE THINGS INTO: ${allStepsOf(proj).map(x => x.texto).slice(0, 80).join(" | ")}`;
       last.images = await attsImages(sentAtts);
     }
-    const { text: reply, actions } = splitActions((await withThinking(wait, "pc-input", () => geminiGenerate(hist, PROJECT_MENTOR_RULES, false, undefined, "low"), null, t0)).trim());
+    const { text: reply, actions } = splitActions((await withThinking(wait, "pc-input", () => geminiGenerate(hist, PROJECT_MENTOR_RULES, false, undefined, "minimal", txt => {
+      const b = document.querySelector(`#pc-log [data-t0='${t0}']`); if (!b) return;
+      b.classList.remove("ai-wait"); b.textContent = txt.replace(/```actions[\s\S]*$/, "").trim();
+      const l = document.getElementById("pc-log"); if (l) l.scrollTop = l.scrollHeight;
+    }), null, t0)).trim());
     proj.chat.push({ role: "model", text: reply, actions });
     proj.chat = proj.chat.slice(-30);
     saveIdeas();
@@ -8321,9 +8373,17 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-27 20:30 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-27 20:55 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
+  {
+    version: "1.4.2",
+    public: true,
+    items: [
+      "The mentor now knows where your ideas belong — tell it a loose idea and it offers to drop it right into the step it feeds (like “Design the characters”)",
+      "Mentor answers show up as they're written instead of after a long wait",
+    ],
+  },
   {
     version: "1.4.1",
     public: true,

@@ -309,3 +309,6 @@ Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la prim
 - **Backups:** "Backup / Import" ofrece **ZIP** (`ideas.json` + carpeta `images/`, calidad completa) o **un solo JSON** con las imágenes adentro como texto (data URL). Import acepta los dos (o pegar el JSON).
 
 - **Gemini ocupado (503):** `geminiGenerate` reintenta hasta 3 veces con espera (2s, 5s, 9s), alternando con el modelo `-lite` **solo si existe** para esa key (`geminiAvailable`, de ListModels; si igual da 404 vuelve al modelo normal); si igual falla, el mensaje muestra lo que respondió Google.
+
+- **Mentor más involucrado:** cuando contás una idea suelta, el mentor propone dónde va: acción `nota` con `paso` (se agrega al "trabajo" de ese paso con 💡) o `capitulo` (nota del capítulo). Las key decisions quedan para cosas decididas.
+- **Respuestas en streaming:** `geminiGenerate(..., onChunk)` usa `streamGenerateContent?alt=sse`; el mentor muestra el texto mientras llega y usa thinking `minimal` en modelos flash 3+.
