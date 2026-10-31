@@ -315,3 +315,4 @@ Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la prim
 - Si el streaming falla por red, `geminiGenerate` reintenta una vez sin streaming; el error muestra el motivo técnico.
 - **Gemini ocupado:** si un modelo responde 'high demand' se marca ocupado 2 min (`geminiBusy`) y se prueba otro modelo flash/flash-lite disponible para la key (`geminiAltModel`, más nuevo primero), hasta 4 intentos.
 - **Cuota (429):** la cuota gratis es por modelo; si uno da 429 se evita 1 hora y se prueba otro modelo disponible. El aviso de cuota solo sale si se agotaron todos.
+- **Notas de voz:** la transcripción ahora pasa por `geminiGenerate` (antes tenía su propio fetch sin reintentos ni cambio de modelo); el audio va como `inlineData`.
