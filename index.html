@@ -3973,6 +3973,15 @@ SHIPPING CHANGES
     #pc-overlay .form-hint { display: none; }
     #pc-overlay.open, #step-overlay.open { padding: 0 !important; align-items: stretch; }
   }
+
+  .step-msg.md { white-space: normal; }
+  .step-msg.md ul, .step-msg.md ol { margin: 4px 0 4px 1.2em; padding: 0; }
+  .step-msg.md li { margin: 2px 0; }
+  .step-msg.md li.md-sub { margin-left: 1em; list-style: circle; }
+  .step-msg.md .md-h { font-family: var(--hand); font-size: 1.15rem; margin: 6px 0 2px; color: var(--pen); }
+  .step-msg.md .md-gap { height: 8px; }
+  .step-msg.md .md-hr { border: none; border-top: 1px dashed var(--line-strong); margin: 10px 0; }
+  .step-msg.md code { font-family: var(--mono); font-size: .85em; background: rgba(128,128,128,.15); padding: 0 4px; border-radius: 4px; }
 </style>
 </head>
 <body>
@@ -7946,12 +7955,30 @@ function openProjectChat(projId) {
 }
 function closeProjectChat() { document.getElementById("pc-overlay").classList.remove("open"); render(); }
 function pcClear() { const p = IDEAS.find(i => i.id === pcProjId); if (!p) return; p.chat = []; saveIdeas(); renderPcChat(); }
+// Tiny, safe markdown for AI replies: headings, bold, italics, lists, rules, inline code.
+function mdLite(src) {
+  const inline = t => escapeHtml(t).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/__([^_]+)__/g, "<strong>$1</strong>").replace(/(^|[^*\w])\*([^*\n]+)\*(?!\*)/g, "$1<em>$2</em>");
+  const out = []; let list = null;
+  const close = () => { if (list) { out.push(`</${list}>`); list = null; } };
+  String(src || "").split("\n").forEach(line => {
+    let m;
+    if ((m = line.match(/^\s*#{1,6}\s+(.*)$/))) { close(); out.push(`<div class="md-h">${inline(m[1])}</div>`); }
+    else if (/^\s*(---|\*\*\*|___)\s*$/.test(line)) { close(); out.push("<hr class=\"md-hr\">"); }
+    else if ((m = line.match(/^(\s*)[*\-•]\s+(.*)$/))) { if (list !== "ul") { close(); out.push("<ul>"); list = "ul"; } out.push(`<li${m[1].length >= 2 ? ' class="md-sub"' : ""}>${inline(m[2])}</li>`); }
+    else if ((m = line.match(/^\s*(\d+)[.)]\s+(.*)$/))) { if (list !== "ol") { close(); out.push(`<ol start="${m[1]}">`); list = "ol"; } out.push(`<li>${inline(m[2])}</li>`); }
+    else if (!line.trim()) { close(); out.push('<div class="md-gap"></div>'); }
+    else { close(); out.push(`<div>${inline(line)}</div>`); }
+  });
+  close();
+  return out.join("");
+}
 function splitActions(text) {
-  const m = text.match(/```actions\s*([\s\S]*?)```\s*$/);
+  const m = text.match(/```actions\s*([\s\S]*?)(```|$)/) || text.match(/```(?:json)?\s*(\[\s*\{[\s\S]*?"tipo"[\s\S]*?\])\s*```/);
   if (!m) return { text: text.trim(), actions: [] };
+  const rest = text.slice(m.index + m[0].length).trim();
   let actions = [];
   try { actions = parseJsonLenient(m[1]); } catch (e) {}
-  return { text: text.slice(0, m.index).trim(), actions: Array.isArray(actions) ? actions.filter(a => a && (a.titulo || a.texto || a.estado || a.tipo === "fecha")).slice(0, 8) : [] };
+  return { text: (text.slice(0, m.index).trim() + (rest ? "\n\n" + rest : "")).trim(), actions: Array.isArray(actions) ? actions.filter(a => a && (a.titulo || a.texto || a.estado || a.tipo === "fecha")).slice(0, 8) : [] };
 }
 function renderPcChat() {
   const proj = IDEAS.find(i => i.id === pcProjId);
@@ -7965,7 +7992,7 @@ function renderPcChat() {
     : a.tipo === "estado_paso" ? `Mark <em>${escapeHtml(a.paso || "")}</em> as <strong>${escapeHtml(a.estado || "done")}</strong>`
     : a.tipo === "fecha" ? (a.fecha ? `Set target date of <em>${escapeHtml(a.objetivo || "")}</em> to <strong>${escapeHtml(a.fecha)}</strong>` : `Remove the target date of <em>${escapeHtml(a.objetivo || "")}</em>`)
     : a.tipo === "archivar" ? `File <strong>${escapeHtml(a.archivo || "the attachment")}</strong> in step <em>${escapeHtml(a.paso || "")}</em>` : a.tipo === "resuelto" ? `Settle <em>${escapeHtml(a.pregunta || "")}</em> → <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "capitulo" ? `Add chapter <strong>${escapeHtml(a.titulo)}</strong>${a.antesDe ? " before <em>" + escapeHtml(a.antesDe) + "</em>" : ""}` : a.tipo === "decision" ? `Add key decision <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "resolver" ? `Add to figure out: <strong>${escapeHtml(a.texto)}</strong>` : a.paso ? `Add to step <em>${escapeHtml(a.paso)}</em>: <strong>${escapeHtml(a.texto)}</strong>` : a.capitulo ? `Add note to <em>${escapeHtml(a.capitulo)}</em>: <strong>${escapeHtml(a.texto)}</strong>` : `Add note: <strong>${escapeHtml(a.texto)}</strong>`;
-  log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}">${escapeHtml(m.text)}${(m.adj || []).length ? `<div class="att-list in-msg">${m.adj.map((a, j) => attChipHtml(a, "", `viewAttachment(IDEAS.find(i=>i.id==='${escapeAttr(pcProjId)}').chat[${k}].adj[${j}])`)).join("")}</div>` : ""}${(m.actions || []).map((a, j) => `<div class="pc-act ${a.done ? "done" : ""}"><span>${label(a)}</span>${a.done ? `<span class="note-date">${a.done === "yes" ? "✓ Added" : "Skipped"}</span>` : (pcEdit === k + "," + j ? `<textarea class="pc-act-edit" id="pc-edit-${k}-${j}">${escapeHtml(a.tipo === "capitulo" ? a.titulo : a.tipo === "fecha" ? (a.fecha || "") : a.tipo === "estado_paso" ? (a.estado || "") : a.texto)}</textarea><span><button type="button" class="sug-apply" onclick="pcSaveEdit(${k},${j},true)">Save & add</button><button type="button" class="sug-ignore" onclick="pcEdit=null;renderPcChat()">Cancel</button></span>` : `<span><button type="button" class="sug-apply" onclick="pcAct(${k},${j},true)">Add</button>${a.tipo !== "archivar" ? `<button type="button" class="sug-edit" onclick="pcEdit='${k},${j}';renderPcChat();setTimeout(()=>{const t=document.getElementById('pc-edit-${k}-${j}');if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length)}},30)">Edit</button>` : ""}<button type="button" class="sug-ignore" onclick="pcAct(${k},${j},false)">Skip</button></span>`)}</div>`).join("")}</div>`).join("")
+  log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}${m.role === "model" ? " md" : ""}">${m.role === "model" ? mdLite(m.text) : escapeHtml(m.text)}${(m.adj || []).length ? `<div class="att-list in-msg">${m.adj.map((a, j) => attChipHtml(a, "", `viewAttachment(IDEAS.find(i=>i.id==='${escapeAttr(pcProjId)}').chat[${k}].adj[${j}])`)).join("")}</div>` : ""}${(m.actions || []).map((a, j) => `<div class="pc-act ${a.done ? "done" : ""}"><span>${label(a)}</span>${a.done ? `<span class="note-date">${a.done === "yes" ? "✓ Added" : "Skipped"}</span>` : (pcEdit === k + "," + j ? `<textarea class="pc-act-edit" id="pc-edit-${k}-${j}">${escapeHtml(a.tipo === "capitulo" ? a.titulo : a.tipo === "fecha" ? (a.fecha || "") : a.tipo === "estado_paso" ? (a.estado || "") : a.texto)}</textarea><span><button type="button" class="sug-apply" onclick="pcSaveEdit(${k},${j},true)">Save & add</button><button type="button" class="sug-ignore" onclick="pcEdit=null;renderPcChat()">Cancel</button></span>` : `<span><button type="button" class="sug-apply" onclick="pcAct(${k},${j},true)">Add</button>${a.tipo !== "archivar" ? `<button type="button" class="sug-edit" onclick="pcEdit='${k},${j}';renderPcChat();setTimeout(()=>{const t=document.getElementById('pc-edit-${k}-${j}');if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length)}},30)">Edit</button>` : ""}<button type="button" class="sug-ignore" onclick="pcAct(${k},${j},false)">Skip</button></span>`)}</div>`).join("")}</div>`).join("")
     : `<div class="step-empty">Ask anything about the project. For example:</div>
        <div class="step-chips">${["What should I focus on this week?", "What's still pending?", "Is anything missing from my plan?", "Am I being realistic with the timing?", "Explain how a pro would approach this project"].map(t => `<button type="button" class="ai-chip" onclick="pcSend(${JSON.stringify(t).replace(/"/g, "&quot;")})">${t}</button>`).join("")}</div>`;
   if (pcPending[pcProjId]) {
@@ -8085,10 +8112,18 @@ async function pcSend(textOverride) {
     }
     const { text: reply, actions } = splitActions((await withThinking(wait, "pc-input", () => geminiGenerate(hist, PROJECT_MENTOR_RULES, false, undefined, "minimal", txt => {
       const b = document.querySelector(`#pc-log [data-t0='${t0}']`); if (!b) return;
-      b.classList.remove("ai-wait"); b.textContent = txt.replace(/```actions[\s\S]*$/, "").trim();
+      b.classList.remove("ai-wait"); b.classList.add("md"); b.innerHTML = mdLite(txt.replace(/```actions[\s\S]*$/, "").trim());
       const l = document.getElementById("pc-log"); if (l) l.scrollTop = l.scrollHeight;
     }), null, t0)).trim());
-    proj.chat.push({ role: "model", text: reply, actions });
+    let acts = actions;
+    if (!acts.length && /\b(tap|toc[aá]|press|apret[aá])\b[^.\n]{0,40}\b(add|agregar|añadir)\b|\bAdd\b below|agregar abajo|volcamos|queda asentado/i.test(reply)) {
+      // It talked about adding things but forgot the actions block: ask for just the block.
+      try {
+        const fix = await geminiGenerate(hist.concat([{ role: "model", text: reply }, { role: "user", text: "You described changes for the project but didn't include the actions block, so no Add buttons appeared. Output ONLY the ```actions block (JSON array, same format as the rules) with exactly the changes you proposed. No other text." }]), PROJECT_MENTOR_RULES, false, undefined, "minimal");
+        acts = splitActions(fix).actions;
+      } catch (e) {}
+    }
+    proj.chat.push({ role: "model", text: reply, actions: acts });
     proj.chat = proj.chat.slice(-30);
     saveIdeas();
   } catch (e) {
@@ -8516,7 +8551,7 @@ function renderStepChat() {
   const ref = getStepRef();
   const log = document.getElementById("step-log");
   const chat = ref.step.chat || [];
-  log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}">${escapeHtml(m.text)}${m.role === "model" ? `<button type="button" class="step-use" onclick="useTutorReply(${k})">+ Add to my work</button>` : ""}</div>`).join("")
+  log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}${m.role === "model" ? " md" : ""}">${m.role === "model" ? mdLite(m.text) : escapeHtml(m.text)}${m.role === "model" ? `<button type="button" class="step-use" onclick="useTutorReply(${k})">+ Add to my work</button>` : ""}</div>`).join("")
     : `<div class="step-empty">Ask anything about this step. For example:</div>
        <div class="step-chips">${["How do I start this?", "Explain it like I'm a beginner", "Give me an example for my project", "Help me write it"].map(t => `<button type="button" class="ai-chip" onclick="stepSend(${JSON.stringify(t).replace(/"/g, "&quot;")})">${t}</button>`).join("")}</div>`;
   log.scrollTop = log.scrollHeight;
@@ -8611,7 +8646,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-31 19:00 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-31 19:15 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
