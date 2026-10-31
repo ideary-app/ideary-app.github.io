@@ -7353,13 +7353,14 @@ function micBar(id) {
 function micUi(id, state) {
   const b = document.getElementById("mic-" + id), el = document.getElementById(id);
   if (!b || !el) return;
+  // Lock/unlock the row FIRST, so the unlock can't restore a stale "disabled" onto the mic button.
+  lockComposer(id, state === "busy");
   b.classList.toggle("rec", state === "rec");
   b.classList.toggle("busy", state === "busy");
   b.disabled = state === "busy";
   b.innerHTML = state === "rec" ? `<span class="mic-stop"></span>` : state === "busy" ? `<span class="mic-spin"></span>` : MIC_SVG;
   b.title = state === "rec" ? "Stop" : state === "busy" ? "Turning your voice into text…" : "Talk instead of typing";
   el.readOnly = state !== "idle";
-  lockComposer(id, state === "busy");
   el.classList.toggle("mic-hidden", state !== "idle");
   const bar = state === "idle" ? document.getElementById("micbar-" + id) : micBar(id);
   if (state === "idle") { if (bar) bar.remove(); }
@@ -8610,7 +8611,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-31 07:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-31 19:00 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
