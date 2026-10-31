@@ -3947,6 +3947,32 @@ SHIPPING CHANGES
     .iv-float .iv-from { display: none; }
     .iv-dl-l { display: none; }
   }
+
+  /* chat composer: one pill — attach · text · mic · send */
+  .log-wrap { position: relative; flex: 1; min-height: 0; display: flex; }
+  .log-wrap .step-log { flex: 1; }
+  .jump-btn { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); width: 38px; height: 38px; border-radius: 50%; border: 1.5px solid var(--line-strong); background: var(--panel); color: var(--pen); font-size: 1.15rem; box-shadow: 0 4px 12px rgba(0,0,0,.18); cursor: pointer; opacity: 0; pointer-events: none; transition: opacity .15s; }
+  .jump-btn.show { opacity: 1; pointer-events: auto; }
+  .composer { display: flex; align-items: center; gap: 2px; margin-top: 8px; padding: 4px; border: 1.5px solid var(--line-strong); border-radius: 26px; background: var(--paper); }
+  .composer:focus-within { border-color: var(--pen); }
+  .cmp-input { flex: 1; min-width: 0; border: none; outline: none; background: none; font: 16px var(--sans); color: var(--ink); padding: 10px 8px; }
+  .cmp-btn { flex-shrink: 0; width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; font-size: 1.15rem; }
+  .cmp-btn:hover { background: var(--panel); }
+  .composer .mic-btn { border: none; background: none; min-width: 40px; height: 40px; padding: 0; }
+  .composer .mic-btn.rec { background: #c8382f; }
+  .composer .mic-bar { border: none; height: 40px; padding: 0 6px; background: none; }
+  .cmp-send { flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; border: none; background: var(--pen); color: #fff; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+  [data-theme="dark"] .cmp-send { color: #10131c; }
+  .cmp-send:disabled { opacity: .45; cursor: wait; }
+  .cmp-foot { display: flex; justify-content: flex-end; margin-top: 4px; }
+  .cmp-foot .pw-skip { font-size: .8rem; padding: 2px 4px; }
+  .pc-act-edit { width: 100%; font: .92rem var(--sans); padding: 6px 8px; border: 1.5px solid var(--pen); border-radius: 6px; background: var(--paper); color: var(--ink); resize: vertical; min-height: 54px; }
+  .pc-act .sug-edit { margin-left: 4px; background: none; border: 1px solid var(--line-strong); border-radius: var(--sketch-radius); padding: 4px 10px; font-family: var(--hand); font-size: 1rem; color: var(--ink); cursor: pointer; }
+  @media (max-width: 600px) {
+    #pc-overlay .modal-box, #step-overlay .modal-box { height: 100dvh !important; max-height: none; width: 100vw; max-width: none !important; margin: 0; border-radius: 0; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+    #pc-overlay .form-hint { display: none; }
+    #pc-overlay.open, #step-overlay.open { padding: 0 !important; align-items: stretch; }
+  }
 </style>
 </head>
 <body>
@@ -4026,7 +4052,7 @@ SHIPPING CHANGES
       <div id="nav-categorias"></div>
     </div>
 
-    <div class="version-link" onclick="openChangelog()">v1.4.2 · What's new</div>
+    <div class="version-link" onclick="openChangelog()">v1.4.3 · What's new</div>
     <div style="text-align:center;font-family:var(--hand);font-size:.9rem;margin-top:6px"><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--slate)">Privacy</a> · <a href="terms.html" target="_blank" rel="noopener" style="color:var(--slate)">Terms</a></div>
   </div>
   </aside>
@@ -4341,14 +4367,14 @@ SHIPPING CHANGES
       <button class="modal-close" onclick="closeProjectChat()">&times;</button>
     </div>
     <div class="form-hint" style="margin-bottom:8px">Ask anything about the whole project. The mentor sees every chapter, your progress, key decisions and notes. If it suggests adding something, you choose.</div>
-    <div id="pc-log" class="step-log" style="flex:1"></div>
-    <div style="display:flex;gap:8px;margin-top:8px">
-      <label class="att-clip" title="Attach an image or a text file">📎<input type="file" multiple accept="image/*,.txt,.md,.csv,.json,.srt,.fountain,text/plain" style="display:none" onchange="pcAddFiles(this)"></label>
-      <input class="form-input" id="pc-input" style="flex:1;font-size:16px" placeholder="Ask anything…" onkeydown="if(event.key==='Enter'){event.preventDefault();pcSend();}">
-      <button class="form-submit" style="margin:0;width:auto;padding:0 16px" onclick="pcSend()">Send</button>
-    </div>
+    <div class="log-wrap"><div id="pc-log" class="step-log"></div><button type="button" class="jump-btn" onclick="jumpBottom('pc-log')" aria-label="Go to latest">↓</button></div>
     <div class="att-list" id="pc-atts"></div>
-    <div style="text-align:right;margin-top:6px"><button type="button" class="pw-skip" onclick="pcClear()">Clear conversation</button></div>
+    <div class="composer">
+      <label class="cmp-btn" title="Attach an image or a text file" aria-label="Attach">📎<input type="file" multiple accept="image/*,.txt,.md,.csv,.json,.srt,.fountain,text/plain" style="display:none" onchange="pcAddFiles(this)"></label>
+      <input class="cmp-input" id="pc-input" placeholder="Ask anything…" onkeydown="if(event.key==='Enter'){event.preventDefault();pcSend();}">
+      <button type="button" class="cmp-send" onclick="pcSend()" aria-label="Send" title="Send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+    </div>
+    <div class="cmp-foot"><button type="button" class="pw-skip" onclick="pcClear()">Clear conversation</button></div>
   </div>
 </div>
 <div class="modal-overlay" id="step-overlay">
@@ -4372,10 +4398,10 @@ SHIPPING CHANGES
         <button class="form-submit" style="margin:0;width:auto;padding:8px 18px" onclick="stepMarkDone()">Save &amp; mark done ✓</button></div>
     </div>
     <div class="ws-pane" id="ws-tutor">
-      <div id="step-log" class="step-log" style="flex:1"></div>
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <input class="form-input" id="step-input" style="flex:1;font-size:16px" placeholder="Ask about this step…" onkeydown="if(event.key==='Enter'){event.preventDefault();stepSend();}">
-        <button class="form-submit" style="margin:0;width:auto;padding:0 16px" onclick="stepSend()">Send</button>
+      <div class="log-wrap"><div id="step-log" class="step-log"></div><button type="button" class="jump-btn" onclick="jumpBottom('step-log')" aria-label="Go to latest">↓</button></div>
+      <div class="composer">
+        <input class="cmp-input" id="step-input" placeholder="Ask about this step…" onkeydown="if(event.key==='Enter'){event.preventDefault();stepSend();}">
+        <button type="button" class="cmp-send" onclick="stepSend()" aria-label="Send" title="Send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
       </div>
     </div>
   </div>
@@ -7683,7 +7709,7 @@ function stepTab(t) {
   document.querySelectorAll("#step-overlay .ws-tab").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
   document.getElementById("ws-work").style.display = t === "work" ? "flex" : "none";
   document.getElementById("ws-tutor").style.display = t === "tutor" ? "flex" : "none";
-  if (t === "tutor") { const l = document.getElementById("step-log"); if (l) l.scrollTop = l.scrollHeight; }
+  if (t === "tutor") requestAnimationFrame(() => jumpBottom("step-log", false));
 }
 // every image of an idea: its own (drawn or uploaded) + the ones attached to its steps
 function ideaImages(idea) {
@@ -7743,6 +7769,13 @@ function fileAttachment(item, att, pasoTxt) {
   return `step "${hit.texto}"${hit.idea !== item ? ` (${hit.idea.titulo})` : ""}`;
 }
 
+function jumpBottom(id, smooth) { const l = document.getElementById(id); if (l) l.scrollTo({ top: l.scrollHeight, behavior: smooth === false ? "auto" : "smooth" }); }
+function watchJump(id) {
+  const l = document.getElementById(id); if (!l || l.dataset.jw) return; l.dataset.jw = 1;
+  const b = l.parentNode.querySelector(".jump-btn");
+  l.addEventListener("scroll", () => b && b.classList.toggle("show", l.scrollHeight - l.scrollTop - l.clientHeight > 160));
+}
+let pcEdit = null; // "k,j" of the suggestion being edited
 let pcProjId = null;
 const pcPending = {}; // projId -> start time of an answer in progress
 function projectContextText(proj) {
@@ -7779,8 +7812,9 @@ function openProjectChat(projId) {
   if (!proj) return;
   document.getElementById("pc-title").innerHTML = `Talk to your mentor<span class="pc-sub">${escapeHtml(proj.titulo)}</span>`;
   document.querySelector("#pc-overlay .form-hint").textContent = isProject(proj) ? "Ask anything about the whole project. The mentor sees every chapter, your progress, key decisions and notes. If it suggests adding something, you choose." : "Ask anything about this " + (isChapter(proj) ? "chapter" : "idea") + ". The mentor sees its plan, notes and things to figure out. If it suggests adding something, you choose.";
-  renderPcChat();
   document.getElementById("pc-overlay").classList.add("open");
+  renderPcChat(); watchJump("pc-log");
+  requestAnimationFrame(() => jumpBottom("pc-log", false));
   setTimeout(() => document.getElementById("pc-input").focus(), 50);
 }
 function closeProjectChat() { document.getElementById("pc-overlay").classList.remove("open"); render(); }
@@ -7797,7 +7831,7 @@ function renderPcChat() {
   const log = document.getElementById("pc-log");
   const chat = (proj && proj.chat) || [];
   const label = a => a.tipo === "archivar" ? `File <strong>${escapeHtml(a.archivo || "the attachment")}</strong> in step <em>${escapeHtml(a.paso || "")}</em>` : a.tipo === "resuelto" ? `Settle <em>${escapeHtml(a.pregunta || "")}</em> → <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "capitulo" ? `Add chapter <strong>${escapeHtml(a.titulo)}</strong>${a.antesDe ? " before <em>" + escapeHtml(a.antesDe) + "</em>" : ""}` : a.tipo === "decision" ? `Add key decision <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "resolver" ? `Add to figure out: <strong>${escapeHtml(a.texto)}</strong>` : a.paso ? `Add to step <em>${escapeHtml(a.paso)}</em>: <strong>${escapeHtml(a.texto)}</strong>` : a.capitulo ? `Add note to <em>${escapeHtml(a.capitulo)}</em>: <strong>${escapeHtml(a.texto)}</strong>` : `Add note: <strong>${escapeHtml(a.texto)}</strong>`;
-  log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}">${escapeHtml(m.text)}${(m.adj || []).length ? `<div class="att-list in-msg">${m.adj.map((a, j) => attChipHtml(a, "", `viewAttachment(IDEAS.find(i=>i.id==='${escapeAttr(pcProjId)}').chat[${k}].adj[${j}])`)).join("")}</div>` : ""}${(m.actions || []).map((a, j) => `<div class="pc-act ${a.done ? "done" : ""}"><span>${label(a)}</span>${a.done ? `<span class="note-date">${a.done === "yes" ? "✓ Added" : "Skipped"}</span>` : `<span><button type="button" class="sug-apply" onclick="pcAct(${k},${j},true)">Add</button><button type="button" class="sug-ignore" onclick="pcAct(${k},${j},false)">Skip</button></span>`}</div>`).join("")}</div>`).join("")
+  log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}">${escapeHtml(m.text)}${(m.adj || []).length ? `<div class="att-list in-msg">${m.adj.map((a, j) => attChipHtml(a, "", `viewAttachment(IDEAS.find(i=>i.id==='${escapeAttr(pcProjId)}').chat[${k}].adj[${j}])`)).join("")}</div>` : ""}${(m.actions || []).map((a, j) => `<div class="pc-act ${a.done ? "done" : ""}"><span>${label(a)}</span>${a.done ? `<span class="note-date">${a.done === "yes" ? "✓ Added" : "Skipped"}</span>` : (pcEdit === k + "," + j ? `<textarea class="pc-act-edit" id="pc-edit-${k}-${j}">${escapeHtml(a.tipo === "capitulo" ? a.titulo : a.texto)}</textarea><span><button type="button" class="sug-apply" onclick="pcSaveEdit(${k},${j},true)">Save & add</button><button type="button" class="sug-ignore" onclick="pcEdit=null;renderPcChat()">Cancel</button></span>` : `<span><button type="button" class="sug-apply" onclick="pcAct(${k},${j},true)">Add</button>${a.tipo !== "archivar" ? `<button type="button" class="sug-edit" onclick="pcEdit='${k},${j}';renderPcChat();setTimeout(()=>{const t=document.getElementById('pc-edit-${k}-${j}');if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length)}},30)">Edit</button>` : ""}<button type="button" class="sug-ignore" onclick="pcAct(${k},${j},false)">Skip</button></span>`)}</div>`).join("")}</div>`).join("")
     : `<div class="step-empty">Ask anything about the project. For example:</div>
        <div class="step-chips">${["What should I focus on this week?", "Is anything missing from my plan?", "Am I being realistic with the timing?", "Explain how a pro would approach this project"].map(t => `<button type="button" class="ai-chip" onclick="pcSend(${JSON.stringify(t).replace(/"/g, "&quot;")})">${t}</button>`).join("")}</div>`;
   if (pcPending[pcProjId]) {
@@ -7805,7 +7839,15 @@ function renderPcChat() {
     w.innerHTML = thinkingHtml(); tickThinking(w, pcPending[pcProjId]); log.appendChild(w);
   }
   lockComposer("pc-input", !!pcPending[pcProjId]);
-  log.scrollTop = log.scrollHeight;
+  if (pcEdit === null) log.scrollTop = log.scrollHeight;
+}
+function pcSaveEdit(k, j) {
+  const proj = IDEAS.find(i => i.id === pcProjId);
+  const a = proj && proj.chat[k] && proj.chat[k].actions[j]; const t = document.getElementById(`pc-edit-${k}-${j}`);
+  if (!a || !t) return;
+  const v = t.value.trim(); if (!v) return;
+  if (a.tipo === "capitulo") a.titulo = v; else a.texto = v;
+  pcEdit = null; pcAct(k, j, true);
 }
 function pcAct(k, j, yes) {
   const proj = IDEAS.find(i => i.id === pcProjId);
@@ -8296,6 +8338,7 @@ function openStepHelp(ideaId, f, s) {
   renderStepAtts();
   stepTab(ref.step.trabajo || (ref.step.adjuntos || []).length || !(ref.step.chat || []).length ? "work" : "tutor");
   document.getElementById("step-overlay").classList.add("open");
+  watchJump("step-log"); requestAnimationFrame(() => jumpBottom("step-log", false));
 }
 function closeStepHelp() {
   document.getElementById("step-overlay").classList.remove("open");
@@ -8402,9 +8445,19 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-31 05:55 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-31 06:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
+  {
+    version: "1.4.3",
+    public: true,
+    items: [
+      "Edit what the mentor suggests before adding it",
+      "New chat box: attach, type, talk and send in one roomy bar — and the chat takes the whole screen on your phone",
+      "Chats open at the latest message, with a ↓ button to jump back down",
+      "The AI switches models by itself when Gemini is busy, out of quota or stuck — and tells you clearly if nothing works",
+    ],
+  },
   {
     version: "1.4.2",
     public: true,

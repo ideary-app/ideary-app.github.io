@@ -325,3 +325,4 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 - Si no queda nada que funcione, el mensaje dice qué contestó Google y que es del lado de Google, en vez de un error críptico.
 - Al agregar una función nueva con IA: usar `geminiGenerate` y probarla con un mock de 503/429/404.
 - **Nada se queda colgado:** cada intento a un modelo tiene 40s para empezar a responder; si no, se marca trabado 5 min y se prueba otro. Toda la cadena de reintentos tiene un tope de ~150s y después muestra un mensaje claro.
+- **Chat (mentor y tutor del paso):** composer tipo píldora (📎 · texto · 🎤 · enviar ↑), en mobile el modal ocupa toda la pantalla; abre abajo de todo y tiene botón ↓ (`jumpBottom`/`watchJump`). Las sugerencias del mentor tienen **Edit** (`pcEdit`, `pcSaveEdit`): editás el texto y se agrega.
