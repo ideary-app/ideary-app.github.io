@@ -324,3 +324,4 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 - Modelo saturado (503) → otro modelo; sin cuota (429) → otro modelo; error 400 raro (Google cambió un parámetro) → reintenta con el pedido más simple; cualquier otro error del modelo → refresca la lista y prueba otro.
 - Si no queda nada que funcione, el mensaje dice qué contestó Google y que es del lado de Google, en vez de un error críptico.
 - Al agregar una función nueva con IA: usar `geminiGenerate` y probarla con un mock de 503/429/404.
+- **Nada se queda colgado:** cada intento a un modelo tiene 40s para empezar a responder; si no, se marca trabado 5 min y se prueba otro. Toda la cadena de reintentos tiene un tope de ~150s y después muestra un mensaje claro.
