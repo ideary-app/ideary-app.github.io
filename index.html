@@ -5662,6 +5662,8 @@ async function geminiGenerate(history, system, retried, modelOverride, think, on
     if (good && !(geminiBusy[good] > Date.now()) && (!geminiAvailable || geminiAvailable.includes(good))) model = good;
     else if (geminiBusy[model] > Date.now()) model = geminiAltModel() || model;
   }
+  if (/^gemma/.test(model) && history.some(m => (m.images || []).some(im => !/^image\//.test(im.mime))))
+    throw new Error("Every Gemini model is busy right now and the backup model can't listen to audio. Type your message, or try the voice note again in a few minutes.");
   const ctrl = new AbortController();
   aiCtrlUser = ctrl;
   // Per try: if a model doesn't even start answering in 40s, it's stuck — move on to another one.
