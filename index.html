@@ -4052,7 +4052,7 @@ SHIPPING CHANGES
       <div id="nav-categorias"></div>
     </div>
 
-    <div class="version-link" onclick="openChangelog()">v1.4.3 · What's new</div>
+    <div class="version-link" onclick="openChangelog()">v1.5.0 · What's new</div>
     <div style="text-align:center;font-family:var(--hand);font-size:.9rem;margin-top:6px"><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--slate)">Privacy</a> · <a href="terms.html" target="_blank" rel="noopener" style="color:var(--slate)">Terms</a></div>
   </div>
   </aside>
@@ -4207,6 +4207,14 @@ SHIPPING CHANGES
     <div class="form-hint ai-usage" id="ai-usage"></div>
     <button class="form-submit" id="ai-key-save-btn" onclick="saveAiKeyFromUI()">Save key</button>
     <div style="text-align:center;margin-top:8px"><button onclick="removeAiKey()" style="background:none;border:none;font-size:0.8rem;color:var(--slate);cursor:pointer;text-decoration:underline">Remove key</button></div>
+      <details class="backup-ai" style="margin-top:14px">
+        <summary style="cursor:pointer;font-family:var(--hand);font-size:1.1rem">Backup AI (optional)</summary>
+        <div class="form-hint" style="margin:8px 0">When Gemini is busy or out of quota, Ideary can answer with <strong>Groq</strong> instead (free, very fast, also does voice notes). Not related to X/Twitter's "Grok". Get a key at <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a> → <strong>Create API Key</strong>, and paste it here.</div>
+        <input class="form-input" id="groq-key-input" type="password" autocomplete="off" placeholder="Groq API key (starts with gsk_)" style="font-size:16px">
+        <div id="groq-key-status" style="min-height:1.4em;font-size:0.82rem;margin-top:6px;font-weight:600"></div>
+        <button class="form-submit" style="margin-top:4px" onclick="saveGroqKey()">Save backup key</button>
+        <div style="text-align:center;margin-top:8px"><button onclick="saveGroqKey(true)" style="background:none;border:none;font-size:0.8rem;color:var(--slate);cursor:pointer;text-decoration:underline">Remove backup key</button></div>
+      </details>
     </div>
     <div class="settings-section">
       <div class="settings-h">Your ideas</div>
@@ -5443,6 +5451,7 @@ async function driveLoadSettings() {
         if (s && s.caseStyle) applyCase(s.caseStyle);
         if (s && s.tours) { try { localStorage.setItem(TOUR_KEY, JSON.stringify(Object.assign(toursSeen(), s.tours))); } catch (e) {} }
         if (s && typeof s.bgIntensity === "number") setBgIntensity(s.bgIntensity, true);
+        if (s && typeof s.groqKey === "string" && s.groqKey !== groqKey) { groqKey = s.groqKey; groqModels = null; try { groqKey ? localStorage.setItem(GROQ_KEY_STORAGE, groqKey) : localStorage.removeItem(GROQ_KEY_STORAGE); } catch (e) {} }
         if (s && s.geminiKey) {
           if (geminiKey !== s.geminiKey) geminiModel = "";
           geminiKey = s.geminiKey;
@@ -5459,7 +5468,7 @@ async function driveLoadSettings() {
 
 async function driveSaveSettings() {
   if (!driveReady && !accessToken) return;
-  const payload = JSON.stringify({ geminiKey, coverColor, caseStyle, tours: toursSeen(), bgIntensity });
+  const payload = JSON.stringify({ geminiKey, groqKey, coverColor, caseStyle, tours: toursSeen(), bgIntensity });
   if (driveSettingsFileId) {
     await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveSettingsFileId}?uploadType=media`, {
       method: "PATCH", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: payload });
@@ -5529,6 +5538,7 @@ function openSettings(section) {
   setTimeout(() => setBgIntensity(bgIntensity, true), 0);
   setTimeout(() => { const el = document.getElementById("ai-usage"); if (el) el.innerHTML = aiUsageHtml(); }, 0);
   document.getElementById("ai-key-input").value = geminiKey;
+  { const g = document.getElementById("groq-key-input"); if (g) g.value = groqKey; const gs = document.getElementById("groq-key-status"); if (gs) gs.textContent = groqKey ? "✓ Backup AI ready" : ""; }
   document.getElementById("ai-key-status").textContent = "";
   renderCoverSwatches();
   renderCaseSwatches();
@@ -5552,6 +5562,20 @@ function closeSettings() { document.getElementById("settings-overlay").classList
 function openAiSettings() { openSettings("ai"); }
 function closeAiSettings() { closeSettings(); }
 
+async function saveGroqKey(remove) {
+  const inp = document.getElementById("groq-key-input"), st = document.getElementById("groq-key-status");
+  const v = remove ? "" : inp.value.trim();
+  if (!remove && !v) { st.textContent = "Paste your key first."; st.style.color = "var(--rust)"; return; }
+  if (v) {
+    st.textContent = "Checking key…"; st.style.color = "var(--slate)";
+    const old = groqKey; groqKey = v; groqModels = null;
+    try { await groqListModels(); } catch (e) { groqKey = old; groqModels = null; st.textContent = e.message || "Couldn't check that key."; st.style.color = "var(--rust)"; return; }
+  }
+  groqKey = v; groqModels = null; inp.value = v;
+  try { v ? localStorage.setItem(GROQ_KEY_STORAGE, v) : localStorage.removeItem(GROQ_KEY_STORAGE); } catch (e) {}
+  st.textContent = v ? "✓ Backup AI ready" : "Backup key removed."; st.style.color = v ? "var(--sage, #4a7a4a)" : "var(--slate)";
+  try { await driveSaveSettings(); } catch (e) {}
+}
 async function saveAiKeyFromUI() {
   const v = document.getElementById("ai-key-input").value.trim();
   const st = document.getElementById("ai-key-status");
@@ -5652,7 +5676,7 @@ function genConfig(model, temperature, level) {
   return g;
 }
 // onChunk(textSoFar): if given, the answer is streamed and onChunk is called as it arrives.
-async function geminiGenerate(history, system, retried, modelOverride, think, onChunk) {
+async function geminiCore(history, system, retried, modelOverride, think, onChunk) {
   // One overall deadline for the whole chain of retries, so nothing spins forever.
   const t0 = history._t0 || (history._t0 = Date.now());
   if (retried && Date.now() - t0 > 150000) throw new Error("Gemini is taking too long on every model I tried (it's very slow on Google's side right now). Try again in a few minutes.");
@@ -5691,11 +5715,11 @@ async function geminiGenerate(history, system, retried, modelOverride, think, on
       geminiBusy[model] = Date.now() + 300000;
       if (!geminiAvailable) { try { await geminiListModels(geminiKey); } catch (e2) {} }
       const alt = geminiAltModel();
-      if (alt && alt !== model) { console.warn("Gemini stuck on", model, "→", alt); return geminiGenerate(history, system, 50, alt, think, onChunk); }
+      if (alt && alt !== model) { console.warn("Gemini stuck on", model, "→", alt); return geminiCore(history, system, 50, alt, think, onChunk); }
       throw new Error("Gemini took too long to answer. Google seems very slow right now — try again in a few minutes.");
     }
     // Network failure: if we were streaming, try once more without streaming before giving up.
-    if (onChunk && !(typeof retried === "number" && retried > 5)) { console.warn("Gemini stream failed, retrying plain:", e); return geminiGenerate(history, system, 6, modelOverride, think); }
+    if (onChunk && !(typeof retried === "number" && retried > 5)) { console.warn("Gemini stream failed, retrying plain:", e); return geminiCore(history, system, 6, modelOverride, think); }
     if (!navigator.onLine) throw new Error("You're offline. Check your internet connection and try again.");
     throw new Error(`Couldn't reach Gemini (${e.message || e.name}). This is usually a dropped connection — try again.`);
   }
@@ -5703,14 +5727,14 @@ async function geminiGenerate(history, system, retried, modelOverride, think, on
   if (!res.ok) {
     let msg = "Gemini error " + res.status;
     try { const j = await res.json(); if (j.error && j.error.message) msg = j.error.message; } catch (e) {}
-    if (res.status === 400 && /thinking/i.test(msg) && thinkCfgOK) { thinkCfgOK = false; return geminiGenerate(history, system, retried, modelOverride, think, onChunk); }
+    if (res.status === 400 && /thinking/i.test(msg) && thinkCfgOK) { thinkCfgOK = false; return geminiCore(history, system, retried, modelOverride, think, onChunk); }
     if (modelOverride && /-lite$/.test(modelOverride) && (res.status === 404 || /not found|not supported/i.test(msg))) {
       // The lighter model doesn't exist for this key — go back to the normal one.
-      return geminiGenerate(history, system, retried, modelOverride.replace(/-lite$/, ""), think, onChunk);
+      return geminiCore(history, system, retried, modelOverride.replace(/-lite$/, ""), think, onChunk);
     }
     if (!retried && (res.status === 404 || /no longer available|not found|not supported/i.test(msg))) {
       await geminiResolveModel(true);
-      return geminiGenerate(history, system, true, undefined, think, onChunk);
+      return geminiCore(history, system, true, undefined, think, onChunk);
     }
     const overloaded = res.status === 503 || /high demand|overloaded|unavailable/i.test(msg);
     const tries = typeof retried === "number" ? retried : (retried ? 9 : 0);
@@ -5722,19 +5746,19 @@ async function geminiGenerate(history, system, retried, modelOverride, think, on
       // Busy model / no quota on it: switch to another Gemini model this key can use (newest first).
       if (overloaded) await new Promise(r => setTimeout(r, tries ? 1500 : 500));
       const alt = geminiAltModel();
-      if (alt) return geminiGenerate(history, system, tries + 1, alt, think, onChunk);
+      if (alt) return geminiCore(history, system, tries + 1, alt, think, onChunk);
     }
     if (res.status === 400 && !/api key/i.test(msg) && think && !(typeof retried === "number" && retried >= 20)) {
       // Google may have changed/retired a setting we send: retry once with the plainest request.
       console.warn("Gemini 400, retrying without extras:", msg);
-      return geminiGenerate(history, system, 20, modelOverride, undefined, onChunk);
+      return geminiCore(history, system, 20, modelOverride, undefined, onChunk);
     }
     if (!overloaded && res.status !== 429 && res.status !== 400 && res.status !== 403 && !(typeof retried === "number" && retried >= 30)) {
       // Something else broke on that model (retired, 5xx, new behaviour): refresh the model list and try another one.
       geminiBusy[model] = Date.now() + 3600000;
       try { await geminiResolveModel(true); } catch (e) {}
       const alt = geminiAltModel();
-      if (alt && alt !== model) return geminiGenerate(history, system, 30, alt, think, onChunk);
+      if (alt && alt !== model) return geminiCore(history, system, 30, alt, think, onChunk);
     }
     if (overloaded) { console.warn("Gemini busy:", res.status, model, msg); msg = `Gemini is very busy right now — Google answered “${String(msg).slice(0, 120)}” on every model I tried. It's not your key or your limit; try again in a minute.`; }
     else if (res.status === 400 && /api key/i.test(msg)) msg = "Your Gemini API key isn't valid. Check it in Settings.";
@@ -5780,6 +5804,69 @@ async function geminiGenerate(history, system, retried, modelOverride, think, on
   const parts = j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts;
   if (!parts) throw new Error("Gemini returned an empty reply. Try again.");
   return parts.map(p => p.text || "").join("");
+}
+
+/* ---- Optional backup provider (Groq) ----
+   Gemini is always tried first. If every Gemini model fails (busy, no quota, stuck, broken)
+   and the person added a Groq key in Settings, the same request goes to Groq instead. */
+const GROQ_KEY_STORAGE = "ideary_groq_key_v1";
+let groqKey = ""; try { groqKey = localStorage.getItem(GROQ_KEY_STORAGE) || ""; } catch (e) {}
+let groqModels = null;
+async function groqListModels() {
+  if (groqModels) return groqModels;
+  const r = await fetch("https://api.groq.com/openai/v1/models", { headers: { Authorization: "Bearer " + groqKey } });
+  if (!r.ok) { const e = new Error(r.status === 401 ? "Your Groq key isn't valid." : "Groq error " + r.status); e.status = r.status; throw e; }
+  groqModels = ((await r.json()).data || []).filter(m => m.active !== false).map(m => m.id);
+  return groqModels;
+}
+function groqPick(ids, kind) {
+  const by = res => ids.find(id => res.some(re => re.test(id)));
+  if (kind === "audio") return by([/whisper-large-v3-turbo/, /whisper-large-v3/, /whisper/]);
+  if (kind === "vision") return by([/llama-4-maverick/, /llama-4-scout/, /vision/, /llama-4/]);
+  return by([/gpt-oss-120b/, /llama-3\.3-70b/, /llama-4-maverick/, /kimi/, /qwen.*32b/, /llama/]) || ids.find(id => !/whisper|guard|tts|playai/.test(id));
+}
+async function groqGenerate(history, system, onChunk) {
+  const ids = await groqListModels();
+  const audio = history.flatMap(m => m.images || []).find(im => !/^image\//.test(im.mime));
+  if (audio) {
+    const model = groqPick(ids, "audio"); if (!model) throw new Error("No speech model on Groq right now.");
+    const bin = Uint8Array.from(atob(audio.data), c => c.charCodeAt(0));
+    const fd = new FormData(); fd.append("file", new Blob([bin], { type: audio.mime }), "voice." + ((audio.mime.split("/")[1] || "webm").split(";")[0])); fd.append("model", model);
+    const r = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", { method: "POST", headers: { Authorization: "Bearer " + groqKey }, body: fd });
+    if (!r.ok) throw new Error("Groq couldn't transcribe (" + r.status + ").");
+    return ((await r.json()).text || "").trim();
+  }
+  const hasImg = history.some(m => (m.images || []).length);
+  const model = groqPick(ids, hasImg ? "vision" : "text") || groqPick(ids, "text");
+  const messages = [{ role: "system", content: system || DIRECTOR_RULES }].concat(history.map(m => {
+    const imgs = (m.images || []).filter(im => /^image\//.test(im.mime));
+    return { role: m.role === "model" ? "assistant" : "user", content: imgs.length && hasImg ? [{ type: "text", text: m.text }].concat(imgs.slice(0, 5).map(im => ({ type: "image_url", image_url: { url: `data:${im.mime};base64,${im.data}` } }))) : m.text };
+  }));
+  const ctrl = new AbortController(); aiCtrlUser = ctrl; const t = setTimeout(() => ctrl.abort("timeout"), 60000);
+  try {
+    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", { method: "POST", signal: ctrl.signal, headers: { Authorization: "Bearer " + groqKey, "Content-Type": "application/json" }, body: JSON.stringify({ model, messages, temperature: 0.7 }) });
+    if (!r.ok) { let m = "Groq error " + r.status; try { m = (await r.json()).error.message || m; } catch (e) {} throw new Error(r.status === 429 ? "The backup AI (Groq) is also out of quota for now." : m); }
+    const j = await r.json(); const out = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || "";
+    if (!out) throw new Error("The backup AI returned an empty reply.");
+    countAiUse(j.usage && j.usage.total_tokens); aiLastProvider = "Groq · " + model;
+    if (onChunk) onChunk(out);
+    return out;
+  } catch (e) { if (ctrl.signal.reason === "user") throw new Error("Cancelled. You can send it again."); throw e; }
+  finally { clearTimeout(t); }
+}
+let aiLastProvider = "";
+async function geminiGenerate(history, system, retried, modelOverride, think, onChunk) {
+  // Every Gemini model already marked busy/broken and a backup is set: go straight to it.
+  if (groqKey && !modelOverride && geminiAvailable && geminiAltModel() === null) {
+    try { return await groqGenerate(history, system, onChunk); } catch (e) { if (/Cancelled/.test(e.message)) throw e; }
+  }
+  try { const out = await geminiCore(history, system, retried, modelOverride, think, onChunk); aiLastProvider = "Gemini"; return out; }
+  catch (e) {
+    if (!groqKey || /Cancelled|API key isn't valid/.test(e.message)) throw e;
+    console.warn("Gemini failed, using Groq backup:", e.message);
+    try { return await groqGenerate(history, system, onChunk); }
+    catch (e2) { if (/Cancelled/.test(e2.message)) throw e2; throw new Error(e.message + " The backup AI (Groq) didn't work either: " + e2.message); }
+  }
 }
 
 /* ---------- Chat UI ---------- */
@@ -7761,9 +7848,10 @@ const PROJECT_MENTOR_RULES = `You are a veteran professional in the field of thi
 - Answer in the language the person writes in.
 - If (and only if) your answer suggests concrete additions to the project, end with a block exactly like this (no other text after it):
 \`\`\`actions
-[{"tipo":"archivar","archivo":"exact attached file name","paso":"Exact text of the step it belongs to"},{"tipo":"resuelto","pregunta":"Exact text of the thing to figure out","texto":"Topic: the choice made"},{"tipo":"capitulo","titulo":"New chapter name","antesDe":"Existing chapter name or null"},{"tipo":"decision","texto":"Topic: choice"},{"tipo":"resolver","texto":"Open question to figure out"},{"tipo":"nota","texto":"Short note","capitulo":"Exact chapter name or null","paso":"Exact step text or null"}]
+[{"tipo":"archivar","archivo":"exact attached file name","paso":"Exact text of the step it belongs to"},{"tipo":"resuelto","pregunta":"Exact text of the thing to figure out","texto":"Topic: the choice made"},{"tipo":"capitulo","titulo":"New chapter name","antesDe":"Existing chapter name or null"},{"tipo":"decision","texto":"Topic: choice"},{"tipo":"resolver","texto":"Open question to figure out"},{"tipo":"nota","texto":"Short note","capitulo":"Exact chapter name or null","paso":"Exact step text or null"},{"tipo":"renombrar","objetivo":"Exact current title of the project/idea/chapter","texto":"New title"},{"tipo":"descripcion","objetivo":"Exact current title","texto":"New description"},{"tipo":"agregar_paso","capitulo":"Exact chapter/idea title","texto":"New step"},{"tipo":"estado_paso","paso":"Exact step text","estado":"done | in progress | to do"},{"tipo":"fecha","objetivo":"Exact current title","fecha":"YYYY-MM-DD or null to remove"}]
 \`\`\`
 Only include actions the person would clearly want offered; they will accept or skip each one.
+- YOU ARE ALSO THEIR WORK ASSISTANT: you can change the project (rename things, rewrite a description, add steps, mark steps done, set dates, add notes/decisions/questions/chapters), but ONLY through the actions block — nothing changes unless you include the action and the person taps Add. So whenever the person asks you to change, add, rename, move or mark something, ALWAYS include the matching action(s), and say "tap Add below and it's done". NEVER say you already did it. If no action type fits, say plainly you can't do that from the chat yet.
 - BE INVOLVED WITH THE PROJECT: when the person shares an idea (a character trait, a scene, a material, a flavour…), figure out WHERE in the project it belongs and offer to put it there: a "nota" with "paso" set to the exact text of the step it feeds (e.g. a character idea → the step about designing the characters) and/or "capitulo" set to that chapter's exact name. Say in your answer where you'd put it and why. Only use a plain note with no place when nothing fits. A "decision" is only for things the person has firmly decided, not loose ideas.
 - When the person attaches images or files, look at them and use them in your answer. If a file clearly belongs to one of the listed steps (e.g. a reference board for "Collect references"), offer an "archivar" action with that step's exact text.
 - When the person picks an option for one of the THINGS TO FIGURE OUT (or clearly settles it), offer a "resuelto" action with that thing's exact text in "pregunta" and the choice in "texto", asking briefly if they want it written into the project. "capitulo" only applies to projects.`;
@@ -7855,14 +7943,19 @@ function splitActions(text) {
   if (!m) return { text: text.trim(), actions: [] };
   let actions = [];
   try { actions = parseJsonLenient(m[1]); } catch (e) {}
-  return { text: text.slice(0, m.index).trim(), actions: Array.isArray(actions) ? actions.filter(a => a && (a.titulo || a.texto)).slice(0, 6) : [] };
+  return { text: text.slice(0, m.index).trim(), actions: Array.isArray(actions) ? actions.filter(a => a && (a.titulo || a.texto || a.estado || a.tipo === "fecha")).slice(0, 8) : [] };
 }
 function renderPcChat() {
   const proj = IDEAS.find(i => i.id === pcProjId);
   const log = document.getElementById("pc-log");
   const chat = (proj && proj.chat) || [];
-  const label = a => a.tipo === "archivar" ? `File <strong>${escapeHtml(a.archivo || "the attachment")}</strong> in step <em>${escapeHtml(a.paso || "")}</em>` : a.tipo === "resuelto" ? `Settle <em>${escapeHtml(a.pregunta || "")}</em> → <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "capitulo" ? `Add chapter <strong>${escapeHtml(a.titulo)}</strong>${a.antesDe ? " before <em>" + escapeHtml(a.antesDe) + "</em>" : ""}` : a.tipo === "decision" ? `Add key decision <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "resolver" ? `Add to figure out: <strong>${escapeHtml(a.texto)}</strong>` : a.paso ? `Add to step <em>${escapeHtml(a.paso)}</em>: <strong>${escapeHtml(a.texto)}</strong>` : a.capitulo ? `Add note to <em>${escapeHtml(a.capitulo)}</em>: <strong>${escapeHtml(a.texto)}</strong>` : `Add note: <strong>${escapeHtml(a.texto)}</strong>`;
-  log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}">${escapeHtml(m.text)}${(m.adj || []).length ? `<div class="att-list in-msg">${m.adj.map((a, j) => attChipHtml(a, "", `viewAttachment(IDEAS.find(i=>i.id==='${escapeAttr(pcProjId)}').chat[${k}].adj[${j}])`)).join("")}</div>` : ""}${(m.actions || []).map((a, j) => `<div class="pc-act ${a.done ? "done" : ""}"><span>${label(a)}</span>${a.done ? `<span class="note-date">${a.done === "yes" ? "✓ Added" : "Skipped"}</span>` : (pcEdit === k + "," + j ? `<textarea class="pc-act-edit" id="pc-edit-${k}-${j}">${escapeHtml(a.tipo === "capitulo" ? a.titulo : a.texto)}</textarea><span><button type="button" class="sug-apply" onclick="pcSaveEdit(${k},${j},true)">Save & add</button><button type="button" class="sug-ignore" onclick="pcEdit=null;renderPcChat()">Cancel</button></span>` : `<span><button type="button" class="sug-apply" onclick="pcAct(${k},${j},true)">Add</button>${a.tipo !== "archivar" ? `<button type="button" class="sug-edit" onclick="pcEdit='${k},${j}';renderPcChat();setTimeout(()=>{const t=document.getElementById('pc-edit-${k}-${j}');if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length)}},30)">Edit</button>` : ""}<button type="button" class="sug-ignore" onclick="pcAct(${k},${j},false)">Skip</button></span>`)}</div>`).join("")}</div>`).join("")
+  const label = a => a.tipo === "renombrar" ? `Rename <em>${escapeHtml(a.objetivo || "")}</em> → <strong>${escapeHtml(a.texto)}</strong>`
+    : a.tipo === "descripcion" ? `New description for <em>${escapeHtml(a.objetivo || "")}</em>: <strong>${escapeHtml(a.texto)}</strong>`
+    : a.tipo === "agregar_paso" ? `Add step to <em>${escapeHtml(a.capitulo || "")}</em>: <strong>${escapeHtml(a.texto)}</strong>`
+    : a.tipo === "estado_paso" ? `Mark <em>${escapeHtml(a.paso || "")}</em> as <strong>${escapeHtml(a.estado || "done")}</strong>`
+    : a.tipo === "fecha" ? (a.fecha ? `Set target date of <em>${escapeHtml(a.objetivo || "")}</em> to <strong>${escapeHtml(a.fecha)}</strong>` : `Remove the target date of <em>${escapeHtml(a.objetivo || "")}</em>`)
+    : a.tipo === "archivar" ? `File <strong>${escapeHtml(a.archivo || "the attachment")}</strong> in step <em>${escapeHtml(a.paso || "")}</em>` : a.tipo === "resuelto" ? `Settle <em>${escapeHtml(a.pregunta || "")}</em> → <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "capitulo" ? `Add chapter <strong>${escapeHtml(a.titulo)}</strong>${a.antesDe ? " before <em>" + escapeHtml(a.antesDe) + "</em>" : ""}` : a.tipo === "decision" ? `Add key decision <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "resolver" ? `Add to figure out: <strong>${escapeHtml(a.texto)}</strong>` : a.paso ? `Add to step <em>${escapeHtml(a.paso)}</em>: <strong>${escapeHtml(a.texto)}</strong>` : a.capitulo ? `Add note to <em>${escapeHtml(a.capitulo)}</em>: <strong>${escapeHtml(a.texto)}</strong>` : `Add note: <strong>${escapeHtml(a.texto)}</strong>`;
+  log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}">${escapeHtml(m.text)}${(m.adj || []).length ? `<div class="att-list in-msg">${m.adj.map((a, j) => attChipHtml(a, "", `viewAttachment(IDEAS.find(i=>i.id==='${escapeAttr(pcProjId)}').chat[${k}].adj[${j}])`)).join("")}</div>` : ""}${(m.actions || []).map((a, j) => `<div class="pc-act ${a.done ? "done" : ""}"><span>${label(a)}</span>${a.done ? `<span class="note-date">${a.done === "yes" ? "✓ Added" : "Skipped"}</span>` : (pcEdit === k + "," + j ? `<textarea class="pc-act-edit" id="pc-edit-${k}-${j}">${escapeHtml(a.tipo === "capitulo" ? a.titulo : a.tipo === "fecha" ? (a.fecha || "") : a.tipo === "estado_paso" ? (a.estado || "") : a.texto)}</textarea><span><button type="button" class="sug-apply" onclick="pcSaveEdit(${k},${j},true)">Save & add</button><button type="button" class="sug-ignore" onclick="pcEdit=null;renderPcChat()">Cancel</button></span>` : `<span><button type="button" class="sug-apply" onclick="pcAct(${k},${j},true)">Add</button>${a.tipo !== "archivar" ? `<button type="button" class="sug-edit" onclick="pcEdit='${k},${j}';renderPcChat();setTimeout(()=>{const t=document.getElementById('pc-edit-${k}-${j}');if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length)}},30)">Edit</button>` : ""}<button type="button" class="sug-ignore" onclick="pcAct(${k},${j},false)">Skip</button></span>`)}</div>`).join("")}</div>`).join("")
     : `<div class="step-empty">Ask anything about the project. For example:</div>
        <div class="step-chips">${["What should I focus on this week?", "Is anything missing from my plan?", "Am I being realistic with the timing?", "Explain how a pro would approach this project"].map(t => `<button type="button" class="ai-chip" onclick="pcSend(${JSON.stringify(t).replace(/"/g, "&quot;")})">${t}</button>`).join("")}</div>`;
   if (pcPending[pcProjId]) {
@@ -7877,10 +7970,10 @@ function pcSaveEdit(k, j) {
   const a = proj && proj.chat[k] && proj.chat[k].actions[j]; const t = document.getElementById(`pc-edit-${k}-${j}`);
   if (!a || !t) return;
   const v = t.value.trim(); if (!v) return;
-  if (a.tipo === "capitulo") a.titulo = v; else a.texto = v;
+  if (a.tipo === "capitulo") a.titulo = v; else if (a.tipo === "fecha") a.fecha = v; else if (a.tipo === "estado_paso") a.estado = v; else a.texto = v;
   pcEdit = null; pcAct(k, j, true);
 }
-function pcAct(k, j, yes) {
+async function pcAct(k, j, yes) {
   const proj = IDEAS.find(i => i.id === pcProjId);
   const a = proj && proj.chat && proj.chat[k] && proj.chat[k].actions && proj.chat[k].actions[j];
   if (!a || a.done) return;
@@ -7897,6 +7990,31 @@ function pcAct(k, j, yes) {
       if (decTarget) decTarget.decisiones = decisionsOf(decTarget).concat([{ texto: a.texto }]);
       else proj.notas = (proj.notas || []).concat([{ texto: "Decided: " + a.texto, fecha: new Date().toISOString() }]);
       logChanges(proj, "Mentor", [`Settled "${a.pregunta}" → ${a.texto}`]);
+    } else if (["renombrar", "descripcion", "agregar_paso", "fecha"].includes(a.tipo)) {
+      const norm = x => String(x || "").trim().toLowerCase();
+      const pool = [proj].concat(isProject(proj) ? projectChapters(proj) : []).concat(isChapter(proj) ? [IDEAS.find(x => x.id === proj.proyectoId)].filter(Boolean) : []);
+      const want = norm(a.tipo === "agregar_paso" ? a.capitulo : a.objetivo);
+      const tgt = (want && (pool.find(x => norm(x.titulo) === want) || pool.find(x => norm(x.titulo).includes(want) || want.includes(norm(x.titulo))))) || proj;
+      if (a.tipo === "renombrar") { const old = tgt.titulo; tgt.titulo = a.texto; logChanges(tgt, "Mentor", [`Renamed "${old}" → "${a.texto}"`]); }
+      else if (a.tipo === "descripcion") { tgt.descripcion = a.texto; logChanges(tgt, "Mentor", ["Rewrote the description"]); }
+      else if (a.tipo === "fecha") { if (a.fecha && /^\d{4}-\d{2}-\d{2}$/.test(a.fecha)) tgt.fechaObjetivo = a.fecha; else delete tgt.fechaObjetivo; logChanges(tgt, "Mentor", [a.fecha ? `Target date → ${a.fecha}` : "Removed target date"]); }
+      else {
+        if (isProject(tgt)) { await showAlert("Steps go inside a chapter — tell the mentor which chapter.", { title: "Pick a chapter" }); return; }
+        tgt.fases = tgt.fases && tgt.fases.length ? tgt.fases : [{ nombre: "Plan", pasos: [] }];
+        const fase = tgt.fases.find(f => (f.pasos || []).some(st => !((typeof st === "object" && st.hecho) === 2))) || tgt.fases[tgt.fases.length - 1];
+        fase.pasos = (fase.pasos || []).concat([{ texto: a.texto }]);
+        logChanges(tgt, "Mentor", [`Added step "${a.texto}"`]);
+      }
+    } else if (a.tipo === "estado_paso") {
+      const norm = x => String(x || "").trim().toLowerCase();
+      const steps = allStepsOf(proj);
+      const hit = steps.find(x => norm(x.texto) === norm(a.paso)) || steps.find(x => norm(x.texto).includes(norm(a.paso)) || norm(a.paso).includes(norm(x.texto)));
+      if (hit) {
+        const fase = hit.idea.fases[hit.f]; let st = fase.pasos[hit.s]; if (typeof st === "string") st = fase.pasos[hit.s] = { texto: st };
+        const e = norm(a.estado); st.hecho = /progress|curso|doing/.test(e) ? 1 : /to do|todo|pend|undone|not/.test(e) ? 0 : 2;
+        if (!st.hecho) delete st.hecho;
+        logChanges(hit.idea, "Mentor", [`Step "${hit.texto}" → ${["to do", "in progress", "done"][st.hecho || 0]}`]);
+      }
     } else if (a.tipo === "capitulo") { addChapter(proj.id, a.titulo, a.antesDe); logChanges(proj, "Mentor", [`Added chapter "${a.titulo}"`]); }
     else if (a.tipo === "decision") { if (decTarget) decTarget.decisiones = decisionsOf(decTarget).concat([{ texto: a.texto }]); else proj.notas = (proj.notas || []).concat([{ texto: "Decided: " + a.texto, fecha: new Date().toISOString() }]); logChanges(proj, "Mentor", [`Added key decision "${a.texto}"`]); }
     else if (a.tipo === "resolver") { proj.cosasAResolver = (proj.cosasAResolver || []).concat([{ texto: a.texto, resuelto: false }]); logChanges(proj, "Mentor", [`Added thing to figure out "${a.texto}"`]); }
@@ -8476,9 +8594,18 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-31 06:30 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-31 07:00 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
+  {
+    version: "1.5.0",
+    public: true,
+    items: [
+      "The mentor is now also your assistant: ask it to rename things, rewrite a description, add steps, mark steps done or set dates — tap Add and it's done",
+      "Optional backup AI (Groq) in Settings: when Gemini is busy or out of quota, Ideary answers with it instead — voice notes too",
+      "More AI models in rotation, so a busy Gemini model doesn't stop you",
+    ],
+  },
   {
     version: "1.4.3",
     public: true,
