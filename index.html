@@ -4052,7 +4052,7 @@ SHIPPING CHANGES
       <div id="nav-categorias"></div>
     </div>
 
-    <div class="version-link" onclick="openChangelog()">v1.5.0 · What's new</div>
+    <div class="version-link" onclick="openChangelog()">v1.5.1 · What's new</div>
     <div style="text-align:center;font-family:var(--hand);font-size:.9rem;margin-top:6px"><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--slate)">Privacy</a> · <a href="terms.html" target="_blank" rel="noopener" style="color:var(--slate)">Terms</a></div>
   </div>
   </aside>
@@ -7848,10 +7848,11 @@ const PROJECT_MENTOR_RULES = `You are a veteran professional in the field of thi
 - Answer in the language the person writes in.
 - If (and only if) your answer suggests concrete additions to the project, end with a block exactly like this (no other text after it):
 \`\`\`actions
-[{"tipo":"archivar","archivo":"exact attached file name","paso":"Exact text of the step it belongs to"},{"tipo":"resuelto","pregunta":"Exact text of the thing to figure out","texto":"Topic: the choice made"},{"tipo":"capitulo","titulo":"New chapter name","antesDe":"Existing chapter name or null"},{"tipo":"decision","texto":"Topic: choice"},{"tipo":"resolver","texto":"Open question to figure out"},{"tipo":"nota","texto":"Short note","capitulo":"Exact chapter name or null","paso":"Exact step text or null"},{"tipo":"renombrar","objetivo":"Exact current title of the project/idea/chapter","texto":"New title"},{"tipo":"descripcion","objetivo":"Exact current title","texto":"New description"},{"tipo":"agregar_paso","capitulo":"Exact chapter/idea title","texto":"New step"},{"tipo":"estado_paso","paso":"Exact step text","estado":"done | in progress | to do"},{"tipo":"fecha","objetivo":"Exact current title","fecha":"YYYY-MM-DD or null to remove"}]
+[{"tipo":"archivar","archivo":"exact attached file name","paso":"Exact text of the step it belongs to"},{"tipo":"resuelto","pregunta":"Exact text of the thing to figure out","texto":"Topic: the choice made"},{"tipo":"capitulo","titulo":"New chapter name","antesDe":"Existing chapter name or null"},{"tipo":"decision","texto":"Topic: choice"},{"tipo":"resolver","texto":"Open question to figure out"},{"tipo":"nota","texto":"Short note","capitulo":"Exact chapter name or null","paso":"Exact step text or null"},{"tipo":"renombrar","objetivo":"Exact current title of the project/idea/chapter","texto":"New title"},{"tipo":"descripcion","objetivo":"Exact current title","texto":"New description"},{"tipo":"agregar_paso","capitulo":"Exact chapter/idea title","texto":"New step"},{"tipo":"estado_paso","paso":"Exact step text","estado":"done | in progress | to do"},{"tipo":"fecha","objetivo":"Exact current title","fecha":"YYYY-MM-DD or null to remove"},{"tipo":"pendiente","texto":"Thing to do later"},{"tipo":"pendiente_hecho","texto":"Exact text of the pending item"}]
 \`\`\`
 Only include actions the person would clearly want offered; they will accept or skip each one.
 - YOU ARE ALSO THEIR WORK ASSISTANT: you can change the project (rename things, rewrite a description, add steps, mark steps done, set dates, add notes/decisions/questions/chapters), but ONLY through the actions block — nothing changes unless you include the action and the person taps Add. So whenever the person asks you to change, add, rename, move or mark something, ALWAYS include the matching action(s), and say "tap Add below and it's done". NEVER say you already did it. If no action type fits, say plainly you can't do that from the chat yet.
+- PENDING (for later): when the person says to leave something for later / "dejalo pendiente", offer a "pendiente" action. When they ask what's pending, list the PENDING items from the context (only those). When they say one is done or no longer needed, offer "pendiente_hecho" with its exact text. Pending = things they already know they want to do later; "resolver" = decisions not taken yet.
 - BE INVOLVED WITH THE PROJECT: when the person shares an idea (a character trait, a scene, a material, a flavour…), figure out WHERE in the project it belongs and offer to put it there: a "nota" with "paso" set to the exact text of the step it feeds (e.g. a character idea → the step about designing the characters) and/or "capitulo" set to that chapter's exact name. Say in your answer where you'd put it and why. Only use a plain note with no place when nothing fits. A "decision" is only for things the person has firmly decided, not loose ideas.
 - When the person attaches images or files, look at them and use them in your answer. If a file clearly belongs to one of the listed steps (e.g. a reference board for "Collect references"), offer an "archivar" action with that step's exact text.
 - When the person picks an option for one of the THINGS TO FIGURE OUT (or clearly settles it), offer a "resuelto" action with that thing's exact text in "pregunta" and the choice in "texto", asking briefly if they want it written into the project. "capitulo" only applies to projects.`;
@@ -7906,7 +7907,7 @@ CHAPTERS IN ORDER:
 ${chs.map((c, k) => `${k + 1}. ${c.titulo} — ${Math.round(ideaProgress(c) * 100)}% done${c.estado === "completada" ? " (completed)" : ""}${c.fechaObjetivo ? ", target " + c.fechaObjetivo : ""}
    ${(c.fases || []).map(f => (f.pasos || []).map(st => { const h = (typeof st === "object" && st.hecho) || 0; return (h === 2 ? "[x] " : h === 1 ? "[~] " : "[ ] ") + stepText(st); }).join(" | ")).join(" | ") || "(no plan yet)"}`).join("\n")}
 ${cosas.length ? "THINGS TO FIGURE OUT: " + cosas.join(" | ") : ""}
-${(proj.notas || []).length ? "NOTES: " + proj.notas.map(noteText).join(" | ") : ""}${lessonsFor(proj)}`;
+${(proj.notas || []).length ? "NOTES: " + proj.notas.map(noteText).join(" | ") : ""}${pendingText(proj)}${lessonsFor(proj)}`;
 }
 function chatContextText(idea) {
   if (isProject(idea)) return projectContextText(idea);
@@ -7916,7 +7917,13 @@ function chatContextText(idea) {
 ${idea.descripcion ? "DESCRIPTION: " + idea.descripcion : ""}
 PLAN: ${(idea.fases || []).map(f => f.nombre + ": " + (f.pasos || []).map(st => { const h = (typeof st === "object" && st.hecho) || 0; return (h === 2 ? "[x] " : h === 1 ? "[~] " : "[ ] ") + stepText(st); }).join(" | ")).join("\n") || "(no plan yet)"}
 ${cosas.length ? "THINGS TO FIGURE OUT: " + cosas.join(" | ") : ""}
-${(idea.notas || []).length ? "NOTES: " + idea.notas.map(noteText).join(" | ") : ""}${lessonsFor(proj || idea)}`;
+${(idea.notas || []).length ? "NOTES: " + idea.notas.map(noteText).join(" | ") : ""}${pendingText(idea)}${lessonsFor(proj || idea)}`;
+}
+// Pending items live on the root (the project, or the idea itself).
+function pendRoot(item) { return (isChapter(item) && IDEAS.find(x => x.id === item.proyectoId)) || item; }
+function pendingText(item) {
+  const p = (pendRoot(item).pendientes || []).filter(x => !x.hecho);
+  return "\nPENDING (left for later): " + (p.length ? p.map(x => x.texto).join(" | ") : "(nothing pending)");
 }
 function figureOut(ideaId, idx) {
   const idea = IDEAS.find(i => i.id === ideaId);
@@ -7949,7 +7956,9 @@ function renderPcChat() {
   const proj = IDEAS.find(i => i.id === pcProjId);
   const log = document.getElementById("pc-log");
   const chat = (proj && proj.chat) || [];
-  const label = a => a.tipo === "renombrar" ? `Rename <em>${escapeHtml(a.objetivo || "")}</em> → <strong>${escapeHtml(a.texto)}</strong>`
+  const label = a => a.tipo === "pendiente" ? `Leave pending: <strong>${escapeHtml(a.texto)}</strong>`
+    : a.tipo === "pendiente_hecho" ? `Cross off pending: <strong>${escapeHtml(a.texto)}</strong>`
+    : a.tipo === "renombrar" ? `Rename <em>${escapeHtml(a.objetivo || "")}</em> → <strong>${escapeHtml(a.texto)}</strong>`
     : a.tipo === "descripcion" ? `New description for <em>${escapeHtml(a.objetivo || "")}</em>: <strong>${escapeHtml(a.texto)}</strong>`
     : a.tipo === "agregar_paso" ? `Add step to <em>${escapeHtml(a.capitulo || "")}</em>: <strong>${escapeHtml(a.texto)}</strong>`
     : a.tipo === "estado_paso" ? `Mark <em>${escapeHtml(a.paso || "")}</em> as <strong>${escapeHtml(a.estado || "done")}</strong>`
@@ -7957,7 +7966,7 @@ function renderPcChat() {
     : a.tipo === "archivar" ? `File <strong>${escapeHtml(a.archivo || "the attachment")}</strong> in step <em>${escapeHtml(a.paso || "")}</em>` : a.tipo === "resuelto" ? `Settle <em>${escapeHtml(a.pregunta || "")}</em> → <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "capitulo" ? `Add chapter <strong>${escapeHtml(a.titulo)}</strong>${a.antesDe ? " before <em>" + escapeHtml(a.antesDe) + "</em>" : ""}` : a.tipo === "decision" ? `Add key decision <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "resolver" ? `Add to figure out: <strong>${escapeHtml(a.texto)}</strong>` : a.paso ? `Add to step <em>${escapeHtml(a.paso)}</em>: <strong>${escapeHtml(a.texto)}</strong>` : a.capitulo ? `Add note to <em>${escapeHtml(a.capitulo)}</em>: <strong>${escapeHtml(a.texto)}</strong>` : `Add note: <strong>${escapeHtml(a.texto)}</strong>`;
   log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}">${escapeHtml(m.text)}${(m.adj || []).length ? `<div class="att-list in-msg">${m.adj.map((a, j) => attChipHtml(a, "", `viewAttachment(IDEAS.find(i=>i.id==='${escapeAttr(pcProjId)}').chat[${k}].adj[${j}])`)).join("")}</div>` : ""}${(m.actions || []).map((a, j) => `<div class="pc-act ${a.done ? "done" : ""}"><span>${label(a)}</span>${a.done ? `<span class="note-date">${a.done === "yes" ? "✓ Added" : "Skipped"}</span>` : (pcEdit === k + "," + j ? `<textarea class="pc-act-edit" id="pc-edit-${k}-${j}">${escapeHtml(a.tipo === "capitulo" ? a.titulo : a.tipo === "fecha" ? (a.fecha || "") : a.tipo === "estado_paso" ? (a.estado || "") : a.texto)}</textarea><span><button type="button" class="sug-apply" onclick="pcSaveEdit(${k},${j},true)">Save & add</button><button type="button" class="sug-ignore" onclick="pcEdit=null;renderPcChat()">Cancel</button></span>` : `<span><button type="button" class="sug-apply" onclick="pcAct(${k},${j},true)">Add</button>${a.tipo !== "archivar" ? `<button type="button" class="sug-edit" onclick="pcEdit='${k},${j}';renderPcChat();setTimeout(()=>{const t=document.getElementById('pc-edit-${k}-${j}');if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length)}},30)">Edit</button>` : ""}<button type="button" class="sug-ignore" onclick="pcAct(${k},${j},false)">Skip</button></span>`)}</div>`).join("")}</div>`).join("")
     : `<div class="step-empty">Ask anything about the project. For example:</div>
-       <div class="step-chips">${["What should I focus on this week?", "Is anything missing from my plan?", "Am I being realistic with the timing?", "Explain how a pro would approach this project"].map(t => `<button type="button" class="ai-chip" onclick="pcSend(${JSON.stringify(t).replace(/"/g, "&quot;")})">${t}</button>`).join("")}</div>`;
+       <div class="step-chips">${["What should I focus on this week?", "What's still pending?", "Is anything missing from my plan?", "Am I being realistic with the timing?", "Explain how a pro would approach this project"].map(t => `<button type="button" class="ai-chip" onclick="pcSend(${JSON.stringify(t).replace(/"/g, "&quot;")})">${t}</button>`).join("")}</div>`;
   if (pcPending[pcProjId]) {
     const w = document.createElement("div"); w.className = "step-msg model ai-wait"; w.dataset.t0 = pcPending[pcProjId];
     w.innerHTML = thinkingHtml(); tickThinking(w, pcPending[pcProjId]); log.appendChild(w);
@@ -7990,6 +7999,13 @@ async function pcAct(k, j, yes) {
       if (decTarget) decTarget.decisiones = decisionsOf(decTarget).concat([{ texto: a.texto }]);
       else proj.notas = (proj.notas || []).concat([{ texto: "Decided: " + a.texto, fecha: new Date().toISOString() }]);
       logChanges(proj, "Mentor", [`Settled "${a.pregunta}" → ${a.texto}`]);
+    } else if (a.tipo === "pendiente") {
+      const root = pendRoot(proj); root.pendientes = (root.pendientes || []).concat([{ texto: a.texto, fecha: new Date().toISOString() }]);
+      logChanges(root, "Mentor", [`Left pending: ${a.texto}`]);
+    } else if (a.tipo === "pendiente_hecho") {
+      const norm = x => String(x || "").trim().toLowerCase(), root = pendRoot(proj), list = (root.pendientes || []).filter(x => !x.hecho);
+      const it = list.find(x => norm(x.texto) === norm(a.texto)) || list.find(x => norm(x.texto).includes(norm(a.texto)) || norm(a.texto).includes(norm(x.texto)));
+      if (it) { it.hecho = new Date().toISOString(); logChanges(root, "Mentor", [`Done: ${it.texto}`]); }
     } else if (["renombrar", "descripcion", "agregar_paso", "fecha"].includes(a.tipo)) {
       const norm = x => String(x || "").trim().toLowerCase();
       const pool = [proj].concat(isProject(proj) ? projectChapters(proj) : []).concat(isChapter(proj) ? [IDEAS.find(x => x.id === proj.proyectoId)].filter(Boolean) : []);
@@ -8594,9 +8610,16 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-31 07:00 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-31 07:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
+  {
+    version: "1.5.1",
+    public: true,
+    items: [
+      "Leave things pending: tell the mentor “let's leave this for later” and ask “what's still pending?” any time",
+    ],
+  },
   {
     version: "1.5.0",
     public: true,
