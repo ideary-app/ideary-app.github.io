@@ -316,3 +316,11 @@ Las claves viejas `artdeas_*` y los archivos `artdeas-*` se migran solos la prim
 - **Gemini ocupado:** si un modelo responde 'high demand' se marca ocupado 2 min (`geminiBusy`) y se prueba otro modelo flash/flash-lite disponible para la key (`geminiAltModel`, más nuevo primero), hasta 4 intentos.
 - **Cuota (429):** la cuota gratis es por modelo; si uno da 429 se evita 1 hora y se prueba otro modelo disponible. El aviso de cuota solo sale si se agotaron todos.
 - **Notas de voz:** la transcripción ahora pasa por `geminiGenerate` (antes tenía su propio fetch sin reintentos ni cambio de modelo); el audio va como `inlineData`.
+
+## Regla: la IA tiene que estar siempre usable
+Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Gemini y, si de verdad no hay forma, decirlo claro.
+- **Todas** las llamadas a Gemini pasan por `geminiGenerate` (chat, mentor, voz, ordenar notas…). Nunca hacer un `fetch` propio a Gemini: se pierden los fallbacks.
+- El modelo se re-elige solo: `geminiResolveModel` revisa la lista de modelos de Google **una vez por día** (toma el flash más nuevo) y enseguida si el modelo da 404 / "not found".
+- Modelo saturado (503) → otro modelo; sin cuota (429) → otro modelo; error 400 raro (Google cambió un parámetro) → reintenta con el pedido más simple; cualquier otro error del modelo → refresca la lista y prueba otro.
+- Si no queda nada que funcione, el mensaje dice qué contestó Google y que es del lado de Google, en vez de un error críptico.
+- Al agregar una función nueva con IA: usar `geminiGenerate` y probarla con un mock de 503/429/404.

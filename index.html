@@ -5371,7 +5371,10 @@ function geminiPickModel(names) {
   return any || names.find(n => /^gemini-/.test(n)) || GEMINI_FALLBACK_MODEL;
 }
 async function geminiResolveModel(force) {
-  if (geminiModel && !force) return geminiModel;
+  let last = 0; try { last = +localStorage.getItem("ideary_gemini_model_checked") || 0; } catch (e) {}
+  if (geminiModel && !force && Date.now() - last < 864e5) return geminiModel;
+  try { localStorage.setItem("ideary_gemini_model_checked", String(Date.now())); } catch (e) {}
+  if (geminiModel && !force) { try { geminiModel = geminiPickModel(await geminiListModels(geminiKey)); localStorage.setItem(GEMINI_MODEL_STORAGE, geminiModel); } catch (e) {} return geminiModel; }
   geminiModel = geminiPickModel(await geminiListModels(geminiKey));
   try { localStorage.setItem(GEMINI_MODEL_STORAGE, geminiModel); } catch (e) {}
   return geminiModel;
@@ -5654,9 +5657,23 @@ async function geminiGenerate(history, system, retried, modelOverride, think, on
       const alt = geminiAltModel();
       if (alt) return geminiGenerate(history, system, tries + 1, alt, think, onChunk);
     }
+    if (res.status === 400 && !/api key/i.test(msg) && think && !(typeof retried === "number" && retried >= 20)) {
+      // Google may have changed/retired a setting we send: retry once with the plainest request.
+      console.warn("Gemini 400, retrying without extras:", msg);
+      return geminiGenerate(history, system, 20, modelOverride, undefined, onChunk);
+    }
+    if (!overloaded && res.status !== 429 && res.status !== 400 && res.status !== 403 && !(typeof retried === "number" && retried >= 30)) {
+      // Something else broke on that model (retired, 5xx, new behaviour): refresh the model list and try another one.
+      geminiBusy[model] = Date.now() + 3600000;
+      try { await geminiResolveModel(true); } catch (e) {}
+      const alt = geminiAltModel();
+      if (alt && alt !== model) return geminiGenerate(history, system, 30, alt, think, onChunk);
+    }
     if (overloaded) { console.warn("Gemini busy:", res.status, model, msg); msg = `Gemini is very busy right now — Google answered “${String(msg).slice(0, 120)}” on every model I tried. It's not your key or your limit; try again in a minute.`; }
     else if (res.status === 400 && /api key/i.test(msg)) msg = "Your Gemini API key isn't valid. Check it in Settings.";
     else if (res.status === 429) msg = "You've used up your free Gemini quota for now (on every model I tried). It refills on its own — try again later (usually within the hour, or tomorrow for the daily limit).";
+    else if (res.status === 403) msg = "Google is refusing this Gemini key (" + String(msg).slice(0, 100) + "). Check the key in Settings — Google may have changed its access rules.";
+    else msg = `The AI isn't working right now: Google answered “${String(msg).slice(0, 140)}” and no other Gemini model worked either. This is on Google's side (they may have changed something) — Ideary will pick it up automatically once a working model is available.`;
     throw new Error(msg);
   }
   if (onChunk && res.body) {
@@ -8375,7 +8392,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-31 05:30 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-31 05:45 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
