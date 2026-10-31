@@ -5373,11 +5373,32 @@ try { geminiModel = localStorage.getItem(GEMINI_MODEL_STORAGE) || ""; } catch (e
 let geminiAvailable = null;
 const geminiBusy = {}; // model -> time until we avoid it (it answered "high demand")
 // Another usable chat model that isn't marked busy: plain flash first, then lite, newest version first.
+// Every text model this key can use, best first. Gemma models live on separate,
+// much larger free quotas, so they're the safety net when every Gemini model is busy.
+// The model that last answered: next time start there instead of the busy "best" one.
+// Remembered for 30 min, so once Gemini recovers we go back to the best model.
+function geminiGood(m) { try { localStorage.setItem("ideary_gemini_lastgood", m + "|" + Date.now()); } catch (e) {} }
+function geminiLastGood() { try { const [m, t] = (localStorage.getItem("ideary_gemini_lastgood") || "").split("|"); return m && Date.now() - +t < 18e5 ? m : ""; } catch (e) { return ""; } }
+function geminiCandidates() {
+  const out = [];
+  (geminiAvailable || []).forEach(n => {
+    if (/image|tts|live|audio|embed|vision-only|robotics|computer-use|native|veo|imagen|aqa|learnlm/.test(n)) return;
+    let m, rank;
+    if ((m = n.match(/^gemini-(\d+(?:\.\d+)?)-flash$/))) rank = 100 + +m[1];
+    else if (/^gemini-flash-latest$/.test(n)) rank = 95;
+    else if ((m = n.match(/^gemini-(\d+(?:\.\d+)?)-flash-lite$/))) rank = 80 + +m[1];
+    else if (/^gemini-flash-lite-latest$/.test(n)) rank = 78;
+    else if ((m = n.match(/^gemini-(\d+(?:\.\d+)?)-flash.*(preview|\d{3})/))) rank = 60 + +m[1];
+    else if ((m = n.match(/^gemma-(\d+)[\w.-]*?-(\d+)b-it$/))) rank = 20 + +m[1] + +m[2] / 100;
+    else return;
+    out.push({ n, rank });
+  });
+  return out.sort((a, b) => b.rank - a.rank).map(x => x.n);
+}
 function geminiAltModel() {
-  const now = Date.now();
-  const c = (geminiAvailable || []).map(n => { const m = n.match(/^gemini-(\d+(?:\.\d+)?)-flash(-lite)?$/); return m ? { n, v: parseFloat(m[1]), lite: !!m[2] } : null; })
-    .filter(x => x && !(geminiBusy[x.n] > now)).sort((a, b) => (a.lite - b.lite) || (b.v - a.v));
-  return c.length ? c[0].n : null;
+  const now = Date.now(), c = geminiCandidates().filter(n => !(geminiBusy[n] > now));
+  const good = geminiLastGood();
+  return c.includes(good) ? good : (c[0] || null);
 } // model names this key can use (filled by geminiListModels)
 async function geminiListModels(key) {
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=${encodeURIComponent(key)}`);
@@ -5636,7 +5657,11 @@ async function geminiGenerate(history, system, retried, modelOverride, think, on
   const t0 = history._t0 || (history._t0 = Date.now());
   if (retried && Date.now() - t0 > 150000) throw new Error("Gemini is taking too long on every model I tried (it's very slow on Google's side right now). Try again in a few minutes.");
   let model = modelOverride || await geminiResolveModel(false);
-  if (!modelOverride && geminiBusy[model] > Date.now()) model = geminiAltModel() || model;
+  if (!modelOverride) {
+    const good = geminiLastGood();
+    if (good && !(geminiBusy[good] > Date.now()) && (!geminiAvailable || geminiAvailable.includes(good))) model = good;
+    else if (geminiBusy[model] > Date.now()) model = geminiAltModel() || model;
+  }
   const ctrl = new AbortController();
   aiCtrlUser = ctrl;
   // Per try: if a model doesn't even start answering in 40s, it's stuck — move on to another one.
@@ -5647,7 +5672,11 @@ async function geminiGenerate(history, system, retried, modelOverride, think, on
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: ctrl.signal,
-      body: JSON.stringify({
+      body: JSON.stringify(/^gemma/.test(model) ? {
+        // Gemma: no system instruction and no thinking settings — put the rules in the first message.
+        contents: history.map((m, k) => ({ role: m.role, parts: [{ text: (k === 0 ? (system || DIRECTOR_RULES) + "\n\n---\n\n" : "") + m.text }].concat((m.images || []).filter(im => /^image\//.test(im.mime)).map(im => ({ inlineData: { mimeType: im.mime, data: im.data } }))) })),
+        generationConfig: { temperature: 0.7 }
+      } : {
         systemInstruction: { parts: [{ text: system || DIRECTOR_RULES }] },
         contents: history.map(m => ({ role: m.role, parts: [{ text: m.text }].concat((m.images || []).map(im => ({ inlineData: { mimeType: im.mime, data: im.data } }))) })),
         generationConfig: genConfig(model, 0.7, think)
@@ -5687,7 +5716,7 @@ async function geminiGenerate(history, system, retried, modelOverride, think, on
     if (overloaded) geminiBusy[model] = Date.now() + 120000;
     if (quota) geminiBusy[model] = Date.now() + 3600000; // free quota is per model: skip this one for an hour
     if ((overloaded || quota) && !geminiAvailable) { try { await geminiListModels(geminiKey); } catch (e) {} }
-    if ((overloaded || quota) && tries < 5 && geminiAltModel() !== null) {
+    if ((overloaded || quota) && tries < 8 && geminiAltModel() !== null) {
       // Busy model / no quota on it: switch to another Gemini model this key can use (newest first).
       if (overloaded) await new Promise(r => setTimeout(r, tries ? 1500 : 500));
       const alt = geminiAltModel();
@@ -5740,12 +5769,12 @@ async function geminiGenerate(history, system, retried, modelOverride, think, on
       if (ctrl.signal.reason === "user") throw new Error("Cancelled. You can send it again.");
       if (!out) throw new Error("The connection to Gemini dropped. Try again.");
     } finally { clearTimeout(st); }
-    countAiUse(tokens);
+    countAiUse(tokens); geminiGood(model);
     if (!out) throw new Error("Gemini returned an empty reply. Try again.");
     return out;
   }
   const j = await res.json();
-  countAiUse(j.usageMetadata && j.usageMetadata.totalTokenCount);
+  countAiUse(j.usageMetadata && j.usageMetadata.totalTokenCount); geminiGood(model);
   const parts = j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts;
   if (!parts) throw new Error("Gemini returned an empty reply. Try again.");
   return parts.map(p => p.text || "").join("");
@@ -8445,7 +8474,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-31 06:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-31 06:30 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
