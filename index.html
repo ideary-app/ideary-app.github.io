@@ -3982,6 +3982,9 @@ SHIPPING CHANGES
   .step-msg.md .md-gap { height: 8px; }
   .step-msg.md .md-hr { border: none; border-top: 1px dashed var(--line-strong); margin: 10px 0; }
   .step-msg.md code { font-family: var(--mono); font-size: .85em; background: rgba(128,128,128,.15); padding: 0 4px; border-radius: 4px; }
+
+  .pc-inline-edit { outline: none; border-bottom: 2px solid var(--pen); background: rgba(128,128,128,.12); border-radius: 3px; padding: 0 3px; cursor: text; }
+  .pc-act.editing { border-style: solid; border-color: var(--pen); }
 </style>
 </head>
 <body>
@@ -7992,7 +7995,7 @@ function renderPcChat() {
     : a.tipo === "estado_paso" ? `Mark <em>${escapeHtml(a.paso || "")}</em> as <strong>${escapeHtml(a.estado || "done")}</strong>`
     : a.tipo === "fecha" ? (a.fecha ? `Set target date of <em>${escapeHtml(a.objetivo || "")}</em> to <strong>${escapeHtml(a.fecha)}</strong>` : `Remove the target date of <em>${escapeHtml(a.objetivo || "")}</em>`)
     : a.tipo === "archivar" ? `File <strong>${escapeHtml(a.archivo || "the attachment")}</strong> in step <em>${escapeHtml(a.paso || "")}</em>` : a.tipo === "resuelto" ? `Settle <em>${escapeHtml(a.pregunta || "")}</em> → <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "capitulo" ? `Add chapter <strong>${escapeHtml(a.titulo)}</strong>${a.antesDe ? " before <em>" + escapeHtml(a.antesDe) + "</em>" : ""}` : a.tipo === "decision" ? `Add key decision <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "resolver" ? `Add to figure out: <strong>${escapeHtml(a.texto)}</strong>` : a.paso ? `Add to step <em>${escapeHtml(a.paso)}</em>: <strong>${escapeHtml(a.texto)}</strong>` : a.capitulo ? `Add note to <em>${escapeHtml(a.capitulo)}</em>: <strong>${escapeHtml(a.texto)}</strong>` : `Add note: <strong>${escapeHtml(a.texto)}</strong>`;
-  log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}${m.role === "model" ? " md" : ""}">${m.role === "model" ? mdLite(m.text) : escapeHtml(m.text)}${(m.adj || []).length ? `<div class="att-list in-msg">${m.adj.map((a, j) => attChipHtml(a, "", `viewAttachment(IDEAS.find(i=>i.id==='${escapeAttr(pcProjId)}').chat[${k}].adj[${j}])`)).join("")}</div>` : ""}${(m.actions || []).map((a, j) => `<div class="pc-act ${a.done ? "done" : ""}"><span>${label(a)}</span>${a.done ? `<span class="note-date">${a.done === "yes" ? "✓ Added" : "Skipped"}</span>` : (pcEdit === k + "," + j ? `<textarea class="pc-act-edit" id="pc-edit-${k}-${j}">${escapeHtml(a.tipo === "capitulo" ? a.titulo : a.tipo === "fecha" ? (a.fecha || "") : a.tipo === "estado_paso" ? (a.estado || "") : a.texto)}</textarea><span><button type="button" class="sug-apply" onclick="pcSaveEdit(${k},${j},true)">Save & add</button><button type="button" class="sug-ignore" onclick="pcEdit=null;renderPcChat()">Cancel</button></span>` : `<span><button type="button" class="sug-apply" onclick="pcAct(${k},${j},true)">Add</button>${a.tipo !== "archivar" ? `<button type="button" class="sug-edit" onclick="pcEdit='${k},${j}';renderPcChat();setTimeout(()=>{const t=document.getElementById('pc-edit-${k}-${j}');if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length)}},30)">Edit</button>` : ""}<button type="button" class="sug-ignore" onclick="pcAct(${k},${j},false)">Skip</button></span>`)}</div>`).join("")}</div>`).join("")
+  log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}${m.role === "model" ? " md" : ""}">${m.role === "model" ? mdLite(m.text) : escapeHtml(m.text)}${(m.adj || []).length ? `<div class="att-list in-msg">${m.adj.map((a, j) => attChipHtml(a, "", `viewAttachment(IDEAS.find(i=>i.id==='${escapeAttr(pcProjId)}').chat[${k}].adj[${j}])`)).join("")}</div>` : ""}${(m.actions || []).map((a, j) => `<div class="pc-act ${a.done ? "done" : ""}${pcEdit === k + "," + j ? " editing" : ""}" data-kj="${k},${j}"><span>${label(a)}</span>${a.done ? `<span class="note-date">${a.done === "yes" ? "✓ Added" : "Skipped"}</span>` : (pcEdit === k + "," + j ? `<span><button type="button" class="sug-apply" onclick="pcSaveEdit(${k},${j},true)">Save & add</button><button type="button" class="sug-ignore" onclick="pcEdit=null;renderPcChat()">Cancel</button></span>` : `<span><button type="button" class="sug-apply" onclick="pcAct(${k},${j},true)">Add</button>${a.tipo !== "archivar" ? `<button type="button" class="sug-edit" onclick="pcEdit='${k},${j}';renderPcChat()">Edit</button>` : ""}<button type="button" class="sug-ignore" onclick="pcAct(${k},${j},false)">Skip</button></span>`)}</div>`).join("")}</div>`).join("")
     : `<div class="step-empty">Ask anything about the project. For example:</div>
        <div class="step-chips">${["What should I focus on this week?", "What's still pending?", "Is anything missing from my plan?", "Am I being realistic with the timing?", "Explain how a pro would approach this project"].map(t => `<button type="button" class="ai-chip" onclick="pcSend(${JSON.stringify(t).replace(/"/g, "&quot;")})">${t}</button>`).join("")}</div>`;
   if (pcPending[pcProjId]) {
@@ -8001,12 +8004,20 @@ function renderPcChat() {
   }
   lockComposer("pc-input", !!pcPending[pcProjId]);
   if (pcEdit === null) log.scrollTop = log.scrollHeight;
+  else {
+    const box = log.querySelector(`.pc-act[data-kj="${pcEdit}"]`), v = box && [...box.querySelectorAll("span > strong")].pop();
+    if (v) {
+      v.id = "pc-edit-" + pcEdit.replace(",", "-"); v.contentEditable = "true"; v.spellcheck = true; v.classList.add("pc-inline-edit");
+      v.onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); const [k, j] = pcEdit.split(","); pcSaveEdit(+k, +j); } if (e.key === "Escape") { pcEdit = null; renderPcChat(); } };
+      v.focus(); const r = document.createRange(); r.selectNodeContents(v); r.collapse(false); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    }
+  }
 }
 function pcSaveEdit(k, j) {
   const proj = IDEAS.find(i => i.id === pcProjId);
   const a = proj && proj.chat[k] && proj.chat[k].actions[j]; const t = document.getElementById(`pc-edit-${k}-${j}`);
   if (!a || !t) return;
-  const v = t.value.trim(); if (!v) return;
+  const v = (t.value !== undefined ? t.value : t.innerText).trim(); if (!v) return;
   if (a.tipo === "capitulo") a.titulo = v; else if (a.tipo === "fecha") a.fecha = v; else if (a.tipo === "estado_paso") a.estado = v; else a.texto = v;
   pcEdit = null; pcAct(k, j, true);
 }
@@ -8646,7 +8657,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-31 19:15 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-10-31 20:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
