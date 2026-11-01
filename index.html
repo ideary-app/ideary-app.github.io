@@ -3985,6 +3985,10 @@ SHIPPING CHANGES
 
   .pc-inline-edit { outline: none; border-bottom: 2px solid var(--pen); background: rgba(128,128,128,.12); border-radius: 3px; padding: 0 3px; cursor: text; }
   .pc-act.editing { border-style: solid; border-color: var(--pen); }
+
+  .pc-msgbar { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 8px; }
+  .pc-undo { background: none; border: 1px solid var(--line-strong); border-radius: var(--sketch-radius); padding: 4px 12px; font-family: var(--hand); font-size: 1rem; color: var(--ink); cursor: pointer; }
+  .pc-act.danger:not(.done) { border-color: var(--rust); }
 </style>
 </head>
 <body>
@@ -4064,7 +4068,7 @@ SHIPPING CHANGES
       <div id="nav-categorias"></div>
     </div>
 
-    <div class="version-link" onclick="openChangelog()">v1.5.1 · What's new</div>
+    <div class="version-link" onclick="openChangelog()">v1.6.0 · What's new</div>
     <div style="text-align:center;font-family:var(--hand);font-size:.9rem;margin-top:6px"><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--slate)">Privacy</a> · <a href="terms.html" target="_blank" rel="noopener" style="color:var(--slate)">Terms</a></div>
   </div>
   </aside>
@@ -7861,9 +7865,12 @@ const PROJECT_MENTOR_RULES = `You are a veteran professional in the field of thi
 - Answer in the language the person writes in.
 - If (and only if) your answer suggests concrete additions to the project, end with a block exactly like this (no other text after it):
 \`\`\`actions
-[{"tipo":"archivar","archivo":"exact attached file name","paso":"Exact text of the step it belongs to"},{"tipo":"resuelto","pregunta":"Exact text of the thing to figure out","texto":"Topic: the choice made"},{"tipo":"capitulo","titulo":"New chapter name","antesDe":"Existing chapter name or null"},{"tipo":"decision","texto":"Topic: choice"},{"tipo":"resolver","texto":"Open question to figure out"},{"tipo":"nota","texto":"Short note","capitulo":"Exact chapter name or null","paso":"Exact step text or null"},{"tipo":"renombrar","objetivo":"Exact current title of the project/idea/chapter","texto":"New title"},{"tipo":"descripcion","objetivo":"Exact current title","texto":"New description"},{"tipo":"agregar_paso","capitulo":"Exact chapter/idea title","texto":"New step"},{"tipo":"estado_paso","paso":"Exact step text","estado":"done | in progress | to do"},{"tipo":"fecha","objetivo":"Exact current title","fecha":"YYYY-MM-DD or null to remove"},{"tipo":"pendiente","texto":"Thing to do later"},{"tipo":"pendiente_hecho","texto":"Exact text of the pending item"}]
+[{"tipo":"archivar","archivo":"exact attached file name","paso":"Exact text of the step it belongs to"},{"tipo":"resuelto","pregunta":"Exact text of the thing to figure out","texto":"Topic: the choice made"},{"tipo":"capitulo","titulo":"New chapter name","antesDe":"Existing chapter name or null"},{"tipo":"decision","texto":"Topic: choice"},{"tipo":"resolver","texto":"Open question to figure out"},{"tipo":"nota","texto":"Short note","capitulo":"Exact chapter name or null","paso":"Exact step text or null"},{"tipo":"renombrar","objetivo":"Exact current title of the project/idea/chapter","texto":"New title"},{"tipo":"descripcion","objetivo":"Exact current title","texto":"New description"},{"tipo":"agregar_paso","capitulo":"Exact chapter/idea title","texto":"New step"},{"tipo":"estado_paso","paso":"Exact step text","estado":"done | in progress | to do"},{"tipo":"fecha","objetivo":"Exact current title","fecha":"YYYY-MM-DD or null to remove"},{"tipo":"pendiente","texto":"Thing to do later"},{"tipo":"pendiente_hecho","texto":"Exact text of the pending item"},{"tipo":"mover_capitulo","titulo":"Exact chapter name","antesDe":"Exact chapter name or null for the end"},{"tipo":"borrar_capitulo","titulo":"Exact chapter name"},{"tipo":"editar_paso","paso":"Exact current step text","texto":"New step text"},{"tipo":"borrar_paso","paso":"Exact step text"},{"tipo":"mover_paso","paso":"Exact step text","capitulo":"Exact destination chapter name","antesDe":"Exact step text in that chapter or null for the end"},{"tipo":"editar","objeto":"nota | decision | resolver | pendiente","viejo":"Exact current text","texto":"New text"},{"tipo":"borrar","objeto":"nota | decision | resolver | pendiente","viejo":"Exact current text"}]
 \`\`\`
 Only include actions the person would clearly want offered; they will accept or skip each one.
+- YOU ARE A FULL WORK PARTNER, not limited to what already exists: you may restructure the whole project — add, rename, reorder or delete chapters; add, rewrite, move or delete steps; rewrite or remove notes, decisions and questions — whenever that makes the project better or matches what the person now means. Every change you propose can be undone by the person, so don't be timid: propose the complete restructure in one go (up to 25 actions), in a sensible order (create chapters before moving steps into them).
+- PEOPLE CLARIFY AS THEY GO: if the person says "that's not what I meant" or explains something better, re-read the current project (it may already include your earlier changes), drop the wrong assumption and propose the actions that fix it — including editing or deleting what you added before.
+- Use EXACT texts from the context when you refer to existing chapters, steps, notes, decisions or questions.
 - YOU ARE ALSO THEIR WORK ASSISTANT: you can change the project (rename things, rewrite a description, add steps, mark steps done, set dates, add notes/decisions/questions/chapters), but ONLY through the actions block — nothing changes unless you include the action and the person taps Add. So whenever the person asks you to change, add, rename, move or mark something, ALWAYS include the matching action(s), and say "tap Add below and it's done". NEVER say you already did it. If no action type fits, say plainly you can't do that from the chat yet.
 - PENDING (for later): when the person says to leave something for later / "dejalo pendiente", offer a "pendiente" action. When they ask what's pending, list the PENDING items from the context (only those). When they say one is done or no longer needed, offer "pendiente_hecho" with its exact text. Pending = things they already know they want to do later; "resolver" = decisions not taken yet.
 - BE INVOLVED WITH THE PROJECT: when the person shares an idea (a character trait, a scene, a material, a flavour…), figure out WHERE in the project it belongs and offer to put it there: a "nota" with "paso" set to the exact text of the step it feeds (e.g. a character idea → the step about designing the characters) and/or "capitulo" set to that chapter's exact name. Say in your answer where you'd put it and why. Only use a plain note with no place when nothing fits. A "decision" is only for things the person has firmly decided, not loose ideas.
@@ -7918,12 +7925,13 @@ function projectContextText(proj) {
 WHAT IT IS: ${projAbout(proj)}
 CHAPTERS IN ORDER:
 ${chs.map((c, k) => `${k + 1}. ${c.titulo} — ${Math.round(ideaProgress(c) * 100)}% done${c.estado === "completada" ? " (completed)" : ""}${c.fechaObjetivo ? ", target " + c.fechaObjetivo : ""}
-   ${(c.fases || []).map(f => (f.pasos || []).map(st => { const h = (typeof st === "object" && st.hecho) || 0; return (h === 2 ? "[x] " : h === 1 ? "[~] " : "[ ] ") + stepText(st); }).join(" | ")).join(" | ") || "(no plan yet)"}`).join("\n")}
+   ${(c.fases || []).map(f => (f.pasos || []).map(st => { const h = (typeof st === "object" && st.hecho) || 0; return (h === 2 ? "[x] " : h === 1 ? "[~] " : "[ ] ") + stepText(st); }).join(" | ")).join(" | ") || "(no plan yet)"}${(c.notas || []).length ? "\n   Chapter notes: " + c.notas.map(noteText).join(" | ") : ""}${(c.cosasAResolver || []).filter(x => !x.resuelto).length ? "\n   Chapter questions: " + c.cosasAResolver.filter(x => !x.resuelto).map(x => x.texto).join(" | ") : ""}`).join("\n")}
 ${cosas.length ? "THINGS TO FIGURE OUT: " + cosas.join(" | ") : ""}
 ${(proj.notas || []).length ? "NOTES: " + proj.notas.map(noteText).join(" | ") : ""}${pendingText(proj)}${lessonsFor(proj)}`;
 }
 function chatContextText(idea) {
   if (isProject(idea)) return projectContextText(idea);
+  if (isChapter(idea)) { const pr = IDEAS.find(x => x.id === idea.proyectoId); if (pr) return projectContextText(pr) + `\n\nTHE PERSON IS TALKING FROM THE CHAPTER "${idea.titulo}" — focus on it, but you can change anything in the project.`; }
   const proj = isChapter(idea) && IDEAS.find(x => x.id === idea.proyectoId);
   const cosas = (idea.cosasAResolver || []).map(c => (c.resuelto ? "[solved] " : "") + c.texto);
   return `${proj ? `PROJECT: ${proj.titulo} — ${projAbout(proj)}\nTHIS CHAPTER: ` : "IDEA: "}${idea.titulo} (${idea.categoria})
@@ -7981,13 +7989,28 @@ function splitActions(text) {
   const rest = text.slice(m.index + m[0].length).trim();
   let actions = [];
   try { actions = parseJsonLenient(m[1]); } catch (e) {}
-  return { text: (text.slice(0, m.index).trim() + (rest ? "\n\n" + rest : "")).trim(), actions: Array.isArray(actions) ? actions.filter(a => a && (a.titulo || a.texto || a.estado || a.tipo === "fecha")).slice(0, 8) : [] };
+  return { text: (text.slice(0, m.index).trim() + (rest ? "\n\n" + rest : "")).trim(), actions: Array.isArray(actions) ? actions.filter(a => a && (a.titulo || a.texto || a.estado || a.paso || a.viejo || a.tipo === "fecha")).slice(0, 25) : [] };
+}
+// Under a reply's suggestions: "Add all" while several are pending, "Undo" once something was applied.
+function pcMsgBar(m, k) {
+  const acts = m.actions || [], open = acts.filter(a => !a.done).length;
+  const b = [];
+  if (open >= 2) b.push(`<button type="button" class="sug-apply" onclick="pcAddAll(${k})">Add all ${open}</button>`);
+  if (m.undo) b.push(`<button type="button" class="pc-undo" onclick="pcUndo(${k})">↶ Undo these changes</button>`);
+  return b.length ? `<div class="pc-msgbar">${b.join("")}</div>` : "";
 }
 function renderPcChat() {
   const proj = IDEAS.find(i => i.id === pcProjId);
   const log = document.getElementById("pc-log");
   const chat = (proj && proj.chat) || [];
-  const label = a => a.tipo === "pendiente" ? `Leave pending: <strong>${escapeHtml(a.texto)}</strong>`
+  const label = a => a.tipo === "mover_capitulo" ? `Move chapter <em>${escapeHtml(a.titulo || "")}</em> ${a.antesDe ? "before <strong>" + escapeHtml(a.antesDe) + "</strong>" : "<strong>to the end</strong>"}`
+    : a.tipo === "borrar_capitulo" ? `Delete chapter <strong>${escapeHtml(a.titulo || "")}</strong>`
+    : a.tipo === "editar_paso" ? `Rewrite step <em>${escapeHtml(a.paso || "")}</em> → <strong>${escapeHtml(a.texto || "")}</strong>`
+    : a.tipo === "borrar_paso" ? `Delete step <strong>${escapeHtml(a.paso || "")}</strong>`
+    : a.tipo === "mover_paso" ? `Move step <em>${escapeHtml(a.paso || "")}</em> to <strong>${escapeHtml(a.capitulo || "")}</strong>`
+    : a.tipo === "editar" ? `Rewrite ${escapeHtml(a.objeto || "note")} <em>${escapeHtml(a.viejo || "")}</em> → <strong>${escapeHtml(a.texto || "")}</strong>`
+    : a.tipo === "borrar" ? `Remove ${escapeHtml(a.objeto || "note")} <strong>${escapeHtml(a.viejo || "")}</strong>`
+    : a.tipo === "pendiente" ? `Leave pending: <strong>${escapeHtml(a.texto)}</strong>`
     : a.tipo === "pendiente_hecho" ? `Cross off pending: <strong>${escapeHtml(a.texto)}</strong>`
     : a.tipo === "renombrar" ? `Rename <em>${escapeHtml(a.objetivo || "")}</em> → <strong>${escapeHtml(a.texto)}</strong>`
     : a.tipo === "descripcion" ? `New description for <em>${escapeHtml(a.objetivo || "")}</em>: <strong>${escapeHtml(a.texto)}</strong>`
@@ -7995,7 +8018,7 @@ function renderPcChat() {
     : a.tipo === "estado_paso" ? `Mark <em>${escapeHtml(a.paso || "")}</em> as <strong>${escapeHtml(a.estado || "done")}</strong>`
     : a.tipo === "fecha" ? (a.fecha ? `Set target date of <em>${escapeHtml(a.objetivo || "")}</em> to <strong>${escapeHtml(a.fecha)}</strong>` : `Remove the target date of <em>${escapeHtml(a.objetivo || "")}</em>`)
     : a.tipo === "archivar" ? `File <strong>${escapeHtml(a.archivo || "the attachment")}</strong> in step <em>${escapeHtml(a.paso || "")}</em>` : a.tipo === "resuelto" ? `Settle <em>${escapeHtml(a.pregunta || "")}</em> → <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "capitulo" ? `Add chapter <strong>${escapeHtml(a.titulo)}</strong>${a.antesDe ? " before <em>" + escapeHtml(a.antesDe) + "</em>" : ""}` : a.tipo === "decision" ? `Add key decision <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "resolver" ? `Add to figure out: <strong>${escapeHtml(a.texto)}</strong>` : a.paso ? `Add to step <em>${escapeHtml(a.paso)}</em>: <strong>${escapeHtml(a.texto)}</strong>` : a.capitulo ? `Add note to <em>${escapeHtml(a.capitulo)}</em>: <strong>${escapeHtml(a.texto)}</strong>` : `Add note: <strong>${escapeHtml(a.texto)}</strong>`;
-  log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}${m.role === "model" ? " md" : ""}">${m.role === "model" ? mdLite(m.text) : escapeHtml(m.text)}${(m.adj || []).length ? `<div class="att-list in-msg">${m.adj.map((a, j) => attChipHtml(a, "", `viewAttachment(IDEAS.find(i=>i.id==='${escapeAttr(pcProjId)}').chat[${k}].adj[${j}])`)).join("")}</div>` : ""}${(m.actions || []).map((a, j) => `<div class="pc-act ${a.done ? "done" : ""}${pcEdit === k + "," + j ? " editing" : ""}" data-kj="${k},${j}"><span>${label(a)}</span>${a.done ? `<span class="note-date">${a.done === "yes" ? "✓ Added" : "Skipped"}</span>` : (pcEdit === k + "," + j ? `<span><button type="button" class="sug-apply" onclick="pcSaveEdit(${k},${j},true)">Save & add</button><button type="button" class="sug-ignore" onclick="pcEdit=null;renderPcChat()">Cancel</button></span>` : `<span><button type="button" class="sug-apply" onclick="pcAct(${k},${j},true)">Add</button>${a.tipo !== "archivar" ? `<button type="button" class="sug-edit" onclick="pcEdit='${k},${j}';renderPcChat()">Edit</button>` : ""}<button type="button" class="sug-ignore" onclick="pcAct(${k},${j},false)">Skip</button></span>`)}</div>`).join("")}</div>`).join("")
+  log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}${m.role === "model" ? " md" : ""}">${m.role === "model" ? mdLite(m.text) : escapeHtml(m.text)}${(m.adj || []).length ? `<div class="att-list in-msg">${m.adj.map((a, j) => attChipHtml(a, "", `viewAttachment(IDEAS.find(i=>i.id==='${escapeAttr(pcProjId)}').chat[${k}].adj[${j}])`)).join("")}</div>` : ""}${(m.actions || []).map((a, j) => `<div class="pc-act ${a.done ? "done" : ""} ${["borrar_capitulo", "borrar_paso", "borrar"].includes(a.tipo) ? "danger" : ""}${pcEdit === k + "," + j ? " editing" : ""}" data-kj="${k},${j}"><span>${label(a)}</span>${a.done ? `<span class="note-date">${a.done === "yes" ? "✓ Done" : a.done === "undone" ? "↶ Undone" : "Skipped"}</span>` : (pcEdit === k + "," + j ? `<span><button type="button" class="sug-apply" onclick="pcSaveEdit(${k},${j},true)">Save & add</button><button type="button" class="sug-ignore" onclick="pcEdit=null;renderPcChat()">Cancel</button></span>` : `<span><button type="button" class="sug-apply" onclick="pcAct(${k},${j},true)">Add</button>${a.tipo !== "archivar" ? `<button type="button" class="sug-edit" onclick="pcEdit='${k},${j}';renderPcChat()">Edit</button>` : ""}<button type="button" class="sug-ignore" onclick="pcAct(${k},${j},false)">Skip</button></span>`)}</div>`).join("")}${pcMsgBar(m, k)}</div>`).join("")
     : `<div class="step-empty">Ask anything about the project. For example:</div>
        <div class="step-chips">${["What should I focus on this week?", "What's still pending?", "Is anything missing from my plan?", "Am I being realistic with the timing?", "Explain how a pro would approach this project"].map(t => `<button type="button" class="ai-chip" onclick="pcSend(${JSON.stringify(t).replace(/"/g, "&quot;")})">${t}</button>`).join("")}</div>`;
   if (pcPending[pcProjId]) {
@@ -8021,10 +8044,45 @@ function pcSaveEdit(k, j) {
   if (a.tipo === "capitulo") a.titulo = v; else if (a.tipo === "fecha") a.fecha = v; else if (a.tipo === "estado_paso") a.estado = v; else a.texto = v;
   pcEdit = null; pcAct(k, j, true);
 }
-async function pcAct(k, j, yes) {
+/* Mentor undo: before the first change from a reply, snapshot the whole project (root + chapters).
+   "Undo" on that reply puts everything back as it was. Kept on the last 5 replies that changed things. */
+function mentorSnapshot(item) {
+  const root = pendRoot(item), ids = [root.id].concat(isProject(root) ? projectChapters(root).map(c => c.id) : []);
+  return { root: root.id, items: ids.map(id => { const o = JSON.parse(JSON.stringify(IDEAS.find(i => i.id === id))); delete o.chat; delete o.historial; delete o.bocetos; return o; }) };
+}
+async function pcUndo(k) {
+  const proj = IDEAS.find(i => i.id === pcProjId), m = proj && proj.chat[k];
+  if (!m || !m.undo) return;
+  const later = proj.chat.slice(k + 1).some(x => x.undo);
+  if (later && !(await showConfirm("Later mentor changes will be undone too, since they were made on top of these.", { title: "Undo these changes?", confirmLabel: "Undo" }))) return;
+  const snap = m.undo, keep = new Set(snap.items.map(o => o.id));
+  const root = IDEAS.find(i => i.id === snap.root);
+  if (root && isProject(root)) IDEAS = IDEAS.filter(i => i.proyectoId !== snap.root || keep.has(i.id));
+  snap.items.forEach(o => {
+    const n = IDEAS.findIndex(i => i.id === o.id), cur = n >= 0 ? IDEAS[n] : null;
+    const r = Object.assign({}, o, { chat: cur ? cur.chat : o.chat, historial: cur ? cur.historial : [], bocetos: cur ? cur.bocetos : o.bocetos });
+    if (n >= 0) IDEAS[n] = r; else IDEAS.push(r);
+  });
+  const p2 = IDEAS.find(i => i.id === pcProjId) || IDEAS.find(i => i.id === snap.root);
+  (p2.chat || []).slice(k).forEach(x => { if (x.undo) { delete x.undo; (x.actions || []).forEach(a => { if (a.done === "yes") a.done = "undone"; }); } });
+  logChanges(IDEAS.find(i => i.id === snap.root), "You", ["Undid the mentor's changes"]);
+  saveIdeas(); renderPcChat(); render();
+}
+async function pcAddAll(k) {
+  const proj = IDEAS.find(i => i.id === pcProjId), m = proj && proj.chat[k];
+  if (!m) return;
+  for (let j = 0; j < (m.actions || []).length; j++) if (!m.actions[j].done) await pcAct(k, j, true, true);
+  saveIdeas(); renderPcChat(); render();
+}
+async function pcAct(k, j, yes, batch) {
   const proj = IDEAS.find(i => i.id === pcProjId);
   const a = proj && proj.chat && proj.chat[k] && proj.chat[k].actions && proj.chat[k].actions[j];
   if (!a || a.done) return;
+  if (yes && !proj.chat[k].undo) {
+    proj.chat[k].undo = mentorSnapshot(proj);
+    const withUndo = proj.chat.map((x, n) => x.undo ? n : -1).filter(n => n >= 0);
+    withUndo.slice(0, -5).forEach(n => delete proj.chat[n].undo);
+  }
   if (yes) {
     const decTarget = isProject(proj) ? proj : (isChapter(proj) && IDEAS.find(x => x.id === proj.proyectoId)) || null;
     if (a.tipo === "archivar") {
@@ -8038,6 +8096,49 @@ async function pcAct(k, j, yes) {
       if (decTarget) decTarget.decisiones = decisionsOf(decTarget).concat([{ texto: a.texto }]);
       else proj.notas = (proj.notas || []).concat([{ texto: "Decided: " + a.texto, fecha: new Date().toISOString() }]);
       logChanges(proj, "Mentor", [`Settled "${a.pregunta}" → ${a.texto}`]);
+    } else if (["mover_capitulo", "borrar_capitulo", "editar_paso", "borrar_paso", "mover_paso", "editar", "borrar"].includes(a.tipo)) {
+      const norm = x => String(x || "").trim().toLowerCase().replace(/\s+/g, " ");
+      const near = (list, get, want) => { want = norm(want); return list.find(x => norm(get(x)) === want) || (want && list.find(x => norm(get(x)).includes(want) || want.includes(norm(get(x))))); };
+      const root = pendRoot(proj), chs = isProject(root) ? projectChapters(root) : [];
+      const pool = [root].concat(chs);
+      if (a.tipo === "mover_capitulo" || a.tipo === "borrar_capitulo") {
+        const ch = near(chs, c => c.titulo, a.titulo);
+        if (ch && a.tipo === "borrar_capitulo") { IDEAS = IDEAS.filter(i => i.id !== ch.id); projectChapters(root).forEach((c, n) => c.orden = n + 1); logChanges(root, "Mentor", [`Deleted chapter "${ch.titulo}"`]); }
+        if (ch && a.tipo === "mover_capitulo") {
+          const list = chs.filter(c => c !== ch), b = a.antesDe ? list.indexOf(near(list, c => c.titulo, a.antesDe)) : -1;
+          list.splice(b >= 0 ? b : list.length, 0, ch); list.forEach((c, n) => c.orden = n + 1);
+          logChanges(root, "Mentor", [`Moved chapter "${ch.titulo}"`]);
+        }
+      } else if (a.tipo === "editar_paso" || a.tipo === "borrar_paso" || a.tipo === "mover_paso") {
+        const steps = allStepsOf(root), hit = near(steps, x => x.texto, a.paso);
+        if (hit) {
+          const fase = hit.idea.fases[hit.f];
+          if (a.tipo === "editar_paso") { let st = fase.pasos[hit.s]; if (typeof st === "string") st = fase.pasos[hit.s] = { texto: st }; st.texto = a.texto; logChanges(hit.idea, "Mentor", [`Step "${hit.texto}" → "${a.texto}"`]); }
+          else {
+            const [st] = fase.pasos.splice(hit.s, 1);
+            if (a.tipo === "borrar_paso") logChanges(hit.idea, "Mentor", [`Deleted step "${hit.texto}"`]);
+            else {
+              const dest = near(pool.filter(x => !isProject(x)), x => x.titulo, a.capitulo) || hit.idea;
+              dest.fases = dest.fases && dest.fases.length ? dest.fases : [{ nombre: "Plan", pasos: [] }];
+              let placed = false;
+              if (a.antesDe) dest.fases.forEach(f => { if (placed) return; const n = (f.pasos || []).findIndex(x => norm(stepText(x)) === norm(a.antesDe)); if (n >= 0) { f.pasos.splice(n, 0, st); placed = true; } });
+              if (!placed) { const f = dest.fases[dest.fases.length - 1]; f.pasos = (f.pasos || []).concat([st]); }
+              logChanges(dest, "Mentor", [`Moved step "${hit.texto}" here`]);
+            }
+          }
+        }
+      } else {
+        const obj = norm(a.objeto);
+        const lists = obj.startsWith("dec") ? [[root, "decisiones"]] : obj.startsWith("res") || obj.startsWith("que") ? pool.map(x => [x, "cosasAResolver"]) : obj.startsWith("pend") ? [[root, "pendientes"]] : pool.map(x => [x, "notas"]);
+        for (const [owner, key] of lists) {
+          const arr = owner[key] || [], it = near(arr, x => x.texto, a.viejo);
+          if (!it) continue;
+          if (a.tipo === "borrar") owner[key] = arr.filter(x => x !== it);
+          else it.texto = a.texto;
+          logChanges(owner, "Mentor", [`${a.tipo === "borrar" ? "Removed" : "Rewrote"} ${obj || "note"}: "${a.viejo}"`]);
+          break;
+        }
+      }
     } else if (a.tipo === "pendiente") {
       const root = pendRoot(proj); root.pendientes = (root.pendientes || []).concat([{ texto: a.texto, fecha: new Date().toISOString() }]);
       logChanges(root, "Mentor", [`Left pending: ${a.texto}`]);
@@ -8090,7 +8191,7 @@ async function pcAct(k, j, yes) {
     }
   }
   a.done = yes ? "yes" : "no";
-  saveIdeas(); renderPcChat();
+  if (!batch) { saveIdeas(); renderPcChat(); }
 }
 async function pcSend(textOverride) {
   if (micHold("pc-input", () => pcSend())) return;
@@ -8657,9 +8758,19 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-10-31 20:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-01 01:20 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
+  {
+    version: "1.6.0",
+    public: true,
+    items: [
+      "The mentor is now a full work partner: it can reorder, delete and rewrite chapters, steps, notes and decisions — not just add things",
+      "“Add all” applies a whole proposal at once, and “Undo these changes” puts the project back exactly as it was",
+      "Explain yourself better later? Tell the mentor “that's not what I meant” and it fixes what it changed",
+      "Mentor replies show proper formatting (bold, lists, headings)",
+    ],
+  },
   {
     version: "1.5.1",
     public: true,
