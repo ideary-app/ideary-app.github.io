@@ -346,3 +346,4 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 - Home: estante de tapas arriba (`notebookShelfHtml`), sidebar con sección Notebooks. Categoría → "📓 Turn into a notebook" (`categoryToNotebook`). En cada proyecto/idea hay un badge para elegir/cambiar cuaderno o crear uno.
 - Mentor: el del cuaderno ve todo lo de adentro (`notebookContextText`); el de cada proyecto recibe nombre, descripción, reglas y los otros proyectos del cuaderno (`notebookContextFor`).
 - Borrar un cuaderno NO borra lo de adentro. `showPrompt()` nuevo para pedir textos.
+- **Deshacer una sola sugerencia del mentor:** cada acción aplicada guarda su foto (`a.snap`, `a.seq`; solo las 15 más recientes). "↶ Undo" al lado de "✓ Added" (`pcUndoOne`) vuelve el proyecto a antes de ese cambio; si después se agregaron otros, avisa y los deshace también. Lo deshecho vuelve a quedar pendiente (Add / Edit / Skip) para poder re-agregarlo.

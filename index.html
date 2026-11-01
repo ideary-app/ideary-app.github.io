@@ -4048,6 +4048,10 @@ SHIPPING CHANGES
   .badge-nb.empty { background: none; border: 1px dashed var(--line-strong); }
   .badge-nb.empty select { width: auto; color: var(--slate); font: inherit; }
   @media (max-width: 600px) { .nb-items { grid-template-columns: 1fr; } .nb-title-input { font-size: 1.6rem; } }
+
+  .pc-done-row { display: inline-flex; align-items: center; gap: 8px; }
+  .pc-undo-one { background: none; border: 1px solid var(--line-strong); border-radius: var(--sketch-radius); padding: 2px 10px; font-family: var(--hand); font-size: .95rem; color: var(--ink); cursor: pointer; }
+  .pc-undo-one:hover { border-color: var(--pen); color: var(--pen); }
 </style>
 </head>
 <body>
@@ -8150,7 +8154,7 @@ function renderPcChat() {
     : a.tipo === "estado_paso" ? `Mark <em>${escapeHtml(a.paso || "")}</em> as <strong>${escapeHtml(a.estado || "done")}</strong>`
     : a.tipo === "fecha" ? (a.fecha ? `Set target date of <em>${escapeHtml(a.objetivo || "")}</em> to <strong>${escapeHtml(a.fecha)}</strong>` : `Remove the target date of <em>${escapeHtml(a.objetivo || "")}</em>`)
     : a.tipo === "archivar" ? `File <strong>${escapeHtml(a.archivo || "the attachment")}</strong> in step <em>${escapeHtml(a.paso || "")}</em>` : a.tipo === "resuelto" ? `Settle <em>${escapeHtml(a.pregunta || "")}</em> → <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "capitulo" ? `Add chapter <strong>${escapeHtml(a.titulo)}</strong>${a.antesDe ? " before <em>" + escapeHtml(a.antesDe) + "</em>" : ""}` : a.tipo === "decision" ? `Add key decision <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "resolver" ? `Add to figure out: <strong>${escapeHtml(a.texto)}</strong>` : a.paso ? `Add to step <em>${escapeHtml(a.paso)}</em>: <strong>${escapeHtml(a.texto)}</strong>` : a.capitulo ? `Add note to <em>${escapeHtml(a.capitulo)}</em>: <strong>${escapeHtml(a.texto)}</strong>` : `Add note: <strong>${escapeHtml(a.texto)}</strong>`;
-  log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}${m.role === "model" ? " md" : ""}">${m.role === "model" ? mdLite(m.text) : escapeHtml(m.text)}${(m.adj || []).length ? `<div class="att-list in-msg">${m.adj.map((a, j) => attChipHtml(a, "", `viewAttachment(IDEAS.find(i=>i.id==='${escapeAttr(pcProjId)}').chat[${k}].adj[${j}])`)).join("")}</div>` : ""}${(m.actions || []).map((a, j) => `<div class="pc-act ${a.done ? "done" : ""} ${["borrar_capitulo", "borrar_paso", "borrar"].includes(a.tipo) ? "danger" : ""}${pcEdit === k + "," + j ? " editing" : ""}" data-kj="${k},${j}"><span>${label(a)}</span>${a.done ? `<span class="note-date">${a.done === "yes" ? "✓ Done" : a.done === "undone" ? "↶ Undone" : "Skipped"}</span>` : (pcEdit === k + "," + j ? `<span><button type="button" class="sug-apply" onclick="pcSaveEdit(${k},${j},true)">Save & add</button><button type="button" class="sug-ignore" onclick="pcEdit=null;renderPcChat()">Cancel</button></span>` : `<span><button type="button" class="sug-apply" onclick="pcAct(${k},${j},true)">Add</button>${a.tipo !== "archivar" ? `<button type="button" class="sug-edit" onclick="pcEdit='${k},${j}';renderPcChat()">Edit</button>` : ""}<button type="button" class="sug-ignore" onclick="pcAct(${k},${j},false)">Skip</button></span>`)}</div>`).join("")}${pcMsgBar(m, k)}</div>`).join("")
+  log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}${m.role === "model" ? " md" : ""}">${m.role === "model" ? mdLite(m.text) : escapeHtml(m.text)}${(m.adj || []).length ? `<div class="att-list in-msg">${m.adj.map((a, j) => attChipHtml(a, "", `viewAttachment(IDEAS.find(i=>i.id==='${escapeAttr(pcProjId)}').chat[${k}].adj[${j}])`)).join("")}</div>` : ""}${(m.actions || []).map((a, j) => `<div class="pc-act ${a.done ? "done" : ""} ${["borrar_capitulo", "borrar_paso", "borrar"].includes(a.tipo) ? "danger" : ""}${pcEdit === k + "," + j ? " editing" : ""}" data-kj="${k},${j}"><span>${label(a)}</span>${a.done ? `<span class="pc-done-row"><span class="note-date">${a.done === "yes" ? "✓ Added" : a.done === "undone" ? "↶ Undone" : "Skipped"}</span>${a.done === "yes" && a.snap ? `<button type="button" class="pc-undo-one" onclick="pcUndoOne(${k},${j})" title="Undo just this">↶ Undo</button>` : ""}</span>` : (pcEdit === k + "," + j ? `<span><button type="button" class="sug-apply" onclick="pcSaveEdit(${k},${j},true)">Save & add</button><button type="button" class="sug-ignore" onclick="pcEdit=null;renderPcChat()">Cancel</button></span>` : `<span><button type="button" class="sug-apply" onclick="pcAct(${k},${j},true)">Add</button>${a.tipo !== "archivar" ? `<button type="button" class="sug-edit" onclick="pcEdit='${k},${j}';renderPcChat()">Edit</button>` : ""}<button type="button" class="sug-ignore" onclick="pcAct(${k},${j},false)">Skip</button></span>`)}</div>`).join("")}${pcMsgBar(m, k)}</div>`).join("")
     : `<div class="step-empty">Ask anything about the project. For example:</div>
        <div class="step-chips">${["What should I focus on this week?", "What's still pending?", "Is anything missing from my plan?", "Am I being realistic with the timing?", "Explain how a pro would approach this project"].map(t => `<button type="button" class="ai-chip" onclick="pcSend(${JSON.stringify(t).replace(/"/g, "&quot;")})">${t}</button>`).join("")}</div>`;
   if (pcPending[pcProjId]) {
@@ -8182,21 +8186,42 @@ function mentorSnapshot(item) {
   const root = pendRoot(item), ids = [root.id].concat(isProject(root) ? projectChapters(root).map(c => c.id) : []);
   return { root: root.id, items: ids.map(id => { const o = JSON.parse(JSON.stringify(IDEAS.find(i => i.id === id))); delete o.chat; delete o.historial; delete o.bocetos; return o; }) };
 }
+function restoreMentorSnapshot(snap) {
+  const keep = new Set(snap.items.map(o => o.id)), root = IDEAS.find(i => i.id === snap.root);
+  if (root && isProject(root)) IDEAS = IDEAS.filter(i => i.proyectoId !== snap.root || keep.has(i.id));
+  snap.items.forEach(o => {
+    const n = IDEAS.findIndex(i => i.id === o.id), cur = n >= 0 ? IDEAS[n] : null;
+    const r = Object.assign({}, JSON.parse(JSON.stringify(o)), { chat: cur ? cur.chat : o.chat, historial: cur ? cur.historial : [], bocetos: cur ? cur.bocetos : o.bocetos });
+    if (n >= 0) IDEAS[n] = r; else IDEAS.push(r);
+  });
+}
+// Undo ONE suggestion you added. Anything the mentor applied after it is rolled back too
+// (it was built on top), and those go back to pending so you can re-add them.
+async function pcUndoOne(k, j) {
+  const proj = IDEAS.find(i => i.id === pcProjId), a = proj && proj.chat[k] && proj.chat[k].actions[j];
+  if (!a || !a.snap) return;
+  const later = [];
+  proj.chat.forEach(m => (m.actions || []).forEach(x => { if (x !== a && x.done === "yes" && x.seq > a.seq) later.push(x); }));
+  if (later.length && !(await showConfirm(`${later.length} change${later.length > 1 ? "s" : ""} you added after this one will be undone too (they were made on top of it). They'll go back to the list so you can add them again.`, { title: "Undo this change?", confirmLabel: "Undo" }))) return;
+  const snap = a.snap;
+  restoreMentorSnapshot(snap);
+  const p2 = IDEAS.find(i => i.id === pcProjId) || IDEAS.find(i => i.id === snap.root);
+  (p2.chat || []).forEach(m => {
+    (m.actions || []).forEach(x => { if (x === a || later.includes(x) || (x.seq && x.seq >= a.seq && x.done === "yes")) { delete x.done; delete x.snap; delete x.seq; } });
+    if (m.undo && !(m.actions || []).some(x => x.done === "yes")) delete m.undo;
+  });
+  logChanges(IDEAS.find(i => i.id === snap.root), "You", ["Undid a mentor change"]);
+  saveIdeas(); renderPcChat(); render();
+}
 async function pcUndo(k) {
   const proj = IDEAS.find(i => i.id === pcProjId), m = proj && proj.chat[k];
   if (!m || !m.undo) return;
   const later = proj.chat.slice(k + 1).some(x => x.undo);
   if (later && !(await showConfirm("Later mentor changes will be undone too, since they were made on top of these.", { title: "Undo these changes?", confirmLabel: "Undo" }))) return;
-  const snap = m.undo, keep = new Set(snap.items.map(o => o.id));
-  const root = IDEAS.find(i => i.id === snap.root);
-  if (root && isProject(root)) IDEAS = IDEAS.filter(i => i.proyectoId !== snap.root || keep.has(i.id));
-  snap.items.forEach(o => {
-    const n = IDEAS.findIndex(i => i.id === o.id), cur = n >= 0 ? IDEAS[n] : null;
-    const r = Object.assign({}, o, { chat: cur ? cur.chat : o.chat, historial: cur ? cur.historial : [], bocetos: cur ? cur.bocetos : o.bocetos });
-    if (n >= 0) IDEAS[n] = r; else IDEAS.push(r);
-  });
+  const snap = m.undo;
+  restoreMentorSnapshot(snap);
   const p2 = IDEAS.find(i => i.id === pcProjId) || IDEAS.find(i => i.id === snap.root);
-  (p2.chat || []).slice(k).forEach(x => { if (x.undo) { delete x.undo; (x.actions || []).forEach(a => { if (a.done === "yes") a.done = "undone"; }); } });
+  (p2.chat || []).slice(k).forEach(x => { if (x.undo) { delete x.undo; (x.actions || []).forEach(a => { if (a.done === "yes") { delete a.done; delete a.snap; delete a.seq; } }); } });
   logChanges(IDEAS.find(i => i.id === snap.root), "You", ["Undid the mentor's changes"]);
   saveIdeas(); renderPcChat(); render();
 }
@@ -8216,6 +8241,10 @@ async function pcAct(k, j, yes, batch) {
     withUndo.slice(0, -5).forEach(n => delete proj.chat[n].undo);
   }
   if (yes) {
+    a.snap = mentorSnapshot(proj); a.seq = Date.now() + Math.random();
+    // keep per-change snapshots only for the 15 most recent changes
+    const applied = []; proj.chat.forEach(m => (m.actions || []).forEach(x => { if (x.snap) applied.push(x); }));
+    applied.sort((x, y) => y.seq - x.seq).slice(15).forEach(x => delete x.snap);
     const decTarget = isProject(proj) || isNotebook(proj) ? proj : (isChapter(proj) && IDEAS.find(x => x.id === proj.proyectoId)) || null;
     if (a.tipo === "archivar") {
       let att = null;
@@ -8891,7 +8920,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-01 02:40 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-01 02:55 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
