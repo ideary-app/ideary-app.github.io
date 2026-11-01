@@ -8055,6 +8055,7 @@ function pcMsgBar(m, k) {
   return b.length ? `<div class="pc-msgbar">${b.join("")}</div>` : "";
 }
 function renderPcChat() {
+  const _l = document.getElementById("pc-log"), _stick = !_l || !_l.childElementCount || _l.scrollHeight - _l.scrollTop - _l.clientHeight < 60, _top = _l ? _l.scrollTop : 0;
   const proj = IDEAS.find(i => i.id === pcProjId);
   const log = document.getElementById("pc-log");
   const chat = (proj && proj.chat) || [];
@@ -8081,7 +8082,7 @@ function renderPcChat() {
     w.innerHTML = thinkingHtml(); tickThinking(w, pcPending[pcProjId]); log.appendChild(w);
   }
   lockComposer("pc-input", !!pcPending[pcProjId]);
-  if (pcEdit === null) log.scrollTop = log.scrollHeight;
+  if (pcEdit === null) { if (_stick) log.scrollTop = log.scrollHeight; else log.scrollTop = _top; }
   else {
     const box = log.querySelector(`.pc-act[data-kj="${pcEdit}"]`), v = box && [...box.querySelectorAll("span > strong")].pop();
     if (v) {
@@ -8268,6 +8269,7 @@ async function pcSend(textOverride) {
   const t0 = Date.now();
   pcPending[proj.id] = t0;
   renderPcChat();
+  jumpBottom("pc-log", false);
   const wait = document.querySelector("#pc-log .ai-wait");
   try {
     const hist = proj.chat.slice(-12).map((m, k) => ({ role: m.role, text: k === 0 ? chatContextText(proj) + "\n\n" + m.text : m.text }));
@@ -8279,8 +8281,10 @@ async function pcSend(textOverride) {
     }
     const { text: reply, actions } = splitActions((await withThinking(wait, "pc-input", () => geminiGenerate(hist, PROJECT_MENTOR_RULES, false, undefined, "minimal", txt => {
       const b = document.querySelector(`#pc-log [data-t0='${t0}']`); if (!b) return;
+      // Follow the text only while you're at the bottom; scroll up to read and it stays put (↓ brings you back).
+      const l = document.getElementById("pc-log"), stick = l && l.scrollHeight - l.scrollTop - l.clientHeight < 60;
       b.classList.remove("ai-wait"); b.classList.add("md"); b.innerHTML = mdLite(txt.replace(/```actions[\s\S]*$/, "").trim());
-      const l = document.getElementById("pc-log"); if (l) l.scrollTop = l.scrollHeight;
+      if (l) { if (stick) l.scrollTop = l.scrollHeight; const jb = l.parentNode.querySelector(".jump-btn"); if (jb) jb.classList.toggle("show", !stick); }
     }), null, t0)).trim());
     let acts = actions;
     if (!acts.length && MENTOR_PROPOSES.test(reply)) {
@@ -8811,7 +8815,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-01 02:00 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-01 02:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
