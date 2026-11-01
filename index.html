@@ -3998,6 +3998,56 @@ SHIPPING CHANGES
   .composer { align-items: flex-end; }
   .composer .cmp-btn, .composer .cmp-send, .composer .mic-btn { margin-bottom: 0; }
   textarea.cmp-input { padding: 10px 8px; min-height: 40px; }
+
+  /* ---- notebooks ---- */
+  .nb-dot { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 7px; vertical-align: middle; }
+  .nb-shelf-wrap { margin: 18px 0 8px; background: var(--panel); border: 1.5px solid var(--line-strong); border-radius: 6px; padding: 12px 14px 4px; box-shadow: 0 2px 0 rgba(0,0,0,.12); }
+  .nb-shelf-head { display: flex; align-items: baseline; justify-content: space-between; font-family: var(--hand); font-size: 1.35rem; color: var(--ink); margin-bottom: 8px; }
+  .nb-shelf-head button { background: none; border: none; font-family: var(--hand); font-size: 1.05rem; color: var(--pen); cursor: pointer; }
+  .nb-shelf { display: flex; gap: 14px; overflow-x: auto; padding: 4px 2px 12px; scroll-snap-type: x mandatory; }
+  .nb-cover { flex: 0 0 132px; height: 172px; border-radius: 4px 12px 12px 4px; background: var(--nb); position: relative; cursor: pointer; scroll-snap-align: start; box-shadow: 2px 4px 0 rgba(0,0,0,.18), inset -6px 0 10px rgba(0,0,0,.12); transition: transform .12s; }
+  .nb-cover:hover { transform: translateY(-3px) rotate(-1deg); }
+  .nb-cover-band { position: absolute; left: 10px; top: 0; bottom: 0; width: 7px; background: rgba(0,0,0,.18); }
+  .nb-cover-label { position: absolute; left: 22px; right: 10px; top: 22px; background: #fbf6e9; border-radius: 4px; padding: 8px 9px; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+  .nb-cover-title { font-family: var(--hand); font-size: 1.08rem; line-height: 1.15; color: #2a2520; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+  .nb-cover-count { font-size: .72rem; color: #7a6f60; margin-top: 4px; }
+  .nb-head { position: relative; margin: 10px 0 16px; background: var(--panel); border-radius: 6px 14px 14px 6px; border: 1.5px solid var(--line-strong); overflow: hidden; }
+  .nb-head-band { position: absolute; left: 0; top: 0; bottom: 0; width: 16px; background: var(--nb); }
+  .nb-head-body { padding: 16px 16px 16px 32px; display: flex; flex-direction: column; gap: 8px; }
+  .nb-kicker { font-size: .78rem; color: var(--slate); }
+  .nb-title-input { font-family: var(--hand); font-size: 2rem; border: none; background: none; color: var(--ink); padding: 0; outline: none; width: 100%; }
+  .nb-title-input:focus, .nb-desc-input:focus { border-bottom: 1.5px dashed var(--pen); }
+  .nb-desc-input { border: none; background: none; color: var(--ink); font: .95rem var(--sans); padding: 0; outline: none; width: 100%; }
+  .nb-colors { display: flex; gap: 8px; flex-wrap: wrap; }
+  .nb-colors button { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+  .nb-colors button.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--panel) inset; }
+  .nb-head-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+  .nb-del { background: none; border: none; color: var(--slate); text-decoration: underline; font-size: .8rem; cursor: pointer; }
+  .nb-rules { margin-bottom: 16px; }
+  .nb-section { margin-bottom: 18px; }
+  .nb-section-head { display: flex; align-items: center; gap: 10px; border-bottom: 2px solid var(--line-strong); padding-bottom: 4px; margin-bottom: 10px; }
+  .nb-section-name { font-family: var(--hand); font-size: 1.35rem; color: var(--pen); cursor: text; flex: 1; }
+  .nb-section-name.muted { color: var(--slate); cursor: default; }
+  .nb-section-tools button { background: none; border: none; color: var(--slate); font-size: 1rem; cursor: pointer; padding: 2px 6px; }
+  .nb-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+  .nb-item { display: flex; align-items: flex-start; gap: 8px; background: var(--panel); border: 1.5px solid var(--line-strong); border-radius: 10px; padding: 12px; cursor: pointer; }
+  .nb-item:hover { border-color: var(--pen); }
+  .nb-item-main { flex: 1; min-width: 0; }
+  .nb-item-title { font-family: var(--hand); font-size: 1.2rem; color: var(--ink); }
+  .nb-item-meta { display: flex; gap: 8px; align-items: center; font-size: .75rem; color: var(--slate); margin-top: 4px; flex-wrap: wrap; }
+  .nb-item-bar { height: 4px; background: var(--line); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+  .nb-item-bar i { display: block; height: 100%; background: var(--pen); }
+  .nb-item-move { width: 34px; height: 30px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--paper); color: var(--ink); font-size: 1rem; cursor: pointer; appearance: none; -webkit-appearance: none; text-align: center; text-align-last: center; padding: 0; }
+  .nb-empty { font-size: .85rem; color: var(--slate); padding: 6px 0; }
+  .nb-add-row { display: flex; gap: 10px; flex-wrap: wrap; margin: 6px 0 30px; }
+  .nb-add-select, .nb-add-sec { font-family: var(--hand); font-size: 1.05rem; padding: 8px 12px; border: 1.5px dashed var(--line-strong); border-radius: 10px; background: none; color: var(--pen); cursor: pointer; max-width: 100%; }
+  .badge-nb { position: relative; display: inline-flex; align-items: center; gap: 4px; background: color-mix(in srgb, var(--nb, #8b4a2b) 16%, transparent); color: var(--ink); }
+  .badge-nb > span { cursor: pointer; }
+  .nb-caret { position: relative; color: var(--slate); padding: 0 2px; }
+  .nb-caret select { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; }
+  .badge-nb.empty { background: none; border: 1px dashed var(--line-strong); }
+  .badge-nb.empty select { width: auto; color: var(--slate); font: inherit; }
+  @media (max-width: 600px) { .nb-items { grid-template-columns: 1fr; } .nb-title-input { font-size: 1.6rem; } }
 </style>
 </head>
 <body>
@@ -4072,12 +4122,16 @@ SHIPPING CHANGES
       <button class="sidebar-action-btn settings-btn" onclick="openSettings()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
     </div>
 
+    <div class="nav-section" style="display:none">
+      <div class="nav-label">Notebooks</div>
+      <div id="nav-notebooks"></div>
+    </div>
     <div class="nav-section">
       <div class="nav-label">Categories</div>
       <div id="nav-categorias"></div>
     </div>
 
-    <div class="version-link" onclick="openChangelog()">v1.6.0 · What's new</div>
+    <div class="version-link" onclick="openChangelog()">v1.7.0 · What's new</div>
     <div style="text-align:center;font-family:var(--hand);font-size:.9rem;margin-top:6px"><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--slate)">Privacy</a> · <a href="terms.html" target="_blank" rel="noopener" style="color:var(--slate)">Terms</a></div>
   </div>
   </aside>
@@ -7931,6 +7985,27 @@ function watchJump(id) {
 let pcEdit = null; // "k,j" of the suggestion being edited
 let pcProjId = null;
 const pcPending = {}; // projId -> start time of an answer in progress
+function notebookContextFor(item) {
+  const nb = item && IDEAS.find(i => i.id === item.cuadernoId && isNotebook(i));
+  if (!nb) return "";
+  const others = notebookItems(nb).filter(x => x.id !== item.id).map(x => x.titulo + (sectionName(nb, x.seccionId) ? " [" + sectionName(nb, x.seccionId) + "]" : ""));
+  const d = decisionsOf(nb);
+  return `\nPART OF THE NOTEBOOK "${nb.titulo}"${nb.descripcion ? " — " + nb.descripcion : ""}${d.length ? "\nNOTEBOOK RULES (apply to every project in it — never contradict them): " + d.map(x => x.texto).join(" | ") : ""}${others.length ? "\nOTHER PROJECTS IN THIS NOTEBOOK: " + others.join(" | ") : ""}`;
+}
+function notebookContextText(nb) {
+  const d = decisionsOf(nb), secs = nb.secciones || [];
+  const line = x => {
+    const chs = isProject(x) ? projectChapters(x) : [];
+    return `- ${x.titulo} (${isProject(x) ? "project, " + chs.length + " chapters: " + chs.map(c => c.titulo + " " + Math.round(ideaProgress(c) * 100) + "%").join(", ") : "idea, " + Math.round(ideaProgress(x) * 100) + "% done"})${x.descripcion ? " — " + x.descripcion.slice(0, 300) : ""}`;
+  };
+  const items = notebookItems(nb);
+  const groups = [{ id: "", nombre: "" }].concat(secs).map(sc => ({ sc, list: items.filter(x => (x.seccionId || "") === (sc.id || "") || (!sc.id && !secs.some(z => z.id === x.seccionId))) })).filter(g => g.list.length);
+  return `NOTEBOOK: ${nb.titulo}${nb.descripcion ? "\nWHAT IT IS: " + nb.descripcion : ""}
+${d.length ? "NOTEBOOK RULES (fixed for every project inside): " + d.map(x => x.texto).join(" | ") + "\n" : ""}WHAT'S INSIDE:
+${groups.map(g => (g.sc.nombre ? "Section " + g.sc.nombre + ":\n" : "") + g.list.map(line).join("\n")).join("\n") || "(nothing yet)"}
+${(nb.notas || []).length ? "NOTES: " + nb.notas.map(noteText).join(" | ") : ""}${pendingText(nb)}
+YOU ARE THE MENTOR FOR THE WHOLE NOTEBOOK (e.g. a series): help with the big picture, continuity between projects, shared rules and what to do next. For notebook-level changes use "decision", "nota", "resolver", "pendiente", "editar"/"borrar" (objeto decision/nota). To change a single project, tell the person to open that project's mentor.`;
+}
 function projectContextText(proj) {
   const chs = projectChapters(proj);
   const cosas = (proj.cosasAResolver || []).map(c => (c.resuelto ? "[solved] " : "") + c.texto);
@@ -7940,9 +8015,10 @@ CHAPTERS IN ORDER:
 ${chs.map((c, k) => `${k + 1}. ${c.titulo} — ${Math.round(ideaProgress(c) * 100)}% done${c.estado === "completada" ? " (completed)" : ""}${c.fechaObjetivo ? ", target " + c.fechaObjetivo : ""}
    ${(c.fases || []).map(f => (f.pasos || []).map(st => { const h = (typeof st === "object" && st.hecho) || 0; return (h === 2 ? "[x] " : h === 1 ? "[~] " : "[ ] ") + stepText(st); }).join(" | ")).join(" | ") || "(no plan yet)"}${(c.notas || []).length ? "\n   Chapter notes: " + c.notas.map(noteText).join(" | ") : ""}${(c.cosasAResolver || []).filter(x => !x.resuelto).length ? "\n   Chapter questions: " + c.cosasAResolver.filter(x => !x.resuelto).map(x => x.texto).join(" | ") : ""}`).join("\n")}
 ${cosas.length ? "THINGS TO FIGURE OUT: " + cosas.join(" | ") : ""}
-${(proj.notas || []).length ? "NOTES: " + proj.notas.map(noteText).join(" | ") : ""}${pendingText(proj)}${lessonsFor(proj)}`;
+${(proj.notas || []).length ? "NOTES: " + proj.notas.map(noteText).join(" | ") : ""}${pendingText(proj)}${notebookContextFor(proj)}${lessonsFor(proj)}`;
 }
 function chatContextText(idea) {
+  if (isNotebook(idea)) return notebookContextText(idea);
   if (isProject(idea)) return projectContextText(idea);
   if (isChapter(idea)) { const pr = IDEAS.find(x => x.id === idea.proyectoId); if (pr) return projectContextText(pr) + `\n\nTHE PERSON IS TALKING FROM THE CHAPTER "${idea.titulo}" — focus on it, but you can change anything in the project.`; }
   const proj = isChapter(idea) && IDEAS.find(x => x.id === idea.proyectoId);
@@ -7951,7 +8027,7 @@ function chatContextText(idea) {
 ${idea.descripcion ? "DESCRIPTION: " + idea.descripcion : ""}
 PLAN: ${(idea.fases || []).map(f => f.nombre + ": " + (f.pasos || []).map(st => { const h = (typeof st === "object" && st.hecho) || 0; return (h === 2 ? "[x] " : h === 1 ? "[~] " : "[ ] ") + stepText(st); }).join(" | ")).join("\n") || "(no plan yet)"}
 ${cosas.length ? "THINGS TO FIGURE OUT: " + cosas.join(" | ") : ""}
-${(idea.notas || []).length ? "NOTES: " + idea.notas.map(noteText).join(" | ") : ""}${pendingText(idea)}${lessonsFor(proj || idea)}`;
+${(idea.notas || []).length ? "NOTES: " + idea.notas.map(noteText).join(" | ") : ""}${pendingText(idea)}${notebookContextFor(proj || idea)}${lessonsFor(proj || idea)}`;
 }
 // Pending items live on the root (the project, or the idea itself).
 function pendRoot(item) { return (isChapter(item) && IDEAS.find(x => x.id === item.proyectoId)) || item; }
@@ -7971,7 +8047,7 @@ function openProjectChat(projId) {
   const proj = IDEAS.find(i => i.id === projId);
   if (!proj) return;
   document.getElementById("pc-title").innerHTML = `Talk to your mentor<span class="pc-sub">${escapeHtml(proj.titulo)}</span>`;
-  document.querySelector("#pc-overlay .form-hint").textContent = isProject(proj) ? "Ask anything about the whole project. The mentor sees every chapter, your progress, key decisions and notes. If it suggests adding something, you choose." : "Ask anything about this " + (isChapter(proj) ? "chapter" : "idea") + ". The mentor sees its plan, notes and things to figure out. If it suggests adding something, you choose.";
+  document.querySelector("#pc-overlay .form-hint").textContent = isNotebook(proj) ? "Ask anything about the whole notebook — the big story, continuity between projects, shared rules. It sees everything inside." : isProject(proj) ? "Ask anything about the whole project. The mentor sees every chapter, your progress, key decisions and notes. If it suggests adding something, you choose." : "Ask anything about this " + (isChapter(proj) ? "chapter" : "idea") + ". The mentor sees its plan, notes and things to figure out. If it suggests adding something, you choose.";
   document.getElementById("pc-overlay").classList.add("open");
   renderPcChat(); watchJump("pc-log");
   requestAnimationFrame(() => jumpBottom("pc-log", false));
@@ -8140,7 +8216,7 @@ async function pcAct(k, j, yes, batch) {
     withUndo.slice(0, -5).forEach(n => delete proj.chat[n].undo);
   }
   if (yes) {
-    const decTarget = isProject(proj) ? proj : (isChapter(proj) && IDEAS.find(x => x.id === proj.proyectoId)) || null;
+    const decTarget = isProject(proj) || isNotebook(proj) ? proj : (isChapter(proj) && IDEAS.find(x => x.id === proj.proyectoId)) || null;
     if (a.tipo === "archivar") {
       let att = null;
       for (let j = proj.chat.length - 1; j >= 0 && !att; j--) (proj.chat[j].adj || []).forEach(x => { if (!att && (!a.archivo || x.nombre === a.archivo)) att = x; });
@@ -8642,7 +8718,7 @@ function renderProjectView(p) {
           <span class="badge badge-chapter">▤ Project · ${chs.length} chapters</span>
           <span class="badge badge-status" style="background:${cfg.soft};color:${cfg.color}">${cfg.label}</span>
           <span class="badge badge-cat" style="background:var(--slate-soft);color:var(--slate)">${escapeHtml(p.categoria)}</span>
-          ${dueBadgeHtml(p)}${workedBadgeHtml(p)}
+          ${dueBadgeHtml(p)}${workedBadgeHtml(p)}${notebookBadgeHtml(p)}
           <span class="badges-right">
             <button type="button" class="undo-project" onclick="revertProject('${escapeAttr(p.id)}')">Turn back into a single idea</button>
             <button type="button" class="share-btn mentor-head-btn" title="Ask anything about the whole project — it sees every chapter, your progress and decisions" onclick="openProjectChat('${escapeAttr(p.id)}')">💬 Talk to your mentor</button>
@@ -8815,9 +8891,20 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-01 02:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-01 02:40 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
+  {
+    version: "1.7.0",
+    public: true,
+    items: [
+      "Notebooks 📓: group projects and ideas (a series, a world…) with a description, a cover color, shared rules and sections to keep things apart",
+      "Turn any category into a notebook, or add a project to one from its page",
+      "Each notebook has its own mentor that sees everything inside — and every project's mentor knows which notebook it belongs to",
+      "Chat boxes: Enter makes a new line and the box grows as you write; send with the arrow",
+      "While the mentor writes, scroll up to read — it won't pull you down. Tap ↓ to jump back",
+    ],
+  },
   {
     version: "1.6.0",
     public: true,
@@ -9072,6 +9159,21 @@ function showAlert(message, opts) {
   });
 }
 
+function showPrompt(message, opts) {
+  opts = opts || {};
+  return new Promise(resolve => {
+    dialogResolve = ok => resolve(ok ? (document.getElementById("dialog-prompt-input") || {}).value || "" : null);
+    document.getElementById("dialog-title").textContent = opts.title || "";
+    const msg = document.getElementById("dialog-message");
+    msg.style.whiteSpace = "pre-line";
+    msg.innerHTML = (message ? `<div style="margin-bottom:10px">${escapeHtml(message)}</div>` : "") + `<input id="dialog-prompt-input" class="form-input" style="font-size:16px;width:100%" placeholder="${escapeAttr(opts.placeholder || "")}" value="${escapeAttr(opts.value || "")}" onkeydown="if(event.key==='Enter'){event.preventDefault();resolveDialog(true)}">`;
+    document.getElementById("dialog-actions").innerHTML = `
+      <button class="dialog-btn" onclick="resolveDialog(false)">Cancel</button>
+      <button class="dialog-btn primary" onclick="resolveDialog(true)">${opts.confirmLabel || "OK"}</button>`;
+    document.getElementById("dialog-overlay").classList.add("open");
+    setTimeout(() => { const i = document.getElementById("dialog-prompt-input"); if (i) { i.focus(); i.select(); } }, 50);
+  });
+}
 function resolveDialog(value) {
   document.getElementById("dialog-overlay").classList.remove("open");
   if (dialogResolve) {
@@ -9248,15 +9350,16 @@ let currentSearch = "";
 
 function isChapter(i) { return !!(i && i.proyectoId); }
 function isProject(i) { return !!(i && i.tipo === "proyecto"); }
+function isNotebook(i) { return !!(i && i.tipo === "cuaderno"); }
 function getCategorias() {
-  return [...new Set(IDEAS.filter(i => i.estado !== "eliminada" && !isChapter(i)).map(i => i.categoria))].sort();
+  return [...new Set(IDEAS.filter(i => i.estado !== "eliminada" && !isChapter(i) && !isNotebook(i)).map(i => i.categoria))].sort();
 }
 
 function scopedIdeas() {
   if (view === "trash") return IDEAS.filter(i => i.estado === "eliminada" && !i._trashedWithProject);
   if (view === "status") return IDEAS.filter(i => i.estado === viewParam && i.estado !== "eliminada" && !isChapter(i));
-  if (view === "categoria") return IDEAS.filter(i => i.categoria === viewParam && i.estado !== "eliminada" && !isChapter(i));
-  return IDEAS.filter(i => i.estado !== "eliminada" && !isChapter(i));
+  if (view === "categoria") return IDEAS.filter(i => i.categoria === viewParam && i.estado !== "eliminada" && !isChapter(i) && !isNotebook(i));
+  return IDEAS.filter(i => i.estado !== "eliminada" && !isChapter(i) && !isNotebook(i));
 }
 
 function filteredIdeas() {
@@ -9307,6 +9410,7 @@ function goCategoria(cat) {
 }
 
 function openDetail(id) {
+  if (isNotebook(IDEAS.find(i => i.id === id))) return goNotebook(id);
   editingIdeaId = null;
   view = "detalle";
   viewParam = id;
@@ -9452,7 +9556,7 @@ function clearCategoria(inputId) {
 }
 
 function getExistingCategories() {
-  return [...new Set(IDEAS.map(i => i.categoria).filter(Boolean))].sort();
+  return [...new Set(IDEAS.filter(i => !isNotebook(i)).map(i => i.categoria).filter(Boolean))].sort();
 }
 
 function showCategoriaSuggestions(inputId) {
@@ -10586,6 +10690,7 @@ function deepSearch(query) {
   const results = [];
 
   IDEAS.forEach(idea => {
+    if (isNotebook(idea)) return;
     const matches = [];
 
     if (idea.titulo.toLowerCase().includes(q)) {
@@ -10657,7 +10762,9 @@ function toggleNavProject(id, inside) {
   renderSidebar();
 }
 function renderSidebar() {
-  document.getElementById("count-todas").textContent = IDEAS.filter(i => i.estado !== "eliminada" && !isChapter(i)).length;
+  document.getElementById("count-todas").textContent = IDEAS.filter(i => i.estado !== "eliminada" && !isChapter(i) && !isNotebook(i)).length;
+  const nbWrap = document.getElementById("nav-notebooks");
+  if (nbWrap) { const nbs = notebooks(); nbWrap.parentNode.style.display = nbs.length ? "" : "none"; nbWrap.innerHTML = nbs.map(nb => `<div class="nav-item-cat ${view === "cuaderno" && viewParam === nb.id ? "active" : ""}" onclick="goNotebook('${escapeAttr(nb.id)}')"><span><span class="nb-dot" style="background:${nb.color || NB_COLORS[0]}"></span>${escapeHtml(nb.titulo)}</span><span class="count">${notebookItems(nb).length}</span></div>`).join(""); }
   document.getElementById("nav-todas").classList.toggle("active", view === "home");
 
   const catWrap = document.getElementById("nav-categorias");
@@ -10665,7 +10772,7 @@ function renderSidebar() {
   const trashActive = view === "trash";
 
   catWrap.innerHTML = getCategorias().map(cat => {
-    const ideas = IDEAS.filter(i => i.categoria === cat && i.estado !== "eliminada" && !isChapter(i));
+    const ideas = IDEAS.filter(i => i.categoria === cat && i.estado !== "eliminada" && !isChapter(i) && !isNotebook(i));
     const catActive = view === "categoria" && viewParam === cat;
     const curIdea = IDEAS.find(i => i.id === viewParam);
     const ideaActive = view === "detalle" && ideas.some(i => i.id === viewParam || (curIdea && curIdea.proyectoId === i.id));
@@ -10749,7 +10856,7 @@ function renderStatusCardsOnly() {
       <div class="howto-status-cta">Learn more →</div>
     </div>`;
 
-  return `${todayHtml()}${homeFilterHtml()}
+  return `${todayHtml()}${notebookShelfHtml()}${homeFilterHtml()}
     <div class="home-row-wrap"><div class="status-grid-row">
       <div class="status-grid">${statusCards}</div>
     </div></div>`;
@@ -10824,6 +10931,178 @@ function renderSearchResults(query) {
   `;
 }
 
+
+/* ==================================================================
+   NOTEBOOKS (cuadernos): group projects and ideas, like GoodNotes.
+   Stored in IDEAS as { tipo:"cuaderno", estado:"cuaderno", titulo, descripcion, color,
+   decisiones, secciones:[{id,nombre}], notas, chat }. Items point to it with cuadernoId (+ seccionId).
+================================================================== */
+const NB_COLORS = ["#8b4a2b", "#2b4fa8", "#3f7a4a", "#a8432b", "#6b4a8b", "#b8862b", "#2b7a7a", "#444444"];
+function notebooks() { return IDEAS.filter(i => isNotebook(i) && i.estado !== "eliminada").sort((a, b) => (a.titulo || "").localeCompare(b.titulo || "")); }
+function notebookItems(nb) { return IDEAS.filter(i => i.cuadernoId === nb.id && !isChapter(i) && !isNotebook(i) && i.estado !== "eliminada").sort((a, b) => (a.nbOrden || 0) - (b.nbOrden || 0) || (a.titulo || "").localeCompare(b.titulo || "")); }
+function sectionName(nb, sid) { const s = (nb.secciones || []).find(x => x.id === sid); return s ? s.nombre : ""; }
+function newNotebook(titulo, extra) {
+  const nb = Object.assign({ id: "nb-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), tipo: "cuaderno", estado: "cuaderno", titulo, categoria: "", descripcion: "", color: NB_COLORS[notebooks().length % NB_COLORS.length], decisiones: [], secciones: [], notas: [], fases: [], cosasAResolver: [], chat: [], fecha: new Date().toISOString() }, extra || {});
+  IDEAS.push(nb); return nb;
+}
+function goNotebook(id) {
+  editingIdeaId = null; view = "cuaderno"; viewParam = id; currentSearch = "";
+  syncSearchInputs(); render(); window.scrollTo(0, 0); closeMobileMenu(); saveViewState();
+}
+async function createNotebook() {
+  const t = await showPrompt("Name your notebook — e.g. the name of a series or a world.", { title: "New notebook", placeholder: "My shorts series", confirmLabel: "Create" });
+  if (!t || !t.trim()) return;
+  const nb = newNotebook(t.trim()); saveIdeas(); goNotebook(nb.id);
+}
+async function categoryToNotebook(cat) {
+  const items = IDEAS.filter(i => i.categoria === cat && !isChapter(i) && !isNotebook(i) && i.estado !== "eliminada");
+  const ok = await showConfirm(`A notebook groups projects and ideas under one name, with its own description, shared rules and its own mentor. The ${items.length} item${items.length === 1 ? "" : "s"} in "${cat}" go inside it. The category stays as it is.`, { title: `Turn "${cat}" into a notebook?`, confirmLabel: "Create notebook" });
+  if (!ok) return;
+  const nb = newNotebook(cat, { categoria: cat });
+  items.forEach(i => { if (!i.cuadernoId) i.cuadernoId = nb.id; });
+  saveIdeas(); goNotebook(nb.id);
+}
+function nbSet(id, field, value) {
+  const nb = IDEAS.find(i => i.id === id); if (!nb) return;
+  nb[field] = typeof value === "string" ? value.trim() : value;
+  if (field === "titulo" && !nb.titulo) nb.titulo = "Untitled notebook";
+  saveIdeas(); render();
+}
+async function nbAddSection(id) {
+  const nb = IDEAS.find(i => i.id === id); if (!nb) return;
+  const t = await showPrompt("For example, the main characters of a group of shorts.", { title: "New section", placeholder: "Frac & Speck", confirmLabel: "Add" });
+  if (!t || !t.trim()) return;
+  nb.secciones = (nb.secciones || []).concat([{ id: "s" + Date.now().toString(36), nombre: t.trim() }]);
+  saveIdeas(); render();
+}
+async function nbRenameSection(id, sid) {
+  const nb = IDEAS.find(i => i.id === id), sc = nb && (nb.secciones || []).find(x => x.id === sid); if (!sc) return;
+  const t = await showPrompt("", { title: "Rename section", value: sc.nombre, confirmLabel: "Save" });
+  if (t && t.trim()) { sc.nombre = t.trim(); saveIdeas(); render(); }
+}
+async function nbDeleteSection(id, sid) {
+  const nb = IDEAS.find(i => i.id === id); if (!nb) return;
+  if (!(await showConfirm("Its projects stay in the notebook, just without a section.", { title: "Remove this section?", confirmLabel: "Remove" }))) return;
+  nb.secciones = (nb.secciones || []).filter(x => x.id !== sid);
+  notebookItems(nb).forEach(i => { if (i.seccionId === sid) delete i.seccionId; });
+  saveIdeas(); render();
+}
+function nbMoveSection(id, sid, dir) {
+  const nb = IDEAS.find(i => i.id === id), arr = nb && nb.secciones; if (!arr) return;
+  const k = arr.findIndex(x => x.id === sid), n = k + dir; if (k < 0 || n < 0 || n >= arr.length) return;
+  [arr[k], arr[n]] = [arr[n], arr[k]]; saveIdeas(); render();
+}
+// One <select> per item: move to a section, or out of the notebook.
+function nbItemMove(itemId, val) {
+  const it = IDEAS.find(i => i.id === itemId); if (!it) return;
+  if (val === "__out") { delete it.cuadernoId; delete it.seccionId; }
+  else if (val === "__none") delete it.seccionId;
+  else it.seccionId = val;
+  saveIdeas(); render();
+}
+function nbAddItem(nbId, itemId) {
+  const it = IDEAS.find(i => i.id === itemId); if (!it) return;
+  it.cuadernoId = nbId; delete it.seccionId; saveIdeas(); render();
+}
+// From a project/idea: choose its notebook
+function setItemNotebook(itemId, val) {
+  const it = IDEAS.find(i => i.id === itemId); if (!it) return;
+  if (val === "__new") { createNotebookFor(itemId); return; }
+  if (!val) { delete it.cuadernoId; delete it.seccionId; } else { it.cuadernoId = val; delete it.seccionId; }
+  saveIdeas(); render();
+}
+async function createNotebookFor(itemId) {
+  const t = await showPrompt("Name your notebook — e.g. the name of a series or a world.", { title: "New notebook", placeholder: "My shorts series", confirmLabel: "Create" });
+  if (!t || !t.trim()) { render(); return; }
+  const nb = newNotebook(t.trim()); const it = IDEAS.find(i => i.id === itemId); if (it) it.cuadernoId = nb.id;
+  saveIdeas(); render();
+}
+async function deleteNotebook(id) {
+  const nb = IDEAS.find(i => i.id === id); if (!nb) return;
+  if (!(await showConfirm("The projects and ideas inside are NOT deleted — they just stop being in a notebook.", { title: `Delete the notebook "${nb.titulo}"?`, confirmLabel: "Delete notebook", danger: true }))) return;
+  IDEAS.forEach(i => { if (i.cuadernoId === id) { delete i.cuadernoId; delete i.seccionId; } });
+  IDEAS = IDEAS.filter(i => i.id !== id);
+  saveIdeas(); goHome();
+}
+function notebookBadgeHtml(item) {
+  const nbs = notebooks(), cur = nbs.find(n => n.id === item.cuadernoId);
+  const opts = `<option value="">${cur ? "Take out of notebook" : "📓 Add to a notebook…"}</option>${nbs.map(n => `<option value="${escapeAttr(n.id)}" ${n.id === item.cuadernoId ? "selected" : ""}>📓 ${escapeHtml(n.titulo)}</option>`).join("")}<option value="__new">＋ New notebook…</option>`;
+  return cur
+    ? `<span class="badge badge-nb" style="--nb:${cur.color}"><span onclick="goNotebook('${escapeAttr(cur.id)}')" role="button">📓 ${escapeHtml(cur.titulo)}</span><span class="nb-caret">▾<select aria-label="Change notebook" onchange="setItemNotebook('${escapeAttr(item.id)}', this.value)">${opts}</select></span></span>`
+    : `<span class="badge badge-nb empty"><select aria-label="Add to a notebook" onchange="setItemNotebook('${escapeAttr(item.id)}', this.value)">${opts}</select></span>`;
+}
+function notebookCoverHtml(nb) {
+  const items = notebookItems(nb);
+  return `<div class="nb-cover" style="--nb:${nb.color || NB_COLORS[0]}" onclick="goNotebook('${escapeAttr(nb.id)}')" role="button" tabindex="0">
+    <div class="nb-cover-band"></div>
+    <div class="nb-cover-label"><div class="nb-cover-title">${escapeHtml(nb.titulo)}</div><div class="nb-cover-count">${items.length} ${items.length === 1 ? "item" : "items"}</div></div>
+  </div>`;
+}
+function notebookShelfHtml() {
+  const nbs = notebooks();
+  if (!nbs.length) return "";
+  return `<div class="nb-shelf-wrap"><div class="nb-shelf-head"><span>Notebooks</span><button type="button" onclick="createNotebook()">＋ New</button></div>
+    <div class="nb-shelf">${nbs.map(notebookCoverHtml).join("")}</div></div>`;
+}
+function nbItemCard(nb, it) {
+  const cfg = ESTADOS[it.estado] || ESTADOS["idea"];
+  const chs = isProject(it) ? projectChapters(it) : [];
+  const pct = Math.round((isProject(it) ? (chs.length ? chs.reduce((a, c) => a + ideaProgress(c), 0) / chs.length : 0) : ideaProgress(it)) * 100);
+  const secs = nb.secciones || [];
+  return `<div class="nb-item" onclick="openDetail('${escapeAttr(it.id)}')">
+    <div class="nb-item-main">
+      <div class="nb-item-title">${isProject(it) ? "▤ " : ""}${escapeHtml(it.titulo)}</div>
+      <div class="nb-item-meta"><span class="tag" style="background:${cfg.soft};color:${cfg.color}">${cfg.label}</span>${isProject(it) ? `<span>${chs.length} chapters</span>` : ""}<span>${pct}%</span></div>
+      <div class="nb-item-bar"><i style="width:${pct}%"></i></div>
+    </div>
+    <select class="nb-item-move" aria-label="Move" title="Move to a section" onclick="event.stopPropagation()" onchange="nbItemMove('${escapeAttr(it.id)}', this.value)">
+      <option value="" selected disabled>⋯</option>
+      ${secs.length ? `<optgroup label="Move to section">${secs.map(sc => `<option value="${escapeAttr(sc.id)}">${escapeHtml(sc.nombre)}</option>`).join("")}<option value="__none">No section</option></optgroup>` : ""}
+      <option value="__out">Take out of notebook</option>
+    </select>
+  </div>`;
+}
+function renderNotebookView(nb) {
+  const items = notebookItems(nb), secs = nb.secciones || [];
+  const loose = items.filter(i => !secs.some(sc => sc.id === i.seccionId));
+  const candidates = IDEAS.filter(i => !isChapter(i) && !isNotebook(i) && i.estado !== "eliminada" && i.cuadernoId !== nb.id);
+  const decs = decisionsOf(nb);
+  const sectionHtml = (sc, list, k) => `
+    <div class="nb-section">
+      <div class="nb-section-head"><span class="nb-section-name" onclick="nbRenameSection('${escapeAttr(nb.id)}','${escapeAttr(sc.id)}')" title="Rename">${escapeHtml(sc.nombre)}</span>
+        <span class="nb-section-tools">${k > 0 ? `<button type="button" title="Move up" onclick="nbMoveSection('${escapeAttr(nb.id)}','${escapeAttr(sc.id)}',-1)">↑</button>` : ""}${k < secs.length - 1 ? `<button type="button" title="Move down" onclick="nbMoveSection('${escapeAttr(nb.id)}','${escapeAttr(sc.id)}',1)">↓</button>` : ""}<button type="button" title="Remove section" onclick="nbDeleteSection('${escapeAttr(nb.id)}','${escapeAttr(sc.id)}')">&times;</button></span></div>
+      <div class="nb-items">${list.map(it => nbItemCard(nb, it)).join("") || `<div class="nb-empty">Nothing here yet — use ⋯ on a project to move it into this section.</div>`}</div>
+    </div>`;
+  return `
+    <button class="back-btn" onclick="goHome()">&larr; Back to Home</button>
+    <div class="nb-head" style="--nb:${nb.color || NB_COLORS[0]}">
+      <div class="nb-head-band"></div>
+      <div class="nb-head-body">
+        <div class="nb-kicker">📓 Notebook</div>
+        <input class="nb-title-input" value="${escapeAttr(nb.titulo)}" aria-label="Notebook name" onchange="nbSet('${escapeAttr(nb.id)}','titulo',this.value)">
+        <textarea class="nb-desc-input chat-ta" rows="2" placeholder="What goes in this notebook? e.g. Every short set in the Frac & Speck universe." onchange="nbSet('${escapeAttr(nb.id)}','descripcion',this.value)">${escapeHtml(nb.descripcion || "")}</textarea>
+        <div class="nb-colors">${NB_COLORS.map(c => `<button type="button" class="${c === nb.color ? "on" : ""}" style="background:${c}" aria-label="Cover color" onclick="nbSet('${escapeAttr(nb.id)}','color','${c}')"></button>`).join("")}</div>
+        <div class="nb-head-actions">
+          <button type="button" class="share-btn mentor-head-btn" onclick="openProjectChat('${escapeAttr(nb.id)}')">💬 Talk to the notebook's mentor</button>
+          <button type="button" class="nb-del" onclick="deleteNotebook('${escapeAttr(nb.id)}')">Delete notebook</button>
+        </div>
+      </div>
+    </div>
+    <div class="detail-block nb-rules">
+      <div class="block-title c-desc">Notebook rules</div>
+      <div class="dec-hint">Decisions that apply to everything inside (style, recurring characters, tone…). Every mentor in this notebook follows them.</div>
+      <ul class="dec-list">${decs.map((d, k) => `<li><span class="dec-pin">📌</span><span class="dec-text" title="Click to edit" onclick="editDecision('${escapeAttr(nb.id)}',${k})">${escapeHtml(d.texto)}</span><button type="button" class="resolve-delete-btn" title="Remove" onclick="removeDecision('${escapeAttr(nb.id)}',${k})">&times;</button></li>`).join("")}</ul>
+      <input class="note-quick-add" placeholder="+ Add a rule, e.g. Style: stylized 3D (Enter)" onkeydown="if(event.key==='Enter'){event.preventDefault();addDecision('${escapeAttr(nb.id)}',this)}">
+    </div>
+    <div class="nb-contents">
+      ${loose.length || !secs.length ? `<div class="nb-section">${secs.length ? `<div class="nb-section-head"><span class="nb-section-name muted">No section</span></div>` : ""}<div class="nb-items">${loose.map(it => nbItemCard(nb, it)).join("") || `<div class="nb-empty">Empty notebook. Add a project or idea below.</div>`}</div></div>` : ""}
+      ${secs.map((sc, k) => sectionHtml(sc, items.filter(i => i.seccionId === sc.id), k)).join("")}
+    </div>
+    <div class="nb-add-row">
+      ${candidates.length ? `<select class="nb-add-select" onchange="if(this.value)nbAddItem('${escapeAttr(nb.id)}', this.value)"><option value="">＋ Add a project or idea…</option>${candidates.map(c => `<option value="${escapeAttr(c.id)}">${isProject(c) ? "▤ " : ""}${escapeHtml(c.titulo)}${c.cuadernoId ? " (from another notebook)" : ""}</option>`).join("")}</select>` : ""}
+      <button type="button" class="nb-add-sec" onclick="nbAddSection('${escapeAttr(nb.id)}')">＋ Add a section</button>
+    </div>`;
+}
 /* ==================================================================
    RENDER: STATUS/CATEGORY PAGE — back arrow + listing
 ================================================================== */
@@ -10841,7 +11120,7 @@ function renderListPageView() {
           <div class="page-title" style="color:${color}">${escapeHtml(label)}</div>
           <div class="page-desc">${list.length} idea${list.length === 1 ? '' : 's'}</div>
         </div>
-        ${view === "categoria" ? `<button class="complete-info-btn page-header-btn" onclick="openNewIdeaForm('${escapeAttr(viewParam)}')">+ New idea in this category</button>` : ""}
+        ${view === "categoria" ? `<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="complete-info-btn page-header-btn" onclick="openNewIdeaForm('${escapeAttr(viewParam)}')">+ New idea in this category</button><button class="complete-info-btn page-header-btn" onclick="categoryToNotebook('${escapeAttr(viewParam)}')">📓 Turn into a notebook</button></div>` : ""}
       </div>
     </div>
 
@@ -11129,7 +11408,7 @@ function renderDetailReadMode(idea) {
           <span class="badge badge-status" style="background:${cfg.soft};color:${cfg.color}">${cfg.label}</span>
           <span class="badge badge-cat" style="background:var(--slate-soft);color:var(--slate)">${escapeHtml(idea.categoria)}</span>
           ${isChapter(idea) ? chapterBadgeHtml(idea) : ""}
-          ${dueBadgeHtml(idea)}${workedBadgeHtml(idea)}
+          ${dueBadgeHtml(idea)}${workedBadgeHtml(idea)}${isChapter(idea) ? "" : notebookBadgeHtml(idea)}
         </div>
         ${isChapter(idea) ? chapterNavHtml(idea) : ""}
       </div>
@@ -11457,6 +11736,9 @@ function render() {
     if (idea) updateStickyHeaderHeight();
   } else if (view === "status" || view === "categoria") {
     main.innerHTML = renderListPageView();
+  } else if (view === "cuaderno") {
+    const nb = IDEAS.find(i => i.id === viewParam);
+    main.innerHTML = nb ? renderNotebookView(nb) : renderHomeView();
   } else if (view === "trash") {
     main.innerHTML = renderTrashView();
   } else {
