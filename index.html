@@ -3953,7 +3953,7 @@ SHIPPING CHANGES
   .log-wrap .step-log { flex: 1; }
   .jump-btn { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); width: 38px; height: 38px; border-radius: 50%; border: 1.5px solid var(--line-strong); background: var(--panel); color: var(--pen); font-size: 1.15rem; box-shadow: 0 4px 12px rgba(0,0,0,.18); cursor: pointer; opacity: 0; pointer-events: none; transition: opacity .15s; }
   .jump-btn.show { opacity: 1; pointer-events: auto; }
-  .composer { display: flex; align-items: center; gap: 2px; margin-top: 8px; padding: 4px; border: 1.5px solid var(--line-strong); border-radius: 26px; background: var(--paper); }
+  .composer { display: flex; align-items: center; gap: 2px; margin-top: 8px; padding: 4px; border: 1.5px solid var(--line-strong); border-radius: 20px; background: var(--paper); }
   .composer:focus-within { border-color: var(--pen); }
   .cmp-input { flex: 1; min-width: 0; border: none; outline: none; background: none; font: 16px var(--sans); color: var(--ink); padding: 10px 8px; }
   .cmp-btn { flex-shrink: 0; width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; font-size: 1.15rem; }
@@ -3990,8 +3990,14 @@ SHIPPING CHANGES
   .pc-undo { background: none; border: 1px solid var(--line-strong); border-radius: var(--sketch-radius); padding: 4px 12px; font-family: var(--hand); font-size: 1rem; color: var(--ink); cursor: pointer; }
   .pc-act.danger:not(.done) { border-color: var(--rust); }
 
-  .pc-getacts { background: none; border: 1px dashed var(--line-strong); border-radius: var(--sketch-radius); padding: 3px 10px; font-family: var(--hand); font-size: .95rem; color: var(--slate); cursor: pointer; }
-  .pc-getacts:hover { color: var(--pen); border-color: var(--pen); }
+  .pc-getacts { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; background: var(--pen); color: #fff; border: none; border-radius: 10px; padding: 10px 14px; font-family: var(--hand); font-size: 1.08rem; text-align: left; cursor: pointer; box-shadow: 0 3px 0 rgba(0,0,0,.18); }
+  [data-theme="dark"] .pc-getacts { color: #10131c; }
+  .pc-getacts:disabled { opacity: .7; cursor: wait; }
+
+  textarea.chat-ta { resize: none; overflow-y: auto; line-height: 1.4; max-height: 160px; font-family: var(--sans); }
+  .composer { align-items: flex-end; }
+  .composer .cmp-btn, .composer .cmp-send, .composer .mic-btn { margin-bottom: 0; }
+  textarea.cmp-input { padding: 10px 8px; min-height: 40px; }
 </style>
 </head>
 <body>
@@ -4257,7 +4263,7 @@ SHIPPING CHANGES
     <div id="ai-chat-suggestions" style="display:none;flex-direction:column;gap:8px;margin-bottom:8px"></div>
     <div id="ai-chat-apply" style="display:none"><button class="form-submit" style="margin-top:0" onclick="aiChatApply()">Apply to idea</button></div>
     <div id="ai-chat-inputrow" style="display:flex;gap:8px;margin-top:8px">
-      <input class="form-input" id="ai-chat-input" style="flex:1;font-size:16px" placeholder="Your answer…" onkeydown="if(event.key==='Enter'){event.preventDefault();aiChatSend();}">
+      <textarea rows="1" class="form-input chat-ta" id="ai-chat-input" style="flex:1;font-size:16px" placeholder="Your answer…" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();aiChatSend();}"></textarea>
       <button class="form-submit" style="margin:0;width:auto;padding:0 16px" onclick="aiChatSend()">Send</button>
     </div>
     <div style="text-align:center;margin-top:8px;display:flex;justify-content:center;gap:16px;flex-wrap:wrap"><button onclick="aiChatStop()" style="background:none;border:none;font-size:0.8rem;color:var(--slate);cursor:pointer;text-decoration:underline">That's enough — give me the plan</button><button onclick="aiChatOtherAi()" style="background:none;border:none;font-size:0.8rem;color:var(--slate);cursor:pointer;text-decoration:underline">Use another AI</button></div>
@@ -4281,7 +4287,7 @@ SHIPPING CHANGES
     <select class="form-input" id="stuck-step" style="font-size:16px;margin-bottom:8px"></select>
     <div id="stuck-log" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px 2px 10px"></div>
     <div style="display:flex;gap:8px;margin-top:8px">
-      <input class="form-input" id="stuck-input" style="flex:1;font-size:16px" placeholder="I don't know how to…" onkeydown="if(event.key==='Enter'){event.preventDefault();stuckSend();}">
+      <textarea rows="1" class="form-input chat-ta" id="stuck-input" style="flex:1;font-size:16px" placeholder="I don't know how to…" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();stuckSend();}"></textarea>
       <button class="form-submit" style="margin:0;width:auto;padding:0 16px" onclick="stuckSend()">Send</button>
     </div>
   </div>
@@ -4398,7 +4404,7 @@ SHIPPING CHANGES
     <div class="att-list" id="pc-atts"></div>
     <div class="composer">
       <label class="cmp-btn" title="Attach an image or a text file" aria-label="Attach">📎<input type="file" multiple accept="image/*,.txt,.md,.csv,.json,.srt,.fountain,text/plain" style="display:none" onchange="pcAddFiles(this)"></label>
-      <input class="cmp-input" id="pc-input" placeholder="Ask anything…" onkeydown="if(event.key==='Enter'){event.preventDefault();pcSend();}">
+      <textarea rows="1" class="cmp-input chat-ta" id="pc-input" placeholder="Ask anything…" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();pcSend();}"></textarea>
       <button type="button" class="cmp-send" onclick="pcSend()" aria-label="Send" title="Send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
     </div>
     <div class="cmp-foot"><button type="button" class="pw-skip" onclick="pcClear()">Clear conversation</button></div>
@@ -4427,7 +4433,7 @@ SHIPPING CHANGES
     <div class="ws-pane" id="ws-tutor">
       <div class="log-wrap"><div id="step-log" class="step-log"></div><button type="button" class="jump-btn" onclick="jumpBottom('step-log')" aria-label="Go to latest">↓</button></div>
       <div class="composer">
-        <input class="cmp-input" id="step-input" placeholder="Ask about this step…" onkeydown="if(event.key==='Enter'){event.preventDefault();stepSend();}">
+        <textarea rows="1" class="cmp-input chat-ta" id="step-input" placeholder="Ask about this step…" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();stepSend();}"></textarea>
         <button type="button" class="cmp-send" onclick="stepSend()" aria-label="Send" title="Send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
       </div>
     </div>
@@ -5983,7 +5989,7 @@ async function aiChatSend(textOverride) {
   const inp = document.getElementById("ai-chat-input");
   const text = (textOverride || inp.value).trim();
   if (!text) return;
-  inp.value = "";
+  inp.value = ""; growChat(inp);
   document.getElementById("ai-chat-suggestions").style.display = "none";
   aiChatAddBubble("user", text);
   if (!aiChatHistory.length) {
@@ -7343,6 +7349,9 @@ function addChapter(projId, title, beforeTitle, descripcion) {
 const MIC_TARGETS = ["pc-input", "step-input", "step-work", "ai-chat-input", "stuck-input", "brain-dump-text"];
 let micState = null; // { id, rec, chunks, stream, t0, timer, speech, audioCtx, peak, after }
 const MIC_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>`;
+// Chat boxes: Enter makes a new line (send with the button, or Ctrl/⌘+Enter); the box grows with the text.
+function growChat(el) { if (!el) return; el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, 160) + "px"; }
+document.addEventListener("input", e => { if (e.target.classList && e.target.classList.contains("chat-ta")) growChat(e.target); });
 function attachMics() {
   MIC_TARGETS.forEach(id => {
     const el = document.getElementById(id);
@@ -7351,7 +7360,7 @@ function attachMics() {
     const b = document.createElement("button");
     b.type = "button"; b.className = "mic-btn"; b.id = "mic-" + id; b.title = "Talk instead of typing"; b.innerHTML = MIC_SVG;
     b.onclick = () => toggleMic(id);
-    if (el.tagName === "TEXTAREA") {
+    if (el.tagName === "TEXTAREA" && !el.classList.contains("chat-ta")) {
       const w = document.createElement("div"); w.className = "mic-wrap";
       el.parentNode.insertBefore(w, el); w.appendChild(el); w.appendChild(b); b.classList.add("in-area");
     } else el.parentNode.insertBefore(b, el.nextSibling);
@@ -8019,7 +8028,7 @@ function mentorHist(proj, upTo) {
 async function pcFetchActions(k, btn) {
   const proj = IDEAS.find(i => i.id === pcProjId), m = proj && proj.chat[k];
   if (!m) return;
-  if (btn) { btn.disabled = true; btn.textContent = "Getting the buttons…"; }
+  if (btn) { btn.disabled = true; btn.innerHTML = "<span>Getting the changes ready…</span>"; }
   try {
     const acts = await mentorExtractActions(mentorHist(proj, k), m.text);
     if (!acts.length) { await showAlert("That reply doesn't propose any concrete change. Tell the mentor exactly what to add or change and it'll give you the buttons.", { title: "Nothing to add" }); }
@@ -8040,7 +8049,7 @@ function splitActions(text) {
 function pcMsgBar(m, k) {
   const acts = m.actions || [], open = acts.filter(a => !a.done).length;
   const b = [];
-  if (m.role === "model" && !acts.length) b.push(`<button type="button" class="pc-getacts" onclick="pcFetchActions(${k}, this)">＋ Add from this reply</button>`);
+  if (m.role === "model" && !acts.length && MENTOR_PROPOSES.test(m.text || "")) return `<button type="button" class="pc-getacts" onclick="pcFetchActions(${k}, this)"><span>👉 Tap here to see the changes and add them</span><b>→</b></button>`;
   if (open >= 2) b.push(`<button type="button" class="sug-apply" onclick="pcAddAll(${k})">Add all ${open}</button>`);
   if (m.undo) b.push(`<button type="button" class="pc-undo" onclick="pcUndo(${k})">↶ Undo these changes</button>`);
   return b.length ? `<div class="pc-msgbar">${b.join("")}</div>` : "";
@@ -8246,7 +8255,7 @@ async function pcSend(textOverride) {
   const inp = document.getElementById("pc-input");
   const text = (textOverride || inp.value).trim();
   if (!text) return;
-  inp.value = "";
+  inp.value = ""; growChat(inp);
   if (!geminiKey) {
     try { await navigator.clipboard.writeText(PROJECT_MENTOR_RULES + "\n\n" + chatContextText(proj) + "\n\nMY QUESTION: " + text); } catch (e) {}
     await showAlert("No Gemini key yet, so I copied your question with the whole project as context. Paste it into any AI. Add a key in Settings to talk to the mentor right here.", { title: "Prompt copied" });
@@ -8727,7 +8736,7 @@ async function stepSend(textOverride) {
   const inp = document.getElementById("step-input");
   const text = (textOverride || inp.value).trim();
   if (!text) return;
-  inp.value = "";
+  inp.value = ""; growChat(inp);
   ref.step.chat = ref.step.chat || [];
   if (!geminiKey) {
     try { await navigator.clipboard.writeText(TUTOR_RULES + "\n\n" + stepContextText(ref) + "\n\nMY QUESTION: " + text); } catch (e) {}
@@ -8802,7 +8811,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-01 01:40 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-01 02:00 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -11367,7 +11376,7 @@ function openStuck(ideaId) {
   }));
   sel.innerHTML = opts;
   document.getElementById("stuck-log").innerHTML = "";
-  document.getElementById("stuck-input").value = "";
+  document.getElementById("stuck-input").value = ""; growChat(document.getElementById("stuck-input"));
   document.getElementById("stuck-overlay").classList.add("open");
 }
 function closeStuck() { document.getElementById("stuck-overlay").classList.remove("open"); stuckIdeaId = null; }
@@ -11400,7 +11409,7 @@ async function stuckSend() {
     ctx += "PLAN:\n" + (idea.fases || []).map(f => f.nombre + ": " + (f.pasos || []).map(stepText).join(" | ")).join("\n") + "\n";
   }
   const userMsg = stuckHistory.length ? text : ctx + "\nWHERE I'M STUCK: " + text;
-  inp.value = "";
+  inp.value = ""; growChat(inp);
   stuckBubble("user", text);
   stuckHistory.push({ role: "user", text: userMsg });
   if (!geminiKey) {
