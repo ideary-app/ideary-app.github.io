@@ -4007,10 +4007,27 @@ SHIPPING CHANGES
   .nb-shelf { display: flex; gap: 14px; overflow-x: auto; padding: 4px 2px 12px; scroll-snap-type: x mandatory; }
   .nb-cover { flex: 0 0 132px; height: 172px; border-radius: 4px 12px 12px 4px; background: var(--nb); position: relative; cursor: pointer; scroll-snap-align: start; box-shadow: 2px 4px 0 rgba(0,0,0,.18), inset -6px 0 10px rgba(0,0,0,.12); transition: transform .12s; }
   .nb-cover:hover { transform: translateY(-3px) rotate(-1deg); }
-  .nb-cover-band { position: absolute; left: 10px; top: 0; bottom: 0; width: 7px; background: rgba(0,0,0,.18); }
-  .nb-cover-label { position: absolute; left: 22px; right: 10px; top: 22px; background: #fbf6e9; border-radius: 4px; padding: 8px 9px; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+  .nb-cover-band { position: absolute; right: 14px; top: 0; bottom: 0; width: 7px; background: rgba(0,0,0,.28); box-shadow: inset 1px 0 0 rgba(255,255,255,.12); }
+  .nb-cover::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 9px; border-radius: 4px 0 0 4px; background: rgba(0,0,0,.16); }
+  .nb-cover-label { position: absolute; left: 18px; right: 28px; top: 22px; background: #fbf6e9; border-radius: 4px; padding: 8px 9px; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
   .nb-cover-title { font-family: var(--hand); font-size: 1.08rem; line-height: 1.15; color: #2a2520; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
   .nb-cover-count { font-size: .72rem; color: #7a6f60; margin-top: 4px; }
+  body[data-view="cuaderno"], [data-theme="dark"] body[data-view="cuaderno"] {
+    background-color: color-mix(in srgb, var(--nb-page, #8b4a2b) 38%, #1c1a18);
+    background-image: radial-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(rgba(0,0,0,.18), rgba(0,0,0,.18));
+    background-size: 5px 5px, auto; background-attachment: fixed;
+  }
+  body[data-view="cuaderno"] .main { background-image: none; background-color: transparent; }
+  body[data-view="cuaderno"] .back-btn, body[data-view="cuaderno"] .nb-section-name, body[data-view="cuaderno"] .nb-section-tools button, body[data-view="cuaderno"] .nb-empty { color: #f1e8d6; }
+  body[data-view="cuaderno"] .nb-section-name.muted { color: rgba(241,232,214,.65); }
+  body[data-view="cuaderno"] .nb-section-head { border-bottom-color: rgba(241,232,214,.35); }
+  body[data-view="cuaderno"] .nb-item { box-shadow: 2px 3px 0 rgba(0,0,0,.28); border-color: transparent; }
+  body[data-view="cuaderno"] .nb-item:nth-child(3n+1) { transform: rotate(-.4deg); }
+  body[data-view="cuaderno"] .nb-item:nth-child(3n+2) { transform: rotate(.35deg); }
+  body[data-view="cuaderno"] .nb-item:hover { transform: none; border-color: var(--pen); }
+  body[data-view="cuaderno"] .nb-add-select, body[data-view="cuaderno"] .nb-add-sec { color: #f1e8d6; border-color: rgba(241,232,214,.5); background: rgba(0,0,0,.15); }
+  body[data-view="cuaderno"] .nb-add-select option { color: #222; }
+  body[data-view="cuaderno"] .nb-head, body[data-view="cuaderno"] .nb-rules { box-shadow: 3px 4px 0 rgba(0,0,0,.3); }
   .nb-head { position: relative; margin: 10px 0 16px; background: var(--panel); border-radius: 6px 14px 14px 6px; border: 1.5px solid var(--line-strong); overflow: hidden; }
   .nb-head-band { position: absolute; left: 0; top: 0; bottom: 0; width: 16px; background: var(--nb); }
   .nb-head-body { padding: 16px 16px 16px 32px; display: flex; flex-direction: column; gap: 8px; }
@@ -8924,7 +8941,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-01 03:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-01 03:25 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -11794,6 +11811,7 @@ function render() {
     main.innerHTML = renderListPageView();
   } else if (view === "cuaderno") {
     const nb = IDEAS.find(i => i.id === viewParam);
+    document.body.style.setProperty("--nb-page", (nb && nb.color) || NB_COLORS[0]);
     main.innerHTML = nb ? renderNotebookView(nb) : renderHomeView();
   } else if (view === "trash") {
     main.innerHTML = renderTrashView();
