@@ -3989,6 +3989,9 @@ SHIPPING CHANGES
   .pc-msgbar { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 8px; }
   .pc-undo { background: none; border: 1px solid var(--line-strong); border-radius: var(--sketch-radius); padding: 4px 12px; font-family: var(--hand); font-size: 1rem; color: var(--ink); cursor: pointer; }
   .pc-act.danger:not(.done) { border-color: var(--rust); }
+
+  .pc-getacts { background: none; border: 1px dashed var(--line-strong); border-radius: var(--sketch-radius); padding: 3px 10px; font-family: var(--hand); font-size: .95rem; color: var(--slate); cursor: pointer; }
+  .pc-getacts:hover { color: var(--pen); border-color: var(--pen); }
 </style>
 </head>
 <body>
@@ -7868,6 +7871,7 @@ const PROJECT_MENTOR_RULES = `You are a veteran professional in the field of thi
 [{"tipo":"archivar","archivo":"exact attached file name","paso":"Exact text of the step it belongs to"},{"tipo":"resuelto","pregunta":"Exact text of the thing to figure out","texto":"Topic: the choice made"},{"tipo":"capitulo","titulo":"New chapter name","antesDe":"Existing chapter name or null"},{"tipo":"decision","texto":"Topic: choice"},{"tipo":"resolver","texto":"Open question to figure out"},{"tipo":"nota","texto":"Short note","capitulo":"Exact chapter name or null","paso":"Exact step text or null"},{"tipo":"renombrar","objetivo":"Exact current title of the project/idea/chapter","texto":"New title"},{"tipo":"descripcion","objetivo":"Exact current title","texto":"New description"},{"tipo":"agregar_paso","capitulo":"Exact chapter/idea title","texto":"New step"},{"tipo":"estado_paso","paso":"Exact step text","estado":"done | in progress | to do"},{"tipo":"fecha","objetivo":"Exact current title","fecha":"YYYY-MM-DD or null to remove"},{"tipo":"pendiente","texto":"Thing to do later"},{"tipo":"pendiente_hecho","texto":"Exact text of the pending item"},{"tipo":"mover_capitulo","titulo":"Exact chapter name","antesDe":"Exact chapter name or null for the end"},{"tipo":"borrar_capitulo","titulo":"Exact chapter name"},{"tipo":"editar_paso","paso":"Exact current step text","texto":"New step text"},{"tipo":"borrar_paso","paso":"Exact step text"},{"tipo":"mover_paso","paso":"Exact step text","capitulo":"Exact destination chapter name","antesDe":"Exact step text in that chapter or null for the end"},{"tipo":"editar","objeto":"nota | decision | resolver | pendiente","viejo":"Exact current text","texto":"New text"},{"tipo":"borrar","objeto":"nota | decision | resolver | pendiente","viejo":"Exact current text"}]
 \`\`\`
 Only include actions the person would clearly want offered; they will accept or skip each one.
+- THE BUTTONS ONLY EXIST IF YOU WRITE THE ACTIONS BLOCK. Whenever your text proposes a change or mentions adding/Add/Agregar/saving something, the block is MANDATORY — never tell the person to tap Add without it. Put it at the very end. When you propose many changes, keep the prose shorter so the block always fits.
 - YOU ARE A FULL WORK PARTNER, not limited to what already exists: you may restructure the whole project — add, rename, reorder or delete chapters; add, rewrite, move or delete steps; rewrite or remove notes, decisions and questions — whenever that makes the project better or matches what the person now means. Every change you propose can be undone by the person, so don't be timid: propose the complete restructure in one go (up to 25 actions), in a sensible order (create chapters before moving steps into them).
 - PEOPLE CLARIFY AS THEY GO: if the person says "that's not what I meant" or explains something better, re-read the current project (it may already include your earlier changes), drop the wrong assumption and propose the actions that fix it — including editing or deleting what you added before.
 - Use EXACT texts from the context when you refer to existing chapters, steps, notes, decisions or questions.
@@ -7983,18 +7987,60 @@ function mdLite(src) {
   close();
   return out.join("");
 }
+// Pull every complete {...} with a "tipo" out of a broken or cut-off JSON array.
+function salvageActions(raw) {
+  const out = []; let depth = 0, start = -1, inStr = false, esc = false;
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i];
+    if (inStr) { if (esc) esc = false; else if (c === "\\") esc = true; else if (c === '"') inStr = false; continue; }
+    if (c === '"') inStr = true;
+    else if (c === "{") { if (!depth) start = i; depth++; }
+    else if (c === "}" && depth) { depth--; if (!depth && start >= 0) { try { const o = parseJsonLenient(raw.slice(start, i + 1)); if (o && o.tipo) out.push(o); } catch (e) {} start = -1; } }
+  }
+  return out;
+}
+// Replies that talk about changes/buttons: if they come without actions, we go get them.
+const MENTOR_PROPOSES = /(tap|toc[aá]|press|apret[aá]|dale|hac[eé] clic|click|clic)[^.\n]{0,40}(add|agreg|añad|aplic|confirm)|\b(add|agregar|aplicar)\b[^.\n]{0,15}(below|abajo)|botones|buttons|te propongo|propuesta|reorganiz|restructur|reestructur|volcamos|asentad|lo (agrego|sumo|guardo|anoto)|queda (guardado|anotado)/i;
+const ACTIONS_FORMAT = (PROJECT_MENTOR_RULES.match(/```actions\n(\[[\s\S]*?\])\n```/) || [])[1] || "";
+async function mentorExtractActions(hist, reply) {
+  const sys = `You turn a mentor's reply into project changes. Output ONLY a JSON array (no prose, no code fences) of actions, using exactly these shapes:\n${ACTIONS_FORMAT}\nInclude EVERY concrete change the reply proposes or says it will add/save/move/rename/delete, using exact texts from the project context. If it proposes nothing concrete, output [].`;
+  const txt = await geminiGenerate(hist.concat([{ role: "model", text: reply }, { role: "user", text: "Now output the JSON array of actions for every change you proposed in your last reply." }]), sys, false, undefined, "minimal");
+  let a = []; try { a = parseJsonLenient(txt); } catch (e) {}
+  if (!Array.isArray(a) || !a.length) a = salvageActions(txt);
+  return (a || []).filter(x => x && x.tipo).slice(0, 25);
+}
+function mentorHist(proj, upTo) {
+  const chat = proj.chat.slice(0, upTo).slice(-12);
+  const hist = chat.map((m, k) => ({ role: m.role, text: k === 0 ? chatContextText(proj) + "\n\n" + m.text : m.text }));
+  if (!hist.length || hist[0].role !== "user") hist.unshift({ role: "user", text: chatContextText(proj) });
+  return hist;
+}
+// Manual safety net: "Add buttons for this reply"
+async function pcFetchActions(k, btn) {
+  const proj = IDEAS.find(i => i.id === pcProjId), m = proj && proj.chat[k];
+  if (!m) return;
+  if (btn) { btn.disabled = true; btn.textContent = "Getting the buttons…"; }
+  try {
+    const acts = await mentorExtractActions(mentorHist(proj, k), m.text);
+    if (!acts.length) { await showAlert("That reply doesn't propose any concrete change. Tell the mentor exactly what to add or change and it'll give you the buttons.", { title: "Nothing to add" }); }
+    m.actions = acts; saveIdeas();
+  } catch (e) { await showAlert(e.message, { title: "Couldn't get the buttons" }); }
+  renderPcChat();
+}
 function splitActions(text) {
   const m = text.match(/```actions\s*([\s\S]*?)(```|$)/) || text.match(/```(?:json)?\s*(\[\s*\{[\s\S]*?"tipo"[\s\S]*?\])\s*```/);
   if (!m) return { text: text.trim(), actions: [] };
   const rest = text.slice(m.index + m[0].length).trim();
   let actions = [];
-  try { actions = parseJsonLenient(m[1]); } catch (e) {}
+  try { actions = parseJsonLenient(m[1]); } catch (e) { actions = salvageActions(m[1]); }
+  if (!Array.isArray(actions) || !actions.length) actions = salvageActions(m[1]);
   return { text: (text.slice(0, m.index).trim() + (rest ? "\n\n" + rest : "")).trim(), actions: Array.isArray(actions) ? actions.filter(a => a && (a.titulo || a.texto || a.estado || a.paso || a.viejo || a.tipo === "fecha")).slice(0, 25) : [] };
 }
 // Under a reply's suggestions: "Add all" while several are pending, "Undo" once something was applied.
 function pcMsgBar(m, k) {
   const acts = m.actions || [], open = acts.filter(a => !a.done).length;
   const b = [];
+  if (m.role === "model" && !acts.length) b.push(`<button type="button" class="pc-getacts" onclick="pcFetchActions(${k}, this)">＋ Add from this reply</button>`);
   if (open >= 2) b.push(`<button type="button" class="sug-apply" onclick="pcAddAll(${k})">Add all ${open}</button>`);
   if (m.undo) b.push(`<button type="button" class="pc-undo" onclick="pcUndo(${k})">↶ Undo these changes</button>`);
   return b.length ? `<div class="pc-msgbar">${b.join("")}</div>` : "";
@@ -8228,12 +8274,10 @@ async function pcSend(textOverride) {
       const l = document.getElementById("pc-log"); if (l) l.scrollTop = l.scrollHeight;
     }), null, t0)).trim());
     let acts = actions;
-    if (!acts.length && /\b(tap|toc[aá]|press|apret[aá])\b[^.\n]{0,40}\b(add|agregar|añadir)\b|\bAdd\b below|agregar abajo|volcamos|queda asentado/i.test(reply)) {
-      // It talked about adding things but forgot the actions block: ask for just the block.
-      try {
-        const fix = await geminiGenerate(hist.concat([{ role: "model", text: reply }, { role: "user", text: "You described changes for the project but didn't include the actions block, so no Add buttons appeared. Output ONLY the ```actions block (JSON array, same format as the rules) with exactly the changes you proposed. No other text." }]), PROJECT_MENTOR_RULES, false, undefined, "minimal");
-        acts = splitActions(fix).actions;
-      } catch (e) {}
+    if (!acts.length && MENTOR_PROPOSES.test(reply)) {
+      // It talked about changes but the buttons didn't come through: ask for just the actions.
+      const w2 = document.querySelector(`#pc-log [data-t0='${t0}']`); if (w2) w2.insertAdjacentHTML("beforeend", '<div class="note-date" style="margin-top:6px">Preparing the buttons…</div>');
+      try { acts = await mentorExtractActions(hist, reply); } catch (e) {}
     }
     proj.chat.push({ role: "model", text: reply, actions: acts });
     proj.chat = proj.chat.slice(-30);
@@ -8758,7 +8802,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-01 01:20 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-01 01:40 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
