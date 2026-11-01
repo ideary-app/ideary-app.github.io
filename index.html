@@ -4052,6 +4052,10 @@ SHIPPING CHANGES
   .pc-done-row { display: inline-flex; align-items: center; gap: 8px; }
   .pc-undo-one { background: none; border: 1px solid var(--line-strong); border-radius: var(--sketch-radius); padding: 2px 10px; font-family: var(--hand); font-size: .95rem; color: var(--ink); cursor: pointer; }
   .pc-undo-one:hover { border-color: var(--pen); color: var(--pen); }
+
+  .badge.add-cat { border: 1px dashed var(--line-strong); background: none !important; cursor: pointer; font: inherit; }
+  .prompt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .prompt-chips button { border: 1px solid var(--line-strong); background: var(--panel); border-radius: 999px; padding: 4px 10px; font-size: .85rem; cursor: pointer; color: var(--ink); }
 </style>
 </head>
 <body>
@@ -8746,7 +8750,7 @@ function renderProjectView(p) {
         <div class="detail-badges">
           <span class="badge badge-chapter">▤ Project · ${chs.length} chapters</span>
           <span class="badge badge-status" style="background:${cfg.soft};color:${cfg.color}">${cfg.label}</span>
-          <span class="badge badge-cat" style="background:var(--slate-soft);color:var(--slate)">${escapeHtml(p.categoria)}</span>
+          ${catBadgesHtml(p)}
           ${dueBadgeHtml(p)}${workedBadgeHtml(p)}${notebookBadgeHtml(p)}
           <span class="badges-right">
             <button type="button" class="undo-project" onclick="revertProject('${escapeAttr(p.id)}')">Turn back into a single idea</button>
@@ -8920,7 +8924,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-01 02:55 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-01 03:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -9195,7 +9199,8 @@ function showPrompt(message, opts) {
     document.getElementById("dialog-title").textContent = opts.title || "";
     const msg = document.getElementById("dialog-message");
     msg.style.whiteSpace = "pre-line";
-    msg.innerHTML = (message ? `<div style="margin-bottom:10px">${escapeHtml(message)}</div>` : "") + `<input id="dialog-prompt-input" class="form-input" style="font-size:16px;width:100%" placeholder="${escapeAttr(opts.placeholder || "")}" value="${escapeAttr(opts.value || "")}" onkeydown="if(event.key==='Enter'){event.preventDefault();resolveDialog(true)}">`;
+    msg.innerHTML = (message ? `<div style="margin-bottom:10px">${escapeHtml(message)}</div>` : "") + `<input id="dialog-prompt-input" class="form-input" style="font-size:16px;width:100%" placeholder="${escapeAttr(opts.placeholder || "")}" value="${escapeAttr(opts.value || "")}" ${opts.suggestions && opts.suggestions.length ? 'list="dialog-prompt-list"' : ""} onkeydown="if(event.key==='Enter'){event.preventDefault();resolveDialog(true)}">`
+      + (opts.suggestions && opts.suggestions.length ? `<div class="prompt-chips">${opts.suggestions.slice(0, 12).map(c => `<button type="button" onclick="document.getElementById('dialog-prompt-input').value=this.textContent;resolveDialog(true)">${escapeHtml(c)}</button>`).join("")}</div>` : "");
     document.getElementById("dialog-actions").innerHTML = `
       <button class="dialog-btn" onclick="resolveDialog(false)">Cancel</button>
       <button class="dialog-btn primary" onclick="resolveDialog(true)">${opts.confirmLabel || "OK"}</button>`;
@@ -9380,14 +9385,17 @@ let currentSearch = "";
 function isChapter(i) { return !!(i && i.proyectoId); }
 function isProject(i) { return !!(i && i.tipo === "proyecto"); }
 function isNotebook(i) { return !!(i && i.tipo === "cuaderno"); }
+// An item has a main category (categoria) plus optional extra ones (categoriasExtra).
+function itemCats(i) { return [i.categoria].concat(i.categoriasExtra || []).filter(Boolean); }
+function hasCat(i, c) { return itemCats(i).includes(c); }
 function getCategorias() {
-  return [...new Set(IDEAS.filter(i => i.estado !== "eliminada" && !isChapter(i) && !isNotebook(i)).map(i => i.categoria))].sort();
+  return [...new Set(IDEAS.filter(i => i.estado !== "eliminada" && !isChapter(i) && !isNotebook(i)).flatMap(itemCats))].sort();
 }
 
 function scopedIdeas() {
   if (view === "trash") return IDEAS.filter(i => i.estado === "eliminada" && !i._trashedWithProject);
   if (view === "status") return IDEAS.filter(i => i.estado === viewParam && i.estado !== "eliminada" && !isChapter(i));
-  if (view === "categoria") return IDEAS.filter(i => i.categoria === viewParam && i.estado !== "eliminada" && !isChapter(i) && !isNotebook(i));
+  if (view === "categoria") return IDEAS.filter(i => hasCat(i, viewParam) && i.estado !== "eliminada" && !isChapter(i) && !isNotebook(i));
   return IDEAS.filter(i => i.estado !== "eliminada" && !isChapter(i) && !isNotebook(i));
 }
 
@@ -9585,7 +9593,7 @@ function clearCategoria(inputId) {
 }
 
 function getExistingCategories() {
-  return [...new Set(IDEAS.filter(i => !isNotebook(i)).map(i => i.categoria).filter(Boolean))].sort();
+  return [...new Set(IDEAS.filter(i => !isNotebook(i)).flatMap(itemCats))].sort();
 }
 
 function showCategoriaSuggestions(inputId) {
@@ -10725,9 +10733,9 @@ function deepSearch(query) {
     if (idea.titulo.toLowerCase().includes(q)) {
       matches.push({ seccion: "Title", texto: idea.titulo });
     }
-    if (idea.categoria.toLowerCase().includes(q)) {
-      matches.push({ seccion: "Category", texto: idea.categoria });
-    }
+    itemCats(idea).forEach(c => { if (c.toLowerCase().includes(q)) matches.push({ seccion: "Category", texto: c }); });
+    const nbOf = idea.cuadernoId && IDEAS.find(x => x.id === idea.cuadernoId);
+    if (nbOf && nbOf.titulo.toLowerCase().includes(q)) matches.push({ seccion: "Notebook", texto: nbOf.titulo });
     if (idea.descripcion.toLowerCase().includes(q)) {
       matches.push({ seccion: "Description", texto: excerptAround(idea.descripcion, q) });
     }
@@ -10793,7 +10801,7 @@ function toggleNavProject(id, inside) {
 function renderSidebar() {
   document.getElementById("count-todas").textContent = IDEAS.filter(i => i.estado !== "eliminada" && !isChapter(i) && !isNotebook(i)).length;
   const nbWrap = document.getElementById("nav-notebooks");
-  if (nbWrap) { const nbs = notebooks(); nbWrap.parentNode.style.display = nbs.length ? "" : "none"; nbWrap.innerHTML = nbs.map(nb => `<div class="nav-item-cat ${view === "cuaderno" && viewParam === nb.id ? "active" : ""}" onclick="goNotebook('${escapeAttr(nb.id)}')"><span><span class="nb-dot" style="background:${nb.color || NB_COLORS[0]}"></span>${escapeHtml(nb.titulo)}</span><span class="count">${notebookItems(nb).length}</span></div>`).join(""); }
+  if (nbWrap) { const nbs = notebooks(); nbWrap.parentNode.style.display = nbs.length ? "" : "none"; nbWrap.innerHTML = nbs.map(nb => { const its = notebookItems(nb); return `<div class="nav-cat-group"><div class="nav-item-cat ${view === "cuaderno" && viewParam === nb.id ? "active" : ""}" onclick="goNotebook('${escapeAttr(nb.id)}')"><span><span class="nb-dot" style="background:${nb.color || NB_COLORS[0]}"></span>${escapeHtml(nb.titulo)}</span><span class="count">${its.length}</span></div>${its.map(it => `<div class="nav-idea-item ${view === "detalle" && viewParam === it.id ? "active" : ""} ${isProject(it) ? "nav-project-item" : ""}" onclick="openDetail('${escapeAttr(it.id)}')">${escapeHtml(it.titulo)}</div>`).join("")}</div>`; }).join(""); }
   document.getElementById("nav-todas").classList.toggle("active", view === "home");
 
   const catWrap = document.getElementById("nav-categorias");
@@ -10801,7 +10809,7 @@ function renderSidebar() {
   const trashActive = view === "trash";
 
   catWrap.innerHTML = getCategorias().map(cat => {
-    const ideas = IDEAS.filter(i => i.categoria === cat && i.estado !== "eliminada" && !isChapter(i) && !isNotebook(i));
+    const ideas = IDEAS.filter(i => hasCat(i, cat) && i.estado !== "eliminada" && !isChapter(i) && !isNotebook(i) && !i.cuadernoId);
     const catActive = view === "categoria" && viewParam === cat;
     const curIdea = IDEAS.find(i => i.id === viewParam);
     const ideaActive = view === "detalle" && ideas.some(i => i.id === viewParam || (curIdea && curIdea.proyectoId === i.id));
@@ -10818,6 +10826,7 @@ function renderSidebar() {
         ${isProject(idea) ? `<span class="nav-caret" title="${open ? 'Hide chapters' : 'Show chapters'}" onclick="event.stopPropagation();toggleNavProject('${escapeAttr(idea.id)}',${inside})">${open ? '▾' : '▸'}</span>` : ''}${escapeHtml(idea.titulo)}
       </div>${chaptersHtml}`;
     }).join("");
+    if (!ideas.length) return "";
     return `
       <div class="nav-cat-group">
         <div class="nav-item-cat ${catClass}" onclick="goCategoria('${escapeAttr(cat)}')">
@@ -11052,6 +11061,24 @@ async function deleteNotebook(id) {
   IDEAS.forEach(i => { if (i.cuadernoId === id) { delete i.cuadernoId; delete i.seccionId; } });
   IDEAS = IDEAS.filter(i => i.id !== id);
   saveIdeas(); goHome();
+}
+function catBadgesHtml(i) {
+  const extra = i.categoriasExtra || [];
+  return `<span class="badge badge-cat" style="background:var(--slate-soft);color:var(--slate)" role="button" title="Open this category" onclick="goCategoria('${escapeAttr(i.categoria)}')">${escapeHtml(i.categoria)}</span>`
+    + extra.map((c, k) => `<span class="badge badge-cat" style="background:var(--slate-soft);color:var(--slate)"><span role="button" onclick="goCategoria('${escapeAttr(c)}')">${escapeHtml(c)}</span><button type="button" class="due-x" title="Remove this category" onclick="removeExtraCat('${escapeAttr(i.id)}',${k})">&times;</button></span>`).join("")
+    + `<button type="button" class="badge badge-cat add-cat" title="Add another category" onclick="addExtraCat('${escapeAttr(i.id)}')">＋ category</button>`;
+}
+async function addExtraCat(id) {
+  const it = IDEAS.find(i => i.id === id); if (!it) return;
+  const t = await showPrompt("Pick one you already use or type a new one.", { title: "Add a category", placeholder: "Frac & Speck", confirmLabel: "Add", suggestions: getCategorias().filter(c => !hasCat(it, c)) });
+  const c = (t || "").trim(); if (!c || hasCat(it, c)) return;
+  it.categoriasExtra = (it.categoriasExtra || []).concat([c]);
+  logChanges(it, "You", [`Added category "${c}"`]); saveIdeas(); render();
+}
+function removeExtraCat(id, k) {
+  const it = IDEAS.find(i => i.id === id); if (!it || !it.categoriasExtra) return;
+  const [gone] = it.categoriasExtra.splice(k, 1); if (!it.categoriasExtra.length) delete it.categoriasExtra;
+  logChanges(it, "You", [`Removed category "${gone}"`]); saveIdeas(); render();
 }
 function notebookBadgeHtml(item) {
   const nbs = notebooks(), cur = nbs.find(n => n.id === item.cuadernoId);
@@ -11435,7 +11462,7 @@ function renderDetailReadMode(idea) {
         <div class="detail-title">${escapeHtml(idea.titulo)}</div>
         <div class="detail-badges">
           <span class="badge badge-status" style="background:${cfg.soft};color:${cfg.color}">${cfg.label}</span>
-          <span class="badge badge-cat" style="background:var(--slate-soft);color:var(--slate)">${escapeHtml(idea.categoria)}</span>
+          ${isChapter(idea) ? `<span class="badge badge-cat" style="background:var(--slate-soft);color:var(--slate)">${escapeHtml(idea.categoria)}</span>` : catBadgesHtml(idea)}
           ${isChapter(idea) ? chapterBadgeHtml(idea) : ""}
           ${dueBadgeHtml(idea)}${workedBadgeHtml(idea)}${isChapter(idea) ? "" : notebookBadgeHtml(idea)}
         </div>
