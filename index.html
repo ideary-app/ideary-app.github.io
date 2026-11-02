@@ -4085,6 +4085,27 @@ SHIPPING CHANGES
   .badge.add-cat { border: 1px dashed var(--line-strong); background: none !important; cursor: pointer; font: inherit; }
   .prompt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
   .prompt-chips button { border: 1px solid var(--line-strong); background: var(--panel); border-radius: 999px; padding: 4px 10px; font-size: .85rem; cursor: pointer; color: var(--ink); }
+
+  .nc-start { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: var(--pen); color: #fff; border: none; border-radius: 12px; padding: 14px 16px; cursor: pointer; margin: 4px 0 6px; box-shadow: 0 3px 0 rgba(0,0,0,.2); }
+  [data-theme="dark"] .nc-start { color: #10131c; }
+  .nc-start-ico { font-size: 1.6rem; }
+  .nc-start strong { display: block; font-family: var(--hand); font-size: 1.25rem; font-weight: 400; }
+  .nc-start small { display: block; font-size: .8rem; opacity: .85; margin-top: 2px; }
+  .nc-start b { margin-left: auto; font-size: 1.3rem; }
+  .nc-or { text-align: center; font-size: .78rem; color: var(--slate); margin: 10px 0 6px; }
+  .nc-plan { margin-top: 12px; background: var(--paper); border: 1.5px solid var(--pen); border-radius: 10px; padding: 12px 14px; white-space: normal; }
+  .nc-plan.old { opacity: .55; border-style: dashed; border-color: var(--line-strong); }
+  .nc-plan-kicker { font-size: .75rem; color: var(--slate); }
+  .nc-plan-title { font-family: var(--hand); font-size: 1.45rem; color: var(--ink); line-height: 1.15; margin: 2px 0 4px; }
+  .nc-plan-desc { font-size: .88rem; color: var(--ink); }
+  .nc-plan-sub { font-family: var(--hand); font-size: 1.05rem; color: var(--pen); margin-top: 10px; }
+  .nc-plan-list { margin: 4px 0 0 1.2em; padding: 0; font-size: .88rem; }
+  .nc-plan-list li { margin: 2px 0; } .nc-plan-list li span { color: var(--slate); font-size: .75rem; margin-left: 6px; }
+  .nc-plan-dec { list-style: none; margin: 4px 0 0; padding: 0; font-size: .85rem; }
+  .nc-create { width: 100%; margin-top: 12px; background: var(--pen); color: #fff; border: none; border-radius: 10px; padding: 11px; font-family: var(--hand); font-size: 1.2rem; cursor: pointer; box-shadow: 0 3px 0 rgba(0,0,0,.18); }
+  [data-theme="dark"] .nc-create { color: #10131c; }
+  .nc-plan-hint { text-align: center; font-size: .75rem; color: var(--slate); margin-top: 6px; }
+  @media (max-width: 600px) { #nc-overlay .modal-box { height: 100dvh !important; max-height: none; width: 100vw; max-width: none !important; margin: 0; border-radius: 0; } #nc-overlay.open { padding: 0 !important; align-items: stretch; } }
 </style>
 </head>
 <body>
@@ -4168,7 +4189,7 @@ SHIPPING CHANGES
       <div id="nav-categorias"></div>
     </div>
 
-    <div class="version-link" onclick="openChangelog()">v1.7.0 · What's new</div>
+    <div class="version-link" onclick="openChangelog()">v1.8.0 · What's new</div>
     <div style="text-align:center;font-family:var(--hand);font-size:.9rem;margin-top:6px"><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--slate)">Privacy</a> · <a href="terms.html" target="_blank" rel="noopener" style="color:var(--slate)">Terms</a></div>
   </div>
   </aside>
@@ -4197,6 +4218,12 @@ SHIPPING CHANGES
       <button class="modal-close" onclick="closeNewIdeaForm()">&times;</button>
     </div>
 
+    <button type="button" class="nc-start" onclick="closeNewIdeaForm();openNewChat()">
+      <span class="nc-start-ico">💬</span>
+      <span><strong>Just tell the AI about it</strong><small>Describe it in your own words — it asks what it needs and sets everything up for you.</small></span>
+      <b>→</b>
+    </button>
+    <div class="nc-or">or fill it in yourself</div>
     <div class="new-idea-tabs">
       <button class="new-idea-tab active" id="tab-manual" onclick="switchNewIdeaMode('manual')">Write it myself</button>
       <button class="new-idea-tab" id="tab-import" onclick="switchNewIdeaMode('import')">Import from AI</button>
@@ -4344,6 +4371,21 @@ SHIPPING CHANGES
 </div>
 
 <!-- MODAL: AI chat (Gemini) -->
+<div class="modal-overlay" id="nc-overlay">
+  <div class="modal-box step-ws-box" style="max-width:680px;display:flex;flex-direction:column;height:min(90vh,800px)">
+    <div class="modal-head">
+      <div class="modal-title" style="font-size:1.4rem;line-height:1.2">Start something new<span class="pc-sub">Tell it like you'd tell a friend</span></div>
+      <button class="modal-close" onclick="closeNewChat()">&times;</button>
+    </div>
+    <div class="log-wrap"><div id="nc-log" class="step-log"></div><button type="button" class="jump-btn" onclick="jumpBottom('nc-log')" aria-label="Go to latest">↓</button></div>
+    <div class="composer">
+      <textarea rows="1" class="cmp-input chat-ta" id="nc-input" placeholder="I'm thinking of making…" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();ncSend();}"></textarea>
+      <button type="button" class="cmp-send" onclick="ncSend()" aria-label="Send" title="Send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+    </div>
+    <div class="cmp-foot"><button type="button" class="pw-skip" onclick="ncReset()">Start over</button></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="ai-chat-overlay">
   <div class="modal-box" style="max-width:520px;display:flex;flex-direction:column;height:min(85vh,720px)">
     <div class="modal-head">
@@ -7437,7 +7479,7 @@ function addChapter(projId, title, beforeTitle, descripcion) {
    With a Gemini key: records audio and Gemini transcribes it (good with
    Spanish/English mixed, punctuation included). Without a key: the browser's
    own speech recognition, where available (Chrome, Edge, Safari). */
-const MIC_TARGETS = ["pc-input", "step-input", "step-work", "ai-chat-input", "stuck-input", "brain-dump-text"];
+const MIC_TARGETS = ["nc-input", "pc-input", "step-input", "step-work", "ai-chat-input", "stuck-input", "brain-dump-text"];
 let micState = null; // { id, rec, chunks, stream, t0, timer, speech, audioCtx, peak, after }
 const MIC_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>`;
 // Chat boxes: Enter makes a new line (send with the button, or Ctrl/⌘+Enter); the box grows with the text.
@@ -8953,9 +8995,18 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-02 14:15 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-02 15:00 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
+  {
+    version: "1.8.0",
+    public: true,
+    items: [
+      "Start something new just by telling the AI about it: it asks what it needs, proposes the whole idea or project (chapters, steps, decisions) and you tap “Create it”",
+      "Keep chatting to change the proposal before creating it — and the conversation carries on with that project's mentor",
+      "Notebooks on a wooden bookshelf, and multiple categories per project",
+    ],
+  },
   {
     version: "1.7.0",
     public: true,
@@ -9800,6 +9851,142 @@ function slugify(str) {
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "") || "idea-" + Date.now();
+}
+
+
+/* ==================================================================
+   NEW IDEA BY CHAT — tell the AI about it; it asks what it needs and
+   proposes the whole thing (idea or project with chapters). "Create it"
+   builds it and the conversation carries on in that project's mentor.
+================================================================== */
+const NC_KEY = "ideary_newchat_v1";
+let ncChat = []; try { ncChat = JSON.parse(localStorage.getItem(NC_KEY) || "[]"); } catch (e) {}
+let ncBusy = 0;
+function ncSave() { try { localStorage.setItem(NC_KEY, JSON.stringify(ncChat.slice(-30))); } catch (e) {} }
+function ncRules() {
+  const cats = getCategorias(), nbs = notebooks().map(n => n.titulo);
+  return `You are a veteran professional in the field of what the person wants to make (a film director for a short film, a master carpenter for furniture, a head chef for a recipe…). The person is starting something NEW in Ideary, a notebook app that turns ideas into plans. Help them shape it like a good mentor would.
+- Talk naturally and warmly, in the language they write in. Short paragraphs.
+- Ask only what you really need, at most 2 short questions at a time. If they already gave a lot, don't interrogate — propose.
+- Decide the shape: a single IDEA (one piece of work with phases and steps) or a PROJECT (several big stages = chapters, each with its own steps). Short films, games, apps, big builds are usually projects.
+- As soon as you have enough (often after the first or second message), propose it with this block at the very end of your reply:
+\`\`\`crear
+{"titulo":"Short name","categoria":"Category","descripcion":"2-4 sentences in their language","proyecto":true,"capitulos":[{"titulo":"Chapter","pasos":["Concrete step","..."]}],"fases":[{"nombre":"Phase","pasos":["Step"]}],"decisiones":["Topic: choice already made"],"resolver":["Open question still to decide"],"notas":["Loose idea worth keeping"],"cuaderno":"Exact notebook name or null"}
+\`\`\`
+  Use "capitulos" for a project and "fases" for a single idea (leave the other one out). Steps must follow a logical order (what each step needs must come before it). Only put in "decisiones" what they actually decided.
+- Whenever they ask for a change, send the FULL updated block again. Tell them they can tap "Create it" when it looks right, or keep chatting.
+- Existing categories (reuse one if it fits): ${cats.join(", ") || "(none yet)"}.
+${nbs.length ? "Existing notebooks (suggest one only if it clearly belongs): " + nbs.join(", ") + "." : ""}`;
+}
+function ncSplit(text) {
+  const m = text.match(/```crear\s*([\s\S]*?)(```|$)/);
+  if (!m) return { text: text.trim(), plan: null };
+  let plan = null; try { plan = parseJsonLenient(m[1]); } catch (e) {}
+  const rest = text.slice(m.index + m[0].length).trim();
+  return { text: (text.slice(0, m.index).trim() + (rest ? "\n\n" + rest : "")).trim(), plan: plan && plan.titulo ? plan : null };
+}
+function ncPlanHtml(plan, k, latest) {
+  const parts = plan.proyecto ? (plan.capitulos || []) : (plan.fases || []);
+  const list = parts.map((c, n) => `<li><strong>${escapeHtml(c.titulo || c.nombre || "")}</strong><span>${(c.pasos || []).length} steps</span></li>`).join("");
+  return `<div class="nc-plan ${latest ? "" : "old"}">
+    <div class="nc-plan-kicker">${plan.proyecto ? "▤ Project" : "💡 Idea"} · ${escapeHtml(plan.categoria || "")}${plan.cuaderno ? " · 📓 " + escapeHtml(plan.cuaderno) : ""}</div>
+    <div class="nc-plan-title">${escapeHtml(plan.titulo)}</div>
+    ${plan.descripcion ? `<div class="nc-plan-desc">${escapeHtml(plan.descripcion)}</div>` : ""}
+    ${list ? `<div class="nc-plan-sub">${plan.proyecto ? "Chapters" : "Phases"}</div><ol class="nc-plan-list">${list}</ol>` : ""}
+    ${(plan.decisiones || []).length ? `<div class="nc-plan-sub">Key decisions</div><ul class="nc-plan-dec">${plan.decisiones.map(d => `<li>📌 ${escapeHtml(d)}</li>`).join("")}</ul>` : ""}
+    ${(plan.resolver || []).length ? `<div class="nc-plan-sub">Still to figure out</div><ul class="nc-plan-dec">${plan.resolver.map(d => `<li>❓ ${escapeHtml(d)}</li>`).join("")}</ul>` : ""}
+    ${latest ? `<button type="button" class="nc-create" onclick="ncCreate(${k})">✓ Create it</button><div class="nc-plan-hint">Something off? Just tell it below and it updates this.</div>` : `<div class="nc-plan-hint">Earlier version</div>`}
+  </div>`;
+}
+function renderNewChat() {
+  const log = document.getElementById("nc-log"); if (!log) return;
+  const stick = !log.childElementCount || log.scrollHeight - log.scrollTop - log.clientHeight < 60;
+  const lastPlan = ncChat.map((m, k) => m.plan ? k : -1).filter(k => k >= 0).pop();
+  log.innerHTML = ncChat.length ? ncChat.map((m, k) => `<div class="step-msg ${m.role}${m.role === "model" ? " md" : ""}">${m.role === "model" ? mdLite(m.text) : escapeHtml(m.text)}${m.plan ? ncPlanHtml(m.plan, k, k === lastPlan) : ""}${m.role === "model" && !m.plan && k === ncChat.length - 1 && /crear|create|propon|propos|armo|arm[eé]|plan/i.test(m.text) ? `<button type="button" class="pc-getacts" onclick="ncAskPlan(this)"><span>👉 Show me how it would look</span><b>→</b></button>` : ""}</div>`).join("")
+    : `<div class="step-empty">Tell it what you have in mind — as much or as little as you want. For example:</div>
+       <div class="step-chips">${["I want to make a 2-minute animated short about…", "I'm thinking of building a wooden bedside table", "I have an idea for a mobile game where…"].map(t => `<button type="button" class="ai-chip" onclick="document.getElementById('nc-input').value=${JSON.stringify(t).replace(/"/g, "&quot;")};growChat(document.getElementById('nc-input'));document.getElementById('nc-input').focus()">${escapeHtml(t)}</button>`).join("")}</div>`;
+  if (ncBusy) { const w = document.createElement("div"); w.className = "step-msg model ai-wait"; w.dataset.t0 = ncBusy; w.innerHTML = thinkingHtml(); tickThinking(w, ncBusy); log.appendChild(w); }
+  lockComposer("nc-input", !!ncBusy);
+  if (stick) log.scrollTop = log.scrollHeight;
+}
+function openNewChat() {
+  document.getElementById("nc-overlay").classList.add("open");
+  renderNewChat(); watchJump("nc-log");
+  requestAnimationFrame(() => jumpBottom("nc-log", false));
+  setTimeout(() => document.getElementById("nc-input").focus(), 60);
+}
+function closeNewChat() { document.getElementById("nc-overlay").classList.remove("open"); }
+async function ncReset() {
+  if (ncChat.length && !(await showConfirm("This clears the conversation so you can start from scratch.", { title: "Start over?", confirmLabel: "Start over" }))) return;
+  ncChat = []; ncSave(); renderNewChat();
+}
+function ncHist() { return ncChat.slice(-14).map(m => ({ role: m.role, text: m.text + (m.plan ? "\n```crear\n" + JSON.stringify(m.plan) + "\n```" : "") })); }
+async function ncSend(textOverride) {
+  if (micHold("nc-input", () => ncSend())) return;
+  const inp = document.getElementById("nc-input");
+  const text = (textOverride || inp.value).trim();
+  if (!text || ncBusy) return;
+  if (!geminiKey) { await showAlert("Add a free Gemini key in Settings → AI to use this. Meanwhile you can fill in the form yourself.", { title: "AI needs a key" }); return; }
+  inp.value = ""; growChat(inp);
+  ncChat.push({ role: "user", text }); ncSave();
+  const t0 = Date.now(); ncBusy = t0; renderNewChat(); jumpBottom("nc-log", false);
+  const wait = document.querySelector("#nc-log .ai-wait");
+  try {
+    const raw = await withThinking(wait, "nc-input", () => geminiGenerate(ncHist(), ncRules(), false, undefined, "minimal", txt => {
+      const b = document.querySelector(`#nc-log [data-t0='${t0}']`); if (!b) return;
+      const l = document.getElementById("nc-log"), stick = l.scrollHeight - l.scrollTop - l.clientHeight < 60;
+      b.classList.remove("ai-wait"); b.classList.add("md"); b.innerHTML = mdLite(txt.replace(/```crear[\s\S]*$/, "").trim());
+      if (stick) l.scrollTop = l.scrollHeight;
+    }), null, t0);
+    const { text: reply, plan } = ncSplit(String(raw || "").trim());
+    ncChat.push({ role: "model", text: reply, plan: plan || undefined }); ncSave();
+  } catch (e) {
+    ncChat.pop(); ncSave();
+    if (!inp.value) { inp.value = text; growChat(inp); }
+    ncBusy = 0; renderNewChat();
+    const l = document.getElementById("nc-log"); const er = document.createElement("div"); er.className = "step-msg model ai-err"; er.textContent = "⚠ " + e.message + " Your message is below — tap send to try again."; l.appendChild(er); l.scrollTop = 1e9;
+    return;
+  }
+  ncBusy = 0; renderNewChat();
+}
+// Reply talked about a plan but didn't include it: ask just for the block.
+async function ncAskPlan(btn) {
+  if (btn) { btn.disabled = true; btn.innerHTML = "<span>Putting it together…</span>"; }
+  try {
+    const raw = await geminiGenerate(ncHist().concat([{ role: "user", text: "Show me the proposal now: output ONLY the ```crear block with everything we talked about." }]), ncRules(), false, undefined, "minimal");
+    const { plan } = ncSplit(String(raw || ""));
+    if (plan) { ncChat[ncChat.length - 1].plan = plan; ncSave(); }
+    else await showAlert("It couldn't put it together yet — tell it a bit more about what you want to make.", { title: "Not yet" });
+  } catch (e) { await showAlert(e.message, { title: "Couldn't do it" }); }
+  renderNewChat();
+}
+function ncCreate(k) {
+  const plan = ncChat[k] && ncChat[k].plan; if (!plan) return;
+  let id = slugify(plan.titulo || "idea") || "idea-" + Date.now(); if (IDEAS.some(i => i.id === id)) id = id + "-" + Date.now();
+  const steps = arr => (arr || []).map(t => ({ texto: typeof t === "string" ? t : (t && t.texto) || "" })).filter(x => x.texto);
+  const now = new Date().toISOString();
+  const item = {
+    id, titulo: plan.titulo.trim(), categoria: (plan.categoria || "General").trim(), estado: "idea",
+    dificultad: null, tiempo: null, descripcion: plan.descripcion || "No description yet.",
+    notas: (plan.notas || []).map(t => ({ texto: t, fecha: now })), fases: [],
+    cosasAResolver: (plan.resolver || []).map(t => ({ texto: t, resuelto: false })),
+    decisiones: (plan.decisiones || []).map(t => ({ texto: t }))
+  };
+  const nb = plan.cuaderno && notebooks().find(n => n.titulo.trim().toLowerCase() === String(plan.cuaderno).trim().toLowerCase());
+  if (nb) item.cuadernoId = nb.id;
+  if (plan.proyecto && (plan.capitulos || []).length) {
+    item.tipo = "proyecto";
+    IDEAS.push(item);
+    plan.capitulos.forEach(c => { const ch = addChapter(item.id, c.titulo || "Chapter"); if (ch) ch.fases = [{ nombre: "Plan", pasos: steps(c.pasos) }]; });
+  } else {
+    item.fases = (plan.fases || []).map(f => ({ nombre: f.nombre || "Plan", pasos: steps(f.pasos) })).filter(f => f.pasos.length || f.nombre);
+    IDEAS.push(item);
+  }
+  // the conversation continues in its mentor
+  item.chat = ncChat.map(m => ({ role: m.role, text: m.text })).concat([{ role: "model", text: `Done — **${item.titulo}** is set up. I'm your mentor for it from here: ask me anything or tell me what to change.` }]);
+  logChanges(item, "You", ["Created with the AI"]);
+  ncChat = []; ncSave(); closeNewChat();
+  saveIdeas(); openDetail(item.id);
 }
 
 function submitNewIdea(e) {
