@@ -4001,10 +4001,22 @@ SHIPPING CHANGES
 
   /* ---- notebooks ---- */
   .nb-dot { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 7px; vertical-align: middle; }
-  .nb-shelf-wrap { margin: 18px 0 8px; background: var(--panel); border: 1.5px solid var(--line-strong); border-radius: 6px; padding: 12px 14px 4px; box-shadow: 0 2px 0 rgba(0,0,0,.12); }
-  .nb-shelf-head { display: flex; align-items: baseline; justify-content: space-between; font-family: var(--hand); font-size: 1.35rem; color: var(--ink); margin-bottom: 8px; }
-  .nb-shelf-head button { background: none; border: none; font-family: var(--hand); font-size: 1.05rem; color: var(--pen); cursor: pointer; }
-  .nb-shelf { display: flex; gap: 14px; overflow-x: auto; padding: 4px 2px 12px; scroll-snap-type: x mandatory; }
+  /* bookshelf: wooden frame, dark back panel, notebooks standing on a plank */
+  .nb-shelf-wrap { --wood: #8a5a34; --wood-d: #5e3b20; margin: 18px 0 8px; border-radius: 6px; padding: 10px 12px 0;
+    background:
+      repeating-linear-gradient(92deg, rgba(0,0,0,0) 0 18px, rgba(0,0,0,.06) 18px 19px, rgba(0,0,0,0) 19px 41px, rgba(255,255,255,.04) 41px 42px),
+      repeating-linear-gradient(0deg, rgba(0,0,0,.05) 0 2px, transparent 2px 7px),
+      linear-gradient(180deg, #9a6a40, var(--wood));
+    border: 2px solid var(--wood-d); box-shadow: 3px 5px 0 rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.18); }
+  .nb-shelf-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .nb-shelf-head span { font-family: var(--hand); font-size: 1.25rem; color: #3a2414; background: #f3e6c8; padding: 1px 12px; border-radius: 3px; box-shadow: 0 1px 2px rgba(0,0,0,.35); transform: rotate(-1deg); }
+  .nb-shelf-head button { background: rgba(0,0,0,.18); border: 1px solid rgba(255,255,255,.25); border-radius: 999px; padding: 2px 12px; font-family: var(--hand); font-size: 1.05rem; color: #f6ead0; cursor: pointer; }
+  .nb-shelf { display: flex; gap: 12px; overflow-x: auto; padding: 14px 14px 0; margin: 0 -2px; scroll-snap-type: x mandatory; position: relative;
+    background: linear-gradient(180deg, rgba(0,0,0,.45), rgba(0,0,0,.25) 70%, rgba(0,0,0,.35)), linear-gradient(90deg, #4a2d18, #5b3820 50%, #4a2d18);
+    box-shadow: inset 0 8px 14px rgba(0,0,0,.45), inset 6px 0 10px rgba(0,0,0,.3), inset -6px 0 10px rgba(0,0,0,.3);
+    border-bottom: 14px solid var(--wood); border-image: linear-gradient(180deg, #a87446, #7a4d2a) 1; min-height: 190px; align-items: flex-end; }
+  .nb-shelf .nb-cover { margin-bottom: 0; box-shadow: 3px 0 6px rgba(0,0,0,.45), inset -6px 0 10px rgba(0,0,0,.12); }
+  .nb-shelf-wrap::after { content: ""; display: block; height: 8px; margin: 0 -12px; background: linear-gradient(180deg, rgba(0,0,0,.35), transparent); }
   .nb-cover { flex: 0 0 132px; height: 172px; border-radius: 4px 12px 12px 4px; background: var(--nb); position: relative; cursor: pointer; scroll-snap-align: start; box-shadow: 2px 4px 0 rgba(0,0,0,.18), inset -6px 0 10px rgba(0,0,0,.12); transition: transform .12s; }
   .nb-cover:hover { transform: translateY(-3px) rotate(-1deg); }
   .nb-cover-band { position: absolute; right: 14px; top: 0; bottom: 0; width: 7px; background: rgba(0,0,0,.28); box-shadow: inset 1px 0 0 rgba(255,255,255,.12); }
@@ -8941,7 +8953,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-01 03:25 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-02 13:30 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
