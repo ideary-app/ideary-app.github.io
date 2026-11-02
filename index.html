@@ -4106,6 +4106,9 @@ SHIPPING CHANGES
   [data-theme="dark"] .nc-create { color: #10131c; }
   .nc-plan-hint { text-align: center; font-size: .75rem; color: var(--slate); margin-top: 6px; }
   @media (max-width: 600px) { #nc-overlay .modal-box { height: 100dvh !important; max-height: none; width: 100vw; max-width: none !important; margin: 0; border-radius: 0; } #nc-overlay.open { padding: 0 !important; align-items: stretch; } }
+
+  .mic-cancel { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line-strong); background: var(--paper); color: var(--slate); font-size: 1.1rem; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; margin-left: auto; }
+  .mic-cancel:hover { color: #c8382f; border-color: #c8382f; }
 </style>
 </head>
 <body>
@@ -5793,6 +5796,7 @@ function lockComposer(inputId, on) {
   row.classList.toggle("composer-locked", !!on);
   row.querySelectorAll("button, input, textarea").forEach(b => {
     if (b.classList.contains("mic-btn") && micState && micState.id === inputId && !on) return;
+    if (b.classList.contains("mic-cancel")) return;
     if (on) { b.dataset.wasDis = b.disabled ? "1" : ""; b.disabled = true; } else if (b.dataset.wasDis !== undefined) { b.disabled = b.dataset.wasDis === "1"; delete b.dataset.wasDis; }
   });
 }
@@ -7506,7 +7510,7 @@ function micBar(id) {
   let bar = document.getElementById("micbar-" + id);
   if (!bar && el) {
     bar = document.createElement("div"); bar.className = "mic-bar"; bar.id = "micbar-" + id;
-    bar.innerHTML = `<span class="mic-dot"></span><span class="mic-time">0:00</span><span class="mic-waves">${"<i></i>".repeat(24)}</span><span class="mic-label">Listening…</span>`;
+    bar.innerHTML = `<span class="mic-dot"></span><span class="mic-time">0:00</span><span class="mic-waves">${"<i></i>".repeat(24)}</span><span class="mic-label">Listening…</span><button type="button" class="mic-cancel" title="Cancel — throw this recording away" aria-label="Cancel recording" onclick="cancelMic()">&times;</button>`;
     el.parentNode.insertBefore(bar, el);
   }
   return bar;
@@ -7588,7 +7592,20 @@ function stopMic() {
   st.stream.getTracks().forEach(t => t.stop());
   try { st.audioCtx && st.audioCtx.close(); } catch (e) {}
 }
+// Throw away the current recording (or ignore the transcription that's on its way).
+function cancelMic() {
+  const st = micState; if (!st) return;
+  st.cancelled = true; st.after = null;
+  if (st.speech) { micState = null; try { st.speech.abort ? st.speech.abort() : st.speech.stop(); } catch (e) {} clearInterval(st.timer); micUi(st.id, "idle"); return; }
+  micState = null;
+  try { if (st.rec && st.rec.state === "recording") st.rec.stop(); } catch (e) {}
+  try { st.stream && st.stream.getTracks().forEach(t => t.stop()); } catch (e) {}
+  try { st.audioCtx && st.audioCtx.close(); } catch (e) {}
+  micUi(st.id, "idle");
+  const el = document.getElementById(st.id); if (el) el.focus();
+}
 async function finishRecording(st) {
+  if (st.cancelled) return;
   const done = () => { if (micState === st) micState = null; micUi(st.id, "idle"); };
   const blob = new Blob(st.chunks, { type: (st.rec.mimeType || "audio/webm").split(";")[0] });
   if (st.peak < 0.04 || blob.size < 1500) {
@@ -7602,11 +7619,13 @@ async function finishRecording(st) {
     const raw = await geminiGenerate([{ role: "user", text: "Transcribe this voice note exactly as spoken, in the language(s) spoken (it may mix Spanish and English). Add normal punctuation and remove filler sounds (eh, um) and false starts. Output ONLY the transcription. If there is no speech, output exactly: [no speech]", images: [{ mime: blob.type || "audio/webm", data: b64 }] }],
       "You transcribe voice notes. Output only the transcription.", false, undefined, "none");
     const text = String(raw || "").trim();
+    if (st.cancelled) return;
     if (!text || /^\[no speech\]$/i.test(text)) throw new Error("I didn't catch any words. Try speaking a bit closer to the mic.");
     done();
     insertDictation(st.id, text);
     if (st.after) setTimeout(st.after, 50); else { const el = document.getElementById(st.id); if (el) el.focus(); }
   } catch (e) {
+    if (st.cancelled) return;
     done();
     await showAlert(e.name === "AbortError" ? "Turning your voice into text took too long. Try again, or record a shorter note." : e.message, { title: "Voice note failed" });
   }
@@ -8995,7 +9014,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-02 15:00 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-02 15:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
