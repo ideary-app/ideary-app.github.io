@@ -3994,7 +3994,8 @@ SHIPPING CHANGES
   [data-theme="dark"] .pc-getacts { color: #10131c; }
   .pc-getacts:disabled { opacity: .7; cursor: wait; }
 
-  textarea.chat-ta { resize: none; overflow-y: auto; line-height: 1.4; max-height: 160px; font-family: var(--sans); }
+  textarea.chat-ta { resize: none; overflow-y: auto; line-height: 1.4; max-height: 160px; min-height: 42px; font-family: var(--sans); }
+  textarea.form-input.chat-ta { height: 42px; padding-top: 10px; padding-bottom: 10px; }
   .composer { align-items: flex-end; }
   .composer .cmp-btn, .composer .cmp-send, .composer .mic-btn { margin-bottom: 0; }
   textarea.cmp-input { padding: 10px 8px; min-height: 40px; }
@@ -7487,7 +7488,12 @@ const MIC_TARGETS = ["nc-input", "pc-input", "step-input", "step-work", "ai-chat
 let micState = null; // { id, rec, chunks, stream, t0, timer, speech, audioCtx, peak, after }
 const MIC_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>`;
 // Chat boxes: Enter makes a new line (send with the button, or Ctrl/⌘+Enter); the box grows with the text.
-function growChat(el) { if (!el) return; el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, 160) + "px"; }
+function growChat(el) {
+  if (!el) return;
+  // Hidden (modal closed) or empty: let CSS decide the height, never measure 0.
+  if (!el.value || !el.offsetParent) { el.style.height = ""; return; }
+  el.style.height = "auto"; el.style.height = Math.min(Math.max(el.scrollHeight, 42), 160) + "px";
+}
 document.addEventListener("input", e => { if (e.target.classList && e.target.classList.contains("chat-ta")) growChat(e.target); });
 function attachMics() {
   MIC_TARGETS.forEach(id => {
@@ -9014,7 +9020,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-02 15:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-02 15:25 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
