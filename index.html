@@ -4159,6 +4159,12 @@ SHIPPING CHANGES
   .chat-row mark { background: #ffe58a; color: #222; padding: 0 2px; border-radius: 2px; }
   #nav-chats { cursor: pointer; }
   @media (max-width: 600px) { #chats-overlay .modal-box { height: 100dvh !important; max-height: none; width: 100vw; max-width: none !important; margin: 0; border-radius: 0; } #chats-overlay.open { padding: 0 !important; align-items: stretch; } }
+
+  .chats-head-btn { margin-left: 6px; }
+  .chats-n { display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 999px; background: var(--pen); color: #fff; font-size: .72rem; line-height: 18px; text-align: center; margin-left: 2px; }
+  [data-theme="dark"] .chats-n { color: #10131c; }
+  .idea-head-chat { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .idea-head-chat .chats-head-btn { margin-left: 0; }
 </style>
 </head>
 <body>
@@ -8955,7 +8961,7 @@ function renderProjectView(p) {
           ${dueBadgeHtml(p)}${workedBadgeHtml(p)}${notebookBadgeHtml(p)}
           <span class="badges-right">
             <button type="button" class="undo-project" onclick="revertProject('${escapeAttr(p.id)}')">Turn back into a single idea</button>
-            <button type="button" class="share-btn mentor-head-btn" title="Ask anything about the whole project — it sees every chapter, your progress and decisions" onclick="openProjectChat('${escapeAttr(p.id)}')">💬 Talk to your mentor</button>
+            <button type="button" class="share-btn mentor-head-btn" title="Ask anything about the whole project — it sees every chapter, your progress and decisions" onclick="openProjectChat('${escapeAttr(p.id)}')">💬 Talk to your mentor</button>${chatsBtnHtml(p.id)}
           </span>
         </div>
       </div>
@@ -9091,10 +9097,17 @@ Output ONLY a JSON array: [{"titulo":"Title of the page or video","url":"exact U
 }
 
 /* ---------- Conversations hub: find any chat (mentors, notebook, step tutors) and search inside them ---------- */
-function allConversations() {
+// scopeId: only the chats that belong to that notebook / project / idea / chapter (and what's inside it)
+function inScope(it, scopeId) {
+  if (!scopeId) return true;
+  if (it.id === scopeId || it.proyectoId === scopeId || it.cuadernoId === scopeId) return true;
+  const parent = isChapter(it) && IDEAS.find(x => x.id === it.proyectoId);
+  return !!(parent && parent.cuadernoId === scopeId);
+}
+function allConversations(scopeId) {
   const out = [];
-  const lastT = (chat, it) => Math.max(0, ...chat.map(m => m.t || 0)) || Date.parse(it.actualizado || it.fecha || 0) || 0;
-  IDEAS.filter(i => i.estado !== "eliminada").forEach(it => {
+  const lastT = (chat, it) => Math.max(0, ...chat.map(m => m.t || 0)) || (it.actualizado || it.fecha ? Date.parse(it.actualizado || it.fecha) || 0 : 0);
+  IDEAS.filter(i => i.estado !== "eliminada" && inScope(i, scopeId)).forEach(it => {
     const parent = isChapter(it) && IDEAS.find(x => x.id === it.proyectoId);
     const where = (parent ? parent.titulo + " › " : "") + it.titulo;
     if ((it.chat || []).length) out.push({ kind: isNotebook(it) ? "📓 Notebook mentor" : "💬 Mentor", where, chat: it.chat, t: lastT(it.chat, it), open: () => { closeChats(); openProjectChat(it.id); } });
@@ -9104,8 +9117,16 @@ function allConversations() {
   });
   return out.sort((a, b) => b.t - a.t);
 }
-let chatsCache = [];
-function openChats() {
+let chatsCache = [], chatsScope = null;
+function chatsCount(scopeId) { return allConversations(scopeId).length; }
+function chatsBtnHtml(scopeId) {
+  const n = chatsCount(scopeId);
+  return n ? `<button type="button" class="share-btn chats-head-btn" title="Every conversation you had here" onclick="openChats('${escapeAttr(scopeId)}')">🗂 Conversations <span class="chats-n">${n}</span></button>` : "";
+}
+function openChats(scopeId) {
+  chatsScope = scopeId || null;
+  const sc = chatsScope && IDEAS.find(i => i.id === chatsScope);
+  document.querySelector("#chats-overlay .modal-title").innerHTML = sc ? `Conversations<span class="pc-sub">In “${escapeHtml(sc.titulo)}” · <a href="#" onclick="event.preventDefault();openChats()">see all</a></span>` : `Conversations<span class="pc-sub">Every chat with your mentors and tutors, in one place</span>`;
   if (typeof closeMobileMenu === "function") { try { closeMobileMenu(); } catch (e) {} }
   document.getElementById("chats-overlay").classList.add("open");
   const q = document.getElementById("chats-q"); q.value = ""; renderChats();
@@ -9113,7 +9134,7 @@ function openChats() {
 }
 function closeChats() { document.getElementById("chats-overlay").classList.remove("open"); }
 function renderChats() {
-  chatsCache = allConversations();
+  chatsCache = allConversations(chatsScope);
   const q = (document.getElementById("chats-q").value || "").trim().toLowerCase();
   const box = document.getElementById("chats-list");
   const mark = t => highlight(t, q);
@@ -9245,7 +9266,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-03 14:50 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-03 22:20 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -11623,7 +11644,7 @@ function renderNotebookView(nb) {
         <textarea class="nb-desc-input chat-ta" rows="2" placeholder="What goes in this notebook? e.g. Every short set in the Frac & Speck universe." onchange="nbSet('${escapeAttr(nb.id)}','descripcion',this.value)">${escapeHtml(nb.descripcion || "")}</textarea>
         <div class="nb-colors">${NB_COLORS.map(c => `<button type="button" class="${c === nb.color ? "on" : ""}" style="background:${c}" aria-label="Cover color" onclick="nbSet('${escapeAttr(nb.id)}','color','${c}')"></button>`).join("")}</div>
         <div class="nb-head-actions">
-          <button type="button" class="share-btn mentor-head-btn" onclick="openProjectChat('${escapeAttr(nb.id)}')">💬 Talk to the notebook's mentor</button>
+          <button type="button" class="share-btn mentor-head-btn" onclick="openProjectChat('${escapeAttr(nb.id)}')">💬 Talk to the notebook's mentor</button>${chatsBtnHtml(nb.id)}
           <button type="button" class="nb-del" onclick="deleteNotebook('${escapeAttr(nb.id)}')">Delete notebook</button>
         </div>
       </div>
@@ -11950,6 +11971,7 @@ function renderDetailReadMode(idea) {
           ${isChapter(idea) ? chapterBadgeHtml(idea) : ""}
           ${dueBadgeHtml(idea)}${workedBadgeHtml(idea)}${isChapter(idea) ? "" : notebookBadgeHtml(idea)}
         </div>
+        <div class="idea-head-chat"><button type="button" class="share-btn mentor-head-btn" onclick="openProjectChat('${escapeAttr(idea.id)}')">💬 Talk to your mentor</button>${chatsBtnHtml(idea.id)}</div>
         ${isChapter(idea) ? chapterNavHtml(idea) : ""}
       </div>
     </div>
