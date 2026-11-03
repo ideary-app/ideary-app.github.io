@@ -5987,6 +5987,13 @@ async function geminiCore(history, system, retried, modelOverride, think, onChun
       await geminiResolveModel(true);
       return geminiCore(history, system, true, undefined, think, onChunk);
     }
+    // Web search (grounding) has its own, much smaller free quota. If it's used up or not allowed,
+    // retry the same request WITHOUT search — and don't mark the model as out of quota for normal chats.
+    if (history._tools && (res.status === 429 || res.status === 403 || (res.status === 400 && /search|tool|ground/i.test(msg)))) {
+      geminiSearchOffUntil = Date.now() + 3 * 3600000;
+      const plain = history.slice();
+      return geminiCore(plain, system, retried, modelOverride, think, onChunk);
+    }
     const overloaded = res.status === 503 || /high demand|overloaded|unavailable/i.test(msg);
     const tries = typeof retried === "number" ? retried : (retried ? 9 : 0);
     const quota = res.status === 429;
@@ -6107,6 +6114,7 @@ async function groqGenerate(history, system, onChunk) {
   finally { clearTimeout(t); }
 }
 let aiLastProvider = "";
+let geminiSearchOffUntil = 0; // web search quota used up: skip search until then
 let geminiLastGrounding = null; // web sources Google used for the last answer (when search was on)
 async function geminiGenerate(history, system, retried, modelOverride, think, onChunk) {
   // Every Gemini model already marked busy/broken and a backup is set: go straight to it.
@@ -9059,7 +9067,9 @@ async function findResources(id, btn) {
 FIND RESOURCES for what the person has to do next${todo.length ? ":\n- " + todo.slice(0, 8).join("\n- ") : " in this " + (isProject(item) ? "project" : "idea")}
 Search the web and pick 6–8 of the most useful, CURRENT resources to do these well in THIS project: tutorials (YouTube, courses), articles or posts by professionals and recruiters/talent acquisition when it's about getting hired, great examples to study, and tools. Prefer specific, reputable pages over generic home pages. ${have.length ? "Don't repeat: " + have.join(", ") : ""}
 Output ONLY a JSON array: [{"titulo":"Title of the page or video","url":"exact URL you found","tipo":"video|article|course|book|tool|example|advice","fuente":"site or author","paso":"which of the steps above it's for (short) or null","nota":"one line: why it helps (in the person's language)"}]` }];
-  hist._tools = [{ google_search: {} }];
+  const searching = !(geminiSearchOffUntil > Date.now());
+  if (searching) hist._tools = [{ google_search: {} }];
+  geminiLastGrounding = null;
   let items = [], sources = [];
   try {
     const raw = await geminiGenerate(hist, "You are a research assistant for creative projects. You only recommend real resources you found with Google Search.", false, undefined, "minimal");
@@ -9077,6 +9087,7 @@ Output ONLY a JSON array: [{"titulo":"Title of the page or video","url":"exact U
   if (!good.length) { await showAlert("I couldn't find good material this time. Try again in a moment.", { title: "Nothing found" }); render(); return; }
   item.recursos = (item.recursos || []).concat(good).slice(0, 40);
   saveIdeas(); render();
+  if (!sources.length && !item._resWarned) { item._resWarned = 1; showAlert("Your free Gemini quota doesn't include live web search right now, so these suggestions open as Google / YouTube searches instead of direct links. They're still picked for your steps.", { title: "Found resources" }); }
 }
 
 /* ---------- Conversations hub: find any chat (mentors, notebook, step tutors) and search inside them ---------- */
@@ -9234,7 +9245,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-03 14:40 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-03 14:50 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
