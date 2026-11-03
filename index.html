@@ -4165,6 +4165,16 @@ SHIPPING CHANGES
   [data-theme="dark"] .chats-n { color: #10131c; }
   .idea-head-chat { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
   .idea-head-chat .chats-head-btn { margin-left: 0; }
+
+  .cc-row button.cc-any { width: auto; height: 30px; display: inline-flex; align-items: center; gap: 7px; font-size: .82rem; color: var(--ink); cursor: pointer; border: 1px solid var(--line-strong); border-radius: 999px; padding: 0 12px 0 5px; background: var(--paper); white-space: nowrap; }
+  .cc-any-dot { width: 18px; height: 18px; border-radius: 50%; display: inline-block; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); }
+  .cc-panel { display: flex; flex-direction: column; gap: 10px; padding: 12px; margin-top: 4px; background: var(--paper); border: 1px solid var(--line-strong); border-radius: 12px; }
+  .cc-panel label { display: flex; flex-direction: column; gap: 6px; font-size: .78rem; color: var(--slate); }
+  .cc-prev { height: 30px; border-radius: 8px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+  .cc-sl { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; border-radius: 999px; outline: none; margin: 0; touch-action: none; background: #ccc; }
+  .cc-hue { background: linear-gradient(90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00) !important; }
+  .cc-sl::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 28px; border-radius: 50%; background: #fff; border: 3px solid #333; box-shadow: 0 1px 4px rgba(0,0,0,.35); cursor: pointer; }
+  .cc-sl::-moz-range-thumb { width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 3px solid #333; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -5752,6 +5762,43 @@ function applyCaseColor(c, quiet) {
 }
 applyCaseColor(caseColor, true);
 let ccSaveT = 0;
+/* Own color picker (3 sliders): the native one closes on phones when you drag. */
+let ccPanelOpen = false;
+function hexToHsl(h) {
+  let r = parseInt(h.slice(1, 3), 16) / 255, g = parseInt(h.slice(3, 5), 16) / 255, b = parseInt(h.slice(5, 7), 16) / 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2; let hh = 0, ss = 0;
+  if (mx !== mn) { const d = mx - mn; ss = l > .5 ? d / (2 - mx - mn) : d / (mx + mn); hh = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; hh *= 60; }
+  return [Math.round(hh), Math.round(ss * 100), Math.round(l * 100)];
+}
+function hslToHex(h, s2, l) {
+  s2 /= 100; l /= 100; const k = n => (n + h / 30) % 12, a = s2 * Math.min(l, 1 - l);
+  const f = n => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)))).toString(16).padStart(2, "0");
+  return "#" + f(0) + f(8) + f(4);
+}
+function ccPanelHtml() {
+  if (!ccPanelOpen) return "";
+  const [h, s2, l] = hexToHsl(caseColor);
+  return `<div class="cc-panel" style="grid-column:1/-1">
+    <div class="cc-prev" id="cc-prev" style="background:${caseColor}"></div>
+    <label>Color<input type="range" id="cc-h" min="0" max="359" value="${h}" class="cc-sl cc-hue" oninput="ccSlide()" onchange="ccSlide(true)"></label>
+    <label>Strength<input type="range" id="cc-s" min="0" max="100" value="${s2}" class="cc-sl" oninput="ccSlide()" onchange="ccSlide(true)"></label>
+    <label>Light / dark<input type="range" id="cc-l" min="8" max="92" value="${l}" class="cc-sl" oninput="ccSlide()" onchange="ccSlide(true)"></label>
+  </div>`;
+}
+function ccPaintTracks() {
+  const h = +document.getElementById("cc-h").value, s2 = +document.getElementById("cc-s").value;
+  document.getElementById("cc-s").style.background = `linear-gradient(90deg, ${hslToHex(h, 0, 50)}, ${hslToHex(h, 100, 50)})`;
+  document.getElementById("cc-l").style.background = `linear-gradient(90deg, ${hslToHex(h, s2, 8)}, ${hslToHex(h, s2, 50)}, ${hslToHex(h, s2, 92)})`;
+}
+function ccSlide(done) {
+  const c = hslToHex(+document.getElementById("cc-h").value, +document.getElementById("cc-s").value, +document.getElementById("cc-l").value);
+  document.getElementById("cc-prev").style.background = c;
+  const dot = document.querySelector(".cc-any-dot"); if (dot) dot.style.background = c;
+  ccPaintTracks();
+  pickCaseColor(c, true);
+  if (done) { clearTimeout(ccSaveT); ccSaveT = setTimeout(() => { try { if (driveReady) driveSaveSettings(); } catch (e) {} }, 800); }
+}
+function toggleCcPanel() { ccPanelOpen = !ccPanelOpen; renderCaseSwatches(); if (ccPanelOpen) ccPaintTracks(); }
 function pickCaseColor(c, live) {
   // live = while dragging in the picker: update colors only, don't rebuild the swatches (that closed the picker)
   applyCaseColor(c, live);
@@ -5776,7 +5823,7 @@ function renderCaseSwatches() {
   const box = document.getElementById("case-swatches");
   if (!box) return;
   box.innerHTML = CASES.map(([k, label]) => `<div><button type="button" class="case-swatch ${k === caseStyle ? "selected" : ""}" data-case-sw="${k}" onclick="setCase('${k}')" aria-label="${label}"></button><span class="cover-swatch-name">${label}</span></div>`).join("")
-    + (caseStyle === "custom" ? `<div class="cc-row" style="grid-column:1/-1">${CC_PRESETS.map(c => `<button type="button" class="${c.toLowerCase() === caseColor.toLowerCase() ? "on" : ""}" style="background:${c}" aria-label="Case color" onclick="pickCaseColor('${c}')"></button>`).join("")}<label class="cc-any">Any color <input type="color" value="${caseColor}" oninput="pickCaseColor(this.value, true)" onchange="pickCaseColor(this.value)"></label></div>` : "");
+    + (caseStyle === "custom" ? `<div class="cc-row" style="grid-column:1/-1">${CC_PRESETS.map(c => `<button type="button" class="${c.toLowerCase() === caseColor.toLowerCase() ? "on" : ""}" style="background:${c}" aria-label="Case color" onclick="pickCaseColor('${c}')"></button>`).join("")}<button type="button" class="cc-any" onclick="toggleCcPanel()"><span class="cc-any-dot" style="background:${caseColor}"></span>Any color</button></div>${ccPanelHtml()}` : "");
 }
 function updateThemeButtons() {
   const dark = document.documentElement.getAttribute("data-theme") === "dark";
@@ -9266,7 +9313,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-03 22:20 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-03 22:35 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
