@@ -4138,7 +4138,6 @@ SHIPPING CHANGES
   #settings-overlay .modal-head { position: sticky; top: 0; z-index: 5; margin: 0 -24px 12px; padding: 16px 24px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
   @media (max-width: 600px) { #settings-overlay .modal-head { margin-left: -22px; margin-right: -22px; padding-left: 22px; padding-right: 22px; } }
 
-  #ws-res { flex-direction: column; overflow-y: auto; }
   .res-list { display: flex; flex-direction: column; gap: 8px; }
   .res-item { display: flex; gap: 10px; align-items: flex-start; background: var(--paper); border: 1px solid var(--line-strong); border-radius: 10px; padding: 10px 12px; }
   .res-ico { font-size: 1.2rem; line-height: 1.3; }
@@ -4149,6 +4148,17 @@ SHIPPING CHANGES
   .res-note { font-size: .85rem; color: var(--ink); margin-top: 4px; }
   .res-x { background: none; border: none; color: var(--slate); font-size: 1.2rem; cursor: pointer; }
   @media (max-width: 600px) { #step-overlay .tab-l { display: none; } #step-overlay .ws-tab { white-space: nowrap; } }
+
+  .chats-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-bottom: 6px; }
+  .chat-row { text-align: left; background: var(--paper); border: 1px solid var(--line-strong); border-radius: 10px; padding: 10px 12px; cursor: pointer; color: var(--ink); font: inherit; }
+  .chat-row:hover { border-color: var(--pen); }
+  .chat-row-top { display: flex; justify-content: space-between; gap: 8px; font-size: .78rem; }
+  .chat-kind { color: var(--pen); font-weight: 600; }
+  .chat-where { font-family: var(--hand); font-size: 1.12rem; margin: 2px 0; }
+  .chat-snip { font-size: .84rem; color: var(--slate); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .chat-row mark { background: #ffe58a; color: #222; padding: 0 2px; border-radius: 2px; }
+  #nav-chats { cursor: pointer; }
+  @media (max-width: 600px) { #chats-overlay .modal-box { height: 100dvh !important; max-height: none; width: 100vw; max-width: none !important; margin: 0; border-radius: 0; } #chats-overlay.open { padding: 0 !important; align-items: stretch; } }
 </style>
 </head>
 <body>
@@ -4212,6 +4222,7 @@ SHIPPING CHANGES
         <span>Home</span>
         <span class="count" id="count-todas">0</span>
       </div>
+      <div class="nav-item" id="nav-chats" onclick="openChats()"><span>💬 Conversations</span></div>
     </div>
 
     <div class="nav-section">
@@ -4232,7 +4243,7 @@ SHIPPING CHANGES
       <div id="nav-categorias"></div>
     </div>
 
-    <div class="version-link" onclick="openChangelog()">v1.9.0 · What's new</div>
+    <div class="version-link" onclick="openChangelog()">v1.10.0 · What's new</div>
     <div style="text-align:center;font-family:var(--hand);font-size:.9rem;margin-top:6px"><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--slate)">Privacy</a> · <a href="terms.html" target="_blank" rel="noopener" style="color:var(--slate)">Terms</a></div>
   </div>
   </aside>
@@ -4321,7 +4332,7 @@ SHIPPING CHANGES
       <div class="evolve-step-label"><span class="evolve-step-num">1</span>Send this to any AI</div>
       <div class="form-hint" style="margin-bottom:10px">Copy the prompt and paste it into any AI (Claude, ChatGPT, Gemini…). The AI will ask you questions one by one to develop the idea. <strong>To stop at any point, just say "stop" or "that's enough"</strong> — the AI will immediately give you the final result without more questions.</div>
       <button class="form-submit" style="margin-top:0" onclick="evolveCopyPrompt()">Copy prompt for AI</button>
-      <button class="form-submit" style="margin-top:8px;background:transparent;color:var(--accent);border:1.5px solid var(--accent)" onclick="openAiChat()">Or chat with Gemini here</button>
+      <button class="form-submit" style="margin-top:8px;background:transparent;color:var(--accent);border:1.5px solid var(--accent)" onclick="openAiChat()">Or talk to your mentor here</button>
       <div id="evolve-copy-feedback" style="min-height:1.4em;font-size:0.82rem;margin-top:8px;font-weight:600"></div>
     </div>
 
@@ -4414,6 +4425,17 @@ SHIPPING CHANGES
 </div>
 
 <!-- MODAL: AI chat (Gemini) -->
+<div class="modal-overlay" id="chats-overlay">
+  <div class="modal-box" style="max-width:640px;display:flex;flex-direction:column;height:min(88vh,760px)">
+    <div class="modal-head">
+      <div class="modal-title">Conversations<span class="pc-sub">Every chat with your mentors and tutors, in one place</span></div>
+      <button class="modal-close" onclick="closeChats()">&times;</button>
+    </div>
+    <div class="search-wrap" style="margin:0 0 10px"><span class="search-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></span>
+      <input class="search-input" id="chats-q" placeholder="Search what you talked about…" oninput="renderChats()" style="font-size:16px"></div>
+    <div id="chats-list" class="chats-list"></div>
+  </div>
+</div>
 <div class="modal-overlay" id="nc-overlay">
   <div class="modal-box step-ws-box" style="max-width:680px;display:flex;flex-direction:column;height:min(90vh,800px)">
     <div class="modal-head">
@@ -4596,7 +4618,6 @@ SHIPPING CHANGES
     <div class="ws-tabs" role="tablist">
       <button type="button" class="ws-tab" data-tab="work" onclick="stepTab('work')">✏️ <span class="tab-l">My </span>work</button>
       <button type="button" class="ws-tab" data-tab="tutor" onclick="stepTab('tutor')">💬 <span class="tab-l">Ask the </span>tutor</button>
-      <button type="button" class="ws-tab" data-tab="res" onclick="stepTab('res')">📚 Resources</button>
     </div>
     <div class="ws-pane" id="ws-work">
       <div class="form-hint" style="margin:0 0 6px">Your answer, decisions, drafts, and any images or files for this step. The tutor can see all of it.</div>
@@ -4606,10 +4627,6 @@ SHIPPING CHANGES
       <div class="ws-foot"><span id="step-saved" class="note-date"></span>
         <button class="form-submit" style="margin:0;width:auto;padding:8px 18px;background:transparent !important;color:var(--pen) !important" onclick="saveStepWork()">Save</button>
         <button class="form-submit" style="margin:0;width:auto;padding:8px 18px" onclick="stepMarkDone()">Save &amp; mark done ✓</button></div>
-    </div>
-    <div class="ws-pane" id="ws-res" style="display:none">
-      <div class="form-hint" style="margin:0 0 8px">Tutorials, articles, advice from people in the industry and references for this step — found on the web for <em>your</em> project.</div>
-      <div id="step-res" class="res-list"></div>
     </div>
     <div class="ws-pane" id="ws-tutor">
       <div class="log-wrap"><div id="step-log" class="step-log"></div><button type="button" class="jump-btn" onclick="jumpBottom('step-log')" aria-label="Go to latest">↓</button></div>
@@ -6121,9 +6138,13 @@ function aiChatAddBubble(role, text) {
   return d;
 }
 
+// "Develop idea" now uses the mentor chat (streaming, formatting, Add/Edit/Undo, saved conversation).
 async function openAiChat() {
   const idea = IDEAS.find(i => i.id === pendingEvolveIdeaId);
   if (!idea) return;
+  closeEvolveModal();
+  openProjectChat(idea.id);
+  return;
   if (!geminiKey) {
     await showAlert("Add your Gemini API key first (it's free).", { title: "No key yet" });
     openAiSettings();
@@ -7737,6 +7758,7 @@ function blockSummary(b) {
   }
   if (b.querySelector(".notes-list")) { const n = b.querySelectorAll(".notes-list li").length; return `<span>${n} note${n === 1 ? "" : "s"}</span>`; }
   if (b.classList.contains("sketch-block")) { const n = b.querySelectorAll(".sketch-thumb").length; return `<span>${n} image${n === 1 ? "" : "s"}</span>`; }
+  if (b.classList.contains("res-block")) { const n = b.querySelectorAll(".res-item").length; return `<span>${n} resource${n === 1 ? "" : "s"}</span>`; }
   if (b.classList.contains("refs-block")) { const n = b.querySelectorAll(".ref-item").length; return `<span>${n} link${n === 1 ? "" : "s"}</span>`; }
   return "";
 }
@@ -7756,7 +7778,7 @@ function enhanceCollapsibles() {
   document.querySelectorAll(".detail-dashboard-sidecol .detail-block:not(.history-block)").forEach(b => {
     const title = b.querySelector(".block-title");
     if (!title || title.classList.contains("c-desc") || b.querySelector(".desc-text") || b.closest(".project-about")) return;
-    const key = "b:" + (title.className.match(/c-\w+/) || [""])[0] + ":" + (b.classList.contains("refs-block") ? "refs" : b.classList.contains("sketch-block") ? "sk" : "");
+    const key = "b:" + (title.className.match(/c-\w+/) || [""])[0] + ":" + (b.classList.contains("refs-block") ? "refs" : b.classList.contains("res-block") ? "res" : b.classList.contains("sketch-block") ? "sk" : "");
     b.classList.add("collapsible");
     if (!title.querySelector(".cs-caret")) {
       const c = document.createElement("span"); c.className = "cs-caret"; c.textContent = "▾"; title.insertBefore(c, title.firstChild);
@@ -8087,8 +8109,7 @@ function stepTab(t) {
   document.querySelectorAll("#step-overlay .ws-tab").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
   document.getElementById("ws-work").style.display = t === "work" ? "flex" : "none";
   document.getElementById("ws-tutor").style.display = t === "tutor" ? "flex" : "none";
-  document.getElementById("ws-res").style.display = t === "res" ? "flex" : "none";
-  if (t === "res") renderStepRes();
+
   if (t === "tutor") requestAnimationFrame(() => jumpBottom("step-log", false));
 }
 // every image of an idea: its own (drawn or uploaded) + the ones attached to its steps
@@ -8331,7 +8352,7 @@ function renderPcChat() {
     : a.tipo === "archivar" ? `File <strong>${escapeHtml(a.archivo || "the attachment")}</strong> in step <em>${escapeHtml(a.paso || "")}</em>` : a.tipo === "resuelto" ? `Settle <em>${escapeHtml(a.pregunta || "")}</em> → <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "capitulo" ? `Add chapter <strong>${escapeHtml(a.titulo)}</strong>${a.antesDe ? " before <em>" + escapeHtml(a.antesDe) + "</em>" : ""}` : a.tipo === "decision" ? `Add key decision <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "resolver" ? `Add to figure out: <strong>${escapeHtml(a.texto)}</strong>` : a.paso ? `Add to step <em>${escapeHtml(a.paso)}</em>: <strong>${escapeHtml(a.texto)}</strong>` : a.capitulo ? `Add note to <em>${escapeHtml(a.capitulo)}</em>: <strong>${escapeHtml(a.texto)}</strong>` : `Add note: <strong>${escapeHtml(a.texto)}</strong>`;
   log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}${m.role === "model" ? " md" : ""}">${m.role === "model" ? mdLite(m.text) : escapeHtml(m.text)}${(m.adj || []).length ? `<div class="att-list in-msg">${m.adj.map((a, j) => attChipHtml(a, "", `viewAttachment(IDEAS.find(i=>i.id==='${escapeAttr(pcProjId)}').chat[${k}].adj[${j}])`)).join("")}</div>` : ""}${(m.actions || []).map((a, j) => `<div class="pc-act ${a.done ? "done" : ""} ${["borrar_capitulo", "borrar_paso", "borrar"].includes(a.tipo) ? "danger" : ""}${pcEdit === k + "," + j ? " editing" : ""}" data-kj="${k},${j}"><span>${label(a)}</span>${a.done ? `<span class="pc-done-row"><span class="note-date">${a.done === "yes" ? "✓ Added" : a.done === "undone" ? "↶ Undone" : "Skipped"}</span>${a.done === "yes" && a.snap ? `<button type="button" class="pc-undo-one" onclick="pcUndoOne(${k},${j})" title="Undo just this">↶ Undo</button>` : ""}</span>` : (pcEdit === k + "," + j ? `<span><button type="button" class="sug-apply" onclick="pcSaveEdit(${k},${j},true)">Save & add</button><button type="button" class="sug-ignore" onclick="pcEdit=null;renderPcChat()">Cancel</button></span>` : `<span><button type="button" class="sug-apply" onclick="pcAct(${k},${j},true)">Add</button>${a.tipo !== "archivar" ? `<button type="button" class="sug-edit" onclick="pcEdit='${k},${j}';renderPcChat()">Edit</button>` : ""}<button type="button" class="sug-ignore" onclick="pcAct(${k},${j},false)">Skip</button></span>`)}</div>`).join("")}${pcMsgBar(m, k)}</div>`).join("")
     : `<div class="step-empty">Ask anything about the project. For example:</div>
-       <div class="step-chips">${["What should I focus on this week?", "What's still pending?", "Is anything missing from my plan?", "Am I being realistic with the timing?", "Explain how a pro would approach this project"].map(t => `<button type="button" class="ai-chip" onclick="pcSend(${JSON.stringify(t).replace(/"/g, "&quot;")})">${t}</button>`).join("")}</div>`;
+       <div class="step-chips">${((proj && !isProject(proj) && !isNotebook(proj) && !(proj.fases || []).some(f => (f.pasos || []).length)) ? ["Build the full plan from scratch", "Interview me to refine the idea first", "Find what I still need to figure out", "Find me tutorials and references for this"] : ["What should I focus on this week?", "What's still pending?", "Is anything missing from my plan?", "Am I being realistic with the timing?", "Explain how a pro would approach this project"]).map(t => `<button type="button" class="ai-chip" onclick="pcSend(${JSON.stringify(t).replace(/"/g, "&quot;")})">${t}</button>`).join("")}</div>`;
   if (pcPending[pcProjId]) {
     const w = document.createElement("div"); w.className = "step-msg model ai-wait"; w.dataset.t0 = pcPending[pcProjId];
     w.innerHTML = thinkingHtml(); tickThinking(w, pcPending[pcProjId]); log.appendChild(w);
@@ -8546,7 +8567,7 @@ async function pcSend(textOverride, extra) {
   if (pcPending[proj.id]) return;
   proj.chat = proj.chat || [];
   const sentAtts = pcPendingAtts.splice(0); renderPcAtts();
-  proj.chat.push({ role: "user", text, adj: sentAtts.length ? sentAtts : undefined, ctx: extra || undefined });
+  proj.chat.push({ role: "user", text, adj: sentAtts.length ? sentAtts : undefined, ctx: extra || undefined, t: Date.now() });
   const t0 = Date.now();
   pcPending[proj.id] = t0;
   renderPcChat();
@@ -8573,7 +8594,7 @@ async function pcSend(textOverride, extra) {
       const w2 = document.querySelector(`#pc-log [data-t0='${t0}']`); if (w2) w2.insertAdjacentHTML("beforeend", '<div class="note-date" style="margin-top:6px">Preparing the buttons…</div>');
       try { acts = await mentorExtractActions(hist, reply); } catch (e) {}
     }
-    proj.chat.push({ role: "model", text: reply, actions: acts });
+    proj.chat.push({ role: "model", text: reply, actions: acts, t: Date.now() });
     proj.chat = proj.chat.slice(-30);
     saveIdeas();
   } catch (e) {
@@ -8941,7 +8962,7 @@ function renderProjectView(p) {
       <div class="detail-dashboard-sidecol" id="detail-sticky-sidecol">
         <div class="detail-order-resolve">${resolveHtml}</div>
         <div class="detail-order-notes">${notesHtml}</div>
-        <div class="detail-order-sketch">${renderSketchBlock(p)}${renderReferencesBlock(p)}</div>
+        <div class="detail-order-sketch">${renderSketchBlock(p)}${renderReferencesBlock(p)}${renderResourcesBlock(p)}</div>
         <div class="detail-order-wrap">${renderHistoryBlock(p)}</div>
       </div>
     </div>
@@ -8999,50 +9020,108 @@ function closeStepHelp() {
   stepCtx = null;
 }
 
-/* ---------- Step resources: real links found with Google Search (Gemini grounding) ---------- */
+/* ---------- Resources block (like Notes): real links found with Google Search (Gemini grounding) ---------- */
 const RES_ICONS = { video: "▶️", article: "📄", course: "🎓", book: "📘", tool: "🛠", example: "✨", advice: "💼" };
 function resHost(u) { try { return new URL(u).hostname.replace(/^www\./, ""); } catch (e) { return ""; } }
-function renderStepRes() {
-  const ref = getStepRef(), box = document.getElementById("step-res"); if (!ref || !box) return;
-  const list = ref.step.recursos || [];
-  box.innerHTML = (list.length ? list.map((r, k) => `<div class="res-item">
-      <span class="res-ico">${RES_ICONS[r.tipo] || "🔗"}</span>
-      <div class="res-main"><a href="${escapeAttr(r.url)}" target="_blank" rel="noopener">${escapeHtml(r.titulo)}</a>
-        <div class="res-meta">${escapeHtml(r.fuente || resHost(r.url))}${r.busqueda ? " · search" : ""}</div>
-        ${r.nota ? `<div class="res-note">${escapeHtml(r.nota)}</div>` : ""}</div>
-      <button type="button" class="res-x" title="Remove" onclick="removeStepRes(${k})">&times;</button>
-    </div>`).join("") : `<div class="step-empty" style="margin:10px 0">Nothing yet. Let the AI look for good material for this step.</div>`)
-    + `<button type="button" class="pc-getacts" id="res-find" onclick="findStepRes(this)"><span>🔎 ${list.length ? "Find more" : "Find resources for this step"}</span><b>→</b></button>`;
+// older versions stored them per step: move them up to the idea/chapter once
+function migrateStepRes(item) {
+  (item.fases || []).forEach(f => (f.pasos || []).forEach(st => {
+    if (st && typeof st === "object" && st.recursos) { item.recursos = (item.recursos || []).concat(st.recursos.map(r => Object.assign({ paso: st.texto }, r))); delete st.recursos; }
+  }));
 }
-function removeStepRes(k) { const ref = getStepRef(); if (!ref || !ref.step.recursos) return; ref.step.recursos.splice(k, 1); if (!ref.step.recursos.length) delete ref.step.recursos; saveIdeas(); renderStepRes(); }
-async function findStepRes(btn) {
-  const ref = getStepRef(); if (!ref) return;
+function renderResourcesBlock(item) {
+  migrateStepRes(item);
+  const list = item.recursos || [];
+  return `
+    <div class="detail-block res-block">
+      <div class="block-title c-res" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>Resources</span>
+        <button type="button" class="stuck-btn" style="margin:0" onclick="findResources('${escapeAttr(item.id)}', this)">🔎 ${list.length ? "Find more" : "Find resources"}</button></div>
+      ${list.length ? `<div class="res-list">${list.map((r, k) => `<div class="res-item">
+        <span class="res-ico">${RES_ICONS[r.tipo] || "🔗"}</span>
+        <div class="res-main"><a href="${escapeAttr(r.url)}" target="_blank" rel="noopener">${escapeHtml(r.titulo)}</a>
+          <div class="res-meta">${escapeHtml(r.fuente || resHost(r.url))}${r.busqueda ? " · search" : ""}${r.paso ? " · for “" + escapeHtml(r.paso) + "”" : ""}</div>
+          ${r.nota ? `<div class="res-note">${escapeHtml(r.nota)}</div>` : ""}</div>
+        <button type="button" class="res-x" title="Remove" onclick="removeResource('${escapeAttr(item.id)}',${k})">&times;</button>
+      </div>`).join("")}</div>` : `<div class="form-hint" style="margin:4px 0 0">Tutorials, articles, advice from people in the industry and examples for what you're working on — found on the web.</div>`}
+    </div>`;
+}
+function removeResource(id, k) { const it = IDEAS.find(i => i.id === id); if (!it || !it.recursos) return; it.recursos.splice(k, 1); if (!it.recursos.length) delete it.recursos; saveIdeas(); render(); }
+async function findResources(id, btn) {
+  const item = IDEAS.find(i => i.id === id); if (!item) return;
   if (!geminiKey) { await showAlert("Add a free Gemini key in Settings → AI to search for resources.", { title: "AI needs a key" }); return; }
-  if (btn) { btn.disabled = true; btn.innerHTML = "<span>Searching the web…</span>"; }
-  const have = (ref.step.recursos || []).map(r => r.url);
-  const hist = [{ role: "user", text: `${stepContextText(ref)}
+  if (btn) { btn.disabled = true; btn.textContent = "Searching the web…"; }
+  // focus: the steps still to do (current one first)
+  const pool = isProject(item) ? projectChapters(item) : [item];
+  const todo = []; pool.forEach(c => (c.fases || []).forEach(f => (f.pasos || []).forEach(st => { const h = (typeof st === "object" && st.hecho) || 0; if (h !== 2) todo.push((isProject(item) ? c.titulo + " → " : "") + stepText(st) + (h === 1 ? " (in progress)" : "")); })));
+  const have = (item.recursos || []).map(r => r.url);
+  const hist = [{ role: "user", text: `${chatContextText(item)}
 
-FIND RESOURCES FOR THIS STEP: "${ref.step.texto}"${ref.step.explicacion ? " — " + ref.step.explicacion : ""}
-Search the web and pick 6–8 of the most useful, CURRENT resources for doing this step well in THIS project: tutorials (YouTube, courses), articles or posts from professionals and recruiters/talent acquisition when it's about getting hired, great examples to study, and tools. Prefer reputable, specific pages over generic home pages. ${have.length ? "Don't repeat these: " + have.join(", ") : ""}
-Output ONLY a JSON array: [{"titulo":"Title of the page or video","url":"exact URL you found","tipo":"video|article|course|book|tool|example|advice","fuente":"site or author","nota":"one line: why it helps for this step (in the person's language)"}]` }];
+FIND RESOURCES for what the person has to do next${todo.length ? ":\n- " + todo.slice(0, 8).join("\n- ") : " in this " + (isProject(item) ? "project" : "idea")}
+Search the web and pick 6–8 of the most useful, CURRENT resources to do these well in THIS project: tutorials (YouTube, courses), articles or posts by professionals and recruiters/talent acquisition when it's about getting hired, great examples to study, and tools. Prefer specific, reputable pages over generic home pages. ${have.length ? "Don't repeat: " + have.join(", ") : ""}
+Output ONLY a JSON array: [{"titulo":"Title of the page or video","url":"exact URL you found","tipo":"video|article|course|book|tool|example|advice","fuente":"site or author","paso":"which of the steps above it's for (short) or null","nota":"one line: why it helps (in the person's language)"}]` }];
   hist._tools = [{ google_search: {} }];
   let items = [], sources = [];
   try {
     const raw = await geminiGenerate(hist, "You are a research assistant for creative projects. You only recommend real resources you found with Google Search.", false, undefined, "minimal");
     try { items = parseJsonLenient(raw); } catch (e) { items = salvageActions(String(raw)); }
     sources = ((geminiLastGrounding && geminiLastGrounding.groundingChunks) || []).map(c => c.web).filter(Boolean);
-  } catch (e) { await showAlert(e.message, { title: "Couldn't search" }); renderStepRes(); return; }
-  // Only trust a URL if Google's search actually returned that site; otherwise link to a search for it (never a dead link).
+  } catch (e) { await showAlert(e.message, { title: "Couldn't search" }); render(); return; }
+  // Only trust a URL if Google's search really returned that site; otherwise link to a search for it (never a dead link).
   const seen = new Set(sources.map(w => String(w.title || "").replace(/^www\./, "").toLowerCase()));
   const good = (Array.isArray(items) ? items : []).filter(x => x && x.titulo).map(x => {
     const host = resHost(x.url || "").toLowerCase();
     const trusted = host && [...seen].some(t => t && (host === t || host.endsWith("." + t) || t.endsWith("." + host)));
     const q = encodeURIComponent(x.titulo + (x.fuente ? " " + x.fuente : ""));
-    return { titulo: String(x.titulo).slice(0, 160), url: trusted ? x.url : (x.tipo === "video" ? "https://www.youtube.com/results?search_query=" + q : "https://www.google.com/search?q=" + q), busqueda: !trusted || undefined, tipo: x.tipo, fuente: x.fuente, nota: x.nota, fecha: new Date().toISOString() };
+    return { titulo: String(x.titulo).slice(0, 160), url: trusted ? x.url : (x.tipo === "video" ? "https://www.youtube.com/results?search_query=" + q : "https://www.google.com/search?q=" + q), busqueda: !trusted || undefined, tipo: x.tipo, fuente: x.fuente, paso: x.paso || undefined, nota: x.nota, fecha: new Date().toISOString() };
   }).filter(x => !have.includes(x.url));
-  if (!good.length) { await showAlert("I couldn't find good material this time. Try again in a moment.", { title: "Nothing found" }); renderStepRes(); return; }
-  ref.step.recursos = (ref.step.recursos || []).concat(good).slice(0, 30);
-  saveIdeas(); renderStepRes();
+  if (!good.length) { await showAlert("I couldn't find good material this time. Try again in a moment.", { title: "Nothing found" }); render(); return; }
+  item.recursos = (item.recursos || []).concat(good).slice(0, 40);
+  saveIdeas(); render();
+}
+
+/* ---------- Conversations hub: find any chat (mentors, notebook, step tutors) and search inside them ---------- */
+function allConversations() {
+  const out = [];
+  const lastT = (chat, it) => Math.max(0, ...chat.map(m => m.t || 0)) || Date.parse(it.actualizado || it.fecha || 0) || 0;
+  IDEAS.filter(i => i.estado !== "eliminada").forEach(it => {
+    const parent = isChapter(it) && IDEAS.find(x => x.id === it.proyectoId);
+    const where = (parent ? parent.titulo + " › " : "") + it.titulo;
+    if ((it.chat || []).length) out.push({ kind: isNotebook(it) ? "📓 Notebook mentor" : "💬 Mentor", where, chat: it.chat, t: lastT(it.chat, it), open: () => { closeChats(); openProjectChat(it.id); } });
+    (it.fases || []).forEach((f, fi) => (f.pasos || []).forEach((st, si) => {
+      if (st && typeof st === "object" && (st.chat || []).length) out.push({ kind: "🎓 Tutor", where: where + " › " + st.texto, chat: st.chat, t: lastT(st.chat, it), open: () => { closeChats(); if (view !== "detalle" || viewParam !== it.id) openDetail(it.id); openStepHelp(it.id, fi, si); stepTab("tutor"); } });
+    }));
+  });
+  return out.sort((a, b) => b.t - a.t);
+}
+let chatsCache = [];
+function openChats() {
+  if (typeof closeMobileMenu === "function") { try { closeMobileMenu(); } catch (e) {} }
+  document.getElementById("chats-overlay").classList.add("open");
+  const q = document.getElementById("chats-q"); q.value = ""; renderChats();
+  setTimeout(() => q.focus(), 60);
+}
+function closeChats() { document.getElementById("chats-overlay").classList.remove("open"); }
+function renderChats() {
+  chatsCache = allConversations();
+  const q = (document.getElementById("chats-q").value || "").trim().toLowerCase();
+  const box = document.getElementById("chats-list");
+  const mark = t => highlight(t, q);
+  const rows = chatsCache.map((c, k) => {
+    let hit = null;
+    if (q) {
+      if (!c.where.toLowerCase().includes(q)) { hit = c.chat.slice().reverse().find(m => (m.text || "").toLowerCase().includes(q)); if (!hit) return ""; }
+    }
+    const m = hit || c.chat[c.chat.length - 1] || {}, txt = String(m.text || "");
+    let snip = txt;
+    if (hit) { const i = txt.toLowerCase().indexOf(q); snip = (i > 60 ? "…" : "") + txt.slice(Math.max(0, i - 60), i + 120); }
+    snip = snip.replace(/[*#`_]+/g, "").replace(/\s+/g, " ").slice(0, 180);
+    return `<button type="button" class="chat-row" onclick="chatsCache[${k}].open()">
+      <div class="chat-row-top"><span class="chat-kind">${c.kind}</span><span class="note-date">${c.t ? escapeHtml(fmtShortDate(new Date(c.t).toISOString())) : ""} · ${c.chat.length} msg</span></div>
+      <div class="chat-where">${q ? mark(c.where) : escapeHtml(c.where)}</div>
+      <div class="chat-snip">${m.role === "user" ? "You: " : ""}${q && hit ? mark(snip) : escapeHtml(snip)}</div>
+    </button>`;
+  }).join("");
+  box.innerHTML = rows || `<div class="step-empty" style="margin-top:20px">${q ? "Nothing found for “" + escapeHtml(q) + "”." : "No conversations yet. Talk to a mentor or a step's tutor and they'll show up here."}</div>`;
 }
 // Hand the tutor conversation to the project mentor, which can change the plan (with Add / Undo).
 function stepToMentor() {
@@ -9087,7 +9166,7 @@ async function stepSend(textOverride) {
     await showAlert("No Gemini key yet, so I copied this question with all the context. Paste it into any AI. Add a key in Settings to have the tutor right here.", { title: "Prompt copied" });
     return;
   }
-  ref.step.chat.push({ role: "user", text });
+  ref.step.chat.push({ role: "user", text, t: Date.now() });
   renderStepChat();
   const log = document.getElementById("step-log");
   const wait = document.createElement("div"); wait.className = "step-msg model"; wait.textContent = "…"; log.appendChild(wait); log.scrollTop = log.scrollHeight;
@@ -9096,7 +9175,7 @@ async function stepSend(textOverride) {
     if (hist[0].role !== "user") hist.unshift({ role: "user", text: stepContextText(ref) });
     hist[hist.length - 1].images = await attsImages(ref.step.adjuntos);
     const reply = (await withThinking(wait, "step-input", () => geminiGenerate(hist, TUTOR_RULES, false, undefined, "low"))).trim();
-    ref.step.chat.push({ role: "model", text: reply });
+    ref.step.chat.push({ role: "model", text: reply, t: Date.now() });
     ref.step.chat = ref.step.chat.slice(-30);
     saveIdeas();
   } catch (e) {
@@ -9155,9 +9234,18 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-03 13:45 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-03 14:40 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
+  {
+    version: "1.10.0",
+    public: true,
+    items: [
+      "💬 Conversations: every chat with your mentors and step tutors in one place — search what you talked about and jump right back in",
+      "Resources is now its own block (like Notes) in every idea, chapter and project",
+      "“Develop idea” now opens your mentor, with everything it can do",
+    ],
+  },
   {
     version: "1.9.0",
     public: true,
@@ -11867,7 +11955,7 @@ function renderDetailReadMode(idea) {
       <div class="detail-dashboard-sidecol" id="detail-sticky-sidecol">
         <div class="detail-order-desc">${descBlockHtml}</div>
         <div class="detail-order-notes">${notasStickyHtml}</div>
-        <div class="detail-order-sketch">${renderSketchBlock(idea)}${renderReferencesBlock(idea)}</div>
+        <div class="detail-order-sketch">${renderSketchBlock(idea)}${renderReferencesBlock(idea)}${renderResourcesBlock(idea)}</div>
         <div class="detail-order-wrap">${renderHistoryBlock(idea)}</div>
       </div>
     </div>
@@ -12378,6 +12466,7 @@ document.querySelectorAll(".modal-overlay").forEach(overlay => {
         "backup-import-overlay": closeBackupImport,
         "howto-overlay": closeHowto,
         "settings-overlay": closeSettings,
+        "chats-overlay": closeChats,
         // dialog-overlay (confirm/alert) intentionally excluded — it needs an explicit choice
       };
       const fn = closeFns[overlay.id];
