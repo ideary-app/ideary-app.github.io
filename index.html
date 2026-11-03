@@ -4137,6 +4137,18 @@ SHIPPING CHANGES
   #settings-overlay .modal-box { padding-top: 0; }
   #settings-overlay .modal-head { position: sticky; top: 0; z-index: 5; margin: 0 -24px 12px; padding: 16px 24px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
   @media (max-width: 600px) { #settings-overlay .modal-head { margin-left: -22px; margin-right: -22px; padding-left: 22px; padding-right: 22px; } }
+
+  #ws-res { flex-direction: column; overflow-y: auto; }
+  .res-list { display: flex; flex-direction: column; gap: 8px; }
+  .res-item { display: flex; gap: 10px; align-items: flex-start; background: var(--paper); border: 1px solid var(--line-strong); border-radius: 10px; padding: 10px 12px; }
+  .res-ico { font-size: 1.2rem; line-height: 1.3; }
+  .res-main { flex: 1; min-width: 0; }
+  .res-main a { color: var(--pen); font-weight: 600; text-decoration: none; word-break: break-word; }
+  .res-main a:hover { text-decoration: underline; }
+  .res-meta { font-size: .75rem; color: var(--slate); margin-top: 2px; }
+  .res-note { font-size: .85rem; color: var(--ink); margin-top: 4px; }
+  .res-x { background: none; border: none; color: var(--slate); font-size: 1.2rem; cursor: pointer; }
+  @media (max-width: 600px) { #step-overlay .tab-l { display: none; } #step-overlay .ws-tab { white-space: nowrap; } }
 </style>
 </head>
 <body>
@@ -4220,7 +4232,7 @@ SHIPPING CHANGES
       <div id="nav-categorias"></div>
     </div>
 
-    <div class="version-link" onclick="openChangelog()">v1.8.0 · What's new</div>
+    <div class="version-link" onclick="openChangelog()">v1.9.0 · What's new</div>
     <div style="text-align:center;font-family:var(--hand);font-size:.9rem;margin-top:6px"><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--slate)">Privacy</a> · <a href="terms.html" target="_blank" rel="noopener" style="color:var(--slate)">Terms</a></div>
   </div>
   </aside>
@@ -4582,8 +4594,9 @@ SHIPPING CHANGES
     </div>
     <div id="step-exp" class="form-hint" style="margin-bottom:8px"></div>
     <div class="ws-tabs" role="tablist">
-      <button type="button" class="ws-tab" data-tab="work" onclick="stepTab('work')">✏️ My work</button>
-      <button type="button" class="ws-tab" data-tab="tutor" onclick="stepTab('tutor')">💬 Ask the tutor</button>
+      <button type="button" class="ws-tab" data-tab="work" onclick="stepTab('work')">✏️ <span class="tab-l">My </span>work</button>
+      <button type="button" class="ws-tab" data-tab="tutor" onclick="stepTab('tutor')">💬 <span class="tab-l">Ask the </span>tutor</button>
+      <button type="button" class="ws-tab" data-tab="res" onclick="stepTab('res')">📚 Resources</button>
     </div>
     <div class="ws-pane" id="ws-work">
       <div class="form-hint" style="margin:0 0 6px">Your answer, decisions, drafts, and any images or files for this step. The tutor can see all of it.</div>
@@ -4593,6 +4606,10 @@ SHIPPING CHANGES
       <div class="ws-foot"><span id="step-saved" class="note-date"></span>
         <button class="form-submit" style="margin:0;width:auto;padding:8px 18px;background:transparent !important;color:var(--pen) !important" onclick="saveStepWork()">Save</button>
         <button class="form-submit" style="margin:0;width:auto;padding:8px 18px" onclick="stepMarkDone()">Save &amp; mark done ✓</button></div>
+    </div>
+    <div class="ws-pane" id="ws-res" style="display:none">
+      <div class="form-hint" style="margin:0 0 8px">Tutorials, articles, advice from people in the industry and references for this step — found on the web for <em>your</em> project.</div>
+      <div id="step-res" class="res-list"></div>
     </div>
     <div class="ws-pane" id="ws-tutor">
       <div class="log-wrap"><div id="step-log" class="step-log"></div><button type="button" class="jump-btn" onclick="jumpBottom('step-log')" aria-label="Go to latest">↓</button></div>
@@ -5921,7 +5938,8 @@ async function geminiCore(history, system, retried, modelOverride, think, onChun
       } : {
         systemInstruction: { parts: [{ text: system || DIRECTOR_RULES }] },
         contents: history.map(m => ({ role: m.role, parts: [{ text: m.text }].concat((m.images || []).map(im => ({ inlineData: { mimeType: im.mime, data: im.data } }))) })),
-        generationConfig: genConfig(model, 0.7, think)
+        generationConfig: genConfig(model, 0.7, think),
+        ...(history._tools ? { tools: history._tools } : {})
       })
     });
   } catch (e) {
@@ -6017,6 +6035,7 @@ async function geminiCore(history, system, retried, modelOverride, think, onChun
   }
   const j = await res.json();
   countAiUse(j.usageMetadata && j.usageMetadata.totalTokenCount); geminiGood(model);
+  geminiLastGrounding = (j.candidates && j.candidates[0] && j.candidates[0].groundingMetadata) || null;
   const parts = j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts;
   if (!parts) throw new Error("Gemini returned an empty reply. Try again.");
   return parts.map(p => p.text || "").join("");
@@ -6071,6 +6090,7 @@ async function groqGenerate(history, system, onChunk) {
   finally { clearTimeout(t); }
 }
 let aiLastProvider = "";
+let geminiLastGrounding = null; // web sources Google used for the last answer (when search was on)
 async function geminiGenerate(history, system, retried, modelOverride, think, onChunk) {
   // Every Gemini model already marked busy/broken and a backup is set: go straight to it.
   if (groqKey && !modelOverride && geminiAvailable && geminiAltModel() === null) {
@@ -8067,6 +8087,8 @@ function stepTab(t) {
   document.querySelectorAll("#step-overlay .ws-tab").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
   document.getElementById("ws-work").style.display = t === "work" ? "flex" : "none";
   document.getElementById("ws-tutor").style.display = t === "tutor" ? "flex" : "none";
+  document.getElementById("ws-res").style.display = t === "res" ? "flex" : "none";
+  if (t === "res") renderStepRes();
   if (t === "tutor") requestAnimationFrame(() => jumpBottom("step-log", false));
 }
 // every image of an idea: its own (drawn or uploaded) + the ones attached to its steps
@@ -8976,6 +8998,52 @@ function closeStepHelp() {
   if (ref) { const y = window.scrollY; render(); window.scrollTo(0, y); }
   stepCtx = null;
 }
+
+/* ---------- Step resources: real links found with Google Search (Gemini grounding) ---------- */
+const RES_ICONS = { video: "▶️", article: "📄", course: "🎓", book: "📘", tool: "🛠", example: "✨", advice: "💼" };
+function resHost(u) { try { return new URL(u).hostname.replace(/^www\./, ""); } catch (e) { return ""; } }
+function renderStepRes() {
+  const ref = getStepRef(), box = document.getElementById("step-res"); if (!ref || !box) return;
+  const list = ref.step.recursos || [];
+  box.innerHTML = (list.length ? list.map((r, k) => `<div class="res-item">
+      <span class="res-ico">${RES_ICONS[r.tipo] || "🔗"}</span>
+      <div class="res-main"><a href="${escapeAttr(r.url)}" target="_blank" rel="noopener">${escapeHtml(r.titulo)}</a>
+        <div class="res-meta">${escapeHtml(r.fuente || resHost(r.url))}${r.busqueda ? " · search" : ""}</div>
+        ${r.nota ? `<div class="res-note">${escapeHtml(r.nota)}</div>` : ""}</div>
+      <button type="button" class="res-x" title="Remove" onclick="removeStepRes(${k})">&times;</button>
+    </div>`).join("") : `<div class="step-empty" style="margin:10px 0">Nothing yet. Let the AI look for good material for this step.</div>`)
+    + `<button type="button" class="pc-getacts" id="res-find" onclick="findStepRes(this)"><span>🔎 ${list.length ? "Find more" : "Find resources for this step"}</span><b>→</b></button>`;
+}
+function removeStepRes(k) { const ref = getStepRef(); if (!ref || !ref.step.recursos) return; ref.step.recursos.splice(k, 1); if (!ref.step.recursos.length) delete ref.step.recursos; saveIdeas(); renderStepRes(); }
+async function findStepRes(btn) {
+  const ref = getStepRef(); if (!ref) return;
+  if (!geminiKey) { await showAlert("Add a free Gemini key in Settings → AI to search for resources.", { title: "AI needs a key" }); return; }
+  if (btn) { btn.disabled = true; btn.innerHTML = "<span>Searching the web…</span>"; }
+  const have = (ref.step.recursos || []).map(r => r.url);
+  const hist = [{ role: "user", text: `${stepContextText(ref)}
+
+FIND RESOURCES FOR THIS STEP: "${ref.step.texto}"${ref.step.explicacion ? " — " + ref.step.explicacion : ""}
+Search the web and pick 6–8 of the most useful, CURRENT resources for doing this step well in THIS project: tutorials (YouTube, courses), articles or posts from professionals and recruiters/talent acquisition when it's about getting hired, great examples to study, and tools. Prefer reputable, specific pages over generic home pages. ${have.length ? "Don't repeat these: " + have.join(", ") : ""}
+Output ONLY a JSON array: [{"titulo":"Title of the page or video","url":"exact URL you found","tipo":"video|article|course|book|tool|example|advice","fuente":"site or author","nota":"one line: why it helps for this step (in the person's language)"}]` }];
+  hist._tools = [{ google_search: {} }];
+  let items = [], sources = [];
+  try {
+    const raw = await geminiGenerate(hist, "You are a research assistant for creative projects. You only recommend real resources you found with Google Search.", false, undefined, "minimal");
+    try { items = parseJsonLenient(raw); } catch (e) { items = salvageActions(String(raw)); }
+    sources = ((geminiLastGrounding && geminiLastGrounding.groundingChunks) || []).map(c => c.web).filter(Boolean);
+  } catch (e) { await showAlert(e.message, { title: "Couldn't search" }); renderStepRes(); return; }
+  // Only trust a URL if Google's search actually returned that site; otherwise link to a search for it (never a dead link).
+  const seen = new Set(sources.map(w => String(w.title || "").replace(/^www\./, "").toLowerCase()));
+  const good = (Array.isArray(items) ? items : []).filter(x => x && x.titulo).map(x => {
+    const host = resHost(x.url || "").toLowerCase();
+    const trusted = host && [...seen].some(t => t && (host === t || host.endsWith("." + t) || t.endsWith("." + host)));
+    const q = encodeURIComponent(x.titulo + (x.fuente ? " " + x.fuente : ""));
+    return { titulo: String(x.titulo).slice(0, 160), url: trusted ? x.url : (x.tipo === "video" ? "https://www.youtube.com/results?search_query=" + q : "https://www.google.com/search?q=" + q), busqueda: !trusted || undefined, tipo: x.tipo, fuente: x.fuente, nota: x.nota, fecha: new Date().toISOString() };
+  }).filter(x => !have.includes(x.url));
+  if (!good.length) { await showAlert("I couldn't find good material this time. Try again in a moment.", { title: "Nothing found" }); renderStepRes(); return; }
+  ref.step.recursos = (ref.step.recursos || []).concat(good).slice(0, 30);
+  saveIdeas(); renderStepRes();
+}
 // Hand the tutor conversation to the project mentor, which can change the plan (with Add / Undo).
 function stepToMentor() {
   const ref = getStepRef(); if (!ref) return;
@@ -9087,9 +9155,18 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-03 01:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-03 13:45 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
+  {
+    version: "1.9.0",
+    public: true,
+    items: [
+      "📚 Resources on every step: the AI searches the web for tutorials, advice from recruiters and pros, examples and tools for that exact step",
+      "Tutor → plan: “Update the plan with this conversation” turns what you worked out with the tutor into changes to your project",
+      "Pencil case in your own color, cancel a voice recording, and a sticky Settings header",
+    ],
+  },
   {
     version: "1.8.0",
     public: true,
