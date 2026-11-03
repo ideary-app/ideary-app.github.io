@@ -4127,6 +4127,8 @@ SHIPPING CHANGES
   .cc-row button.on { border-color: var(--ink); }
   .cc-row label { font-size: .8rem; color: var(--slate); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
   .cc-row input[type=color] { width: 30px; height: 26px; border: none; padding: 0; background: none; cursor: pointer; }
+
+  .pc-getacts.soft { background: none; color: var(--pen); border: 1.5px dashed var(--pen); box-shadow: none; }
 </style>
 </head>
 <body>
@@ -8241,7 +8243,7 @@ async function mentorExtractActions(hist, reply) {
 }
 function mentorHist(proj, upTo) {
   const chat = proj.chat.slice(0, upTo).slice(-12);
-  const hist = chat.map((m, k) => ({ role: m.role, text: k === 0 ? chatContextText(proj) + "\n\n" + m.text : m.text }));
+  const hist = chat.map((m, k) => ({ role: m.role, text: (k === 0 ? chatContextText(proj) + "\n\n" : "") + m.text + (m.ctx ? "\n\n" + m.ctx : "") }));
   if (!hist.length || hist[0].role !== "user") hist.unshift({ role: "user", text: chatContextText(proj) });
   return hist;
 }
@@ -8495,7 +8497,8 @@ async function pcAct(k, j, yes, batch) {
   a.done = yes ? "yes" : "no";
   if (!batch) { saveIdeas(); renderPcChat(); }
 }
-async function pcSend(textOverride) {
+// extra: hidden context sent to the AI with this message (kept with it for later turns, not shown).
+async function pcSend(textOverride, extra) {
   if (micHold("pc-input", () => pcSend())) return;
   const proj = IDEAS.find(i => i.id === pcProjId);
   if (!proj) return;
@@ -8511,14 +8514,14 @@ async function pcSend(textOverride) {
   if (pcPending[proj.id]) return;
   proj.chat = proj.chat || [];
   const sentAtts = pcPendingAtts.splice(0); renderPcAtts();
-  proj.chat.push({ role: "user", text, adj: sentAtts.length ? sentAtts : undefined });
+  proj.chat.push({ role: "user", text, adj: sentAtts.length ? sentAtts : undefined, ctx: extra || undefined });
   const t0 = Date.now();
   pcPending[proj.id] = t0;
   renderPcChat();
   jumpBottom("pc-log", false);
   const wait = document.querySelector("#pc-log .ai-wait");
   try {
-    const hist = proj.chat.slice(-12).map((m, k) => ({ role: m.role, text: k === 0 ? chatContextText(proj) + "\n\n" + m.text : m.text }));
+    const hist = proj.chat.slice(-12).map((m, k) => ({ role: m.role, text: (k === 0 ? chatContextText(proj) + "\n\n" : "") + m.text + (m.ctx ? "\n\n" + m.ctx : "") }));
     if (hist[0].role !== "user") hist.unshift({ role: "user", text: chatContextText(proj) });
     if (sentAtts.length) {
       const last = hist[hist.length - 1];
@@ -8932,7 +8935,8 @@ const TUTOR_RULES = `You are a patient, experienced teacher and professional in 
 - Give concrete examples applied to THEIR project.
 - Never make their creative decisions for them: offer 2-3 options and explain trade-offs, then let them choose.
 - If they ask you to help write something (rules, a character sheet, a list…), draft it WITH them, based on what they told you, and mark it clearly as a draft they can edit.
-- Plain text, no markdown symbols. Same language as the person.`;
+- Plain text, no markdown symbols. Same language as the person.
+- If the conversation reaches conclusions that change the plan (this step should be split, rewritten, reordered, other steps added or removed…), say so clearly and tell the person to tap "Update the plan with this" below — that hands the conversation to the project mentor, who can change the plan. You can't change it yourself.`;
 let stepCtx = null;
 function getStepRef() {
   if (!stepCtx) return null;
@@ -8962,11 +8966,23 @@ function closeStepHelp() {
   if (ref) { const y = window.scrollY; render(); window.scrollTo(0, y); }
   stepCtx = null;
 }
+// Hand the tutor conversation to the project mentor, which can change the plan (with Add / Undo).
+function stepToMentor() {
+  const ref = getStepRef(); if (!ref) return;
+  const chat = (ref.step.chat || []).slice(-16);
+  const transcript = chat.map(m => (m.role === "user" ? "ME: " : "TUTOR: ") + m.text).join("\n\n");
+  const stepTxt = ref.step.texto, ideaId = ref.idea.id;
+  closeStepHelp();
+  openProjectChat(ideaId);
+  pcSend(`Update the plan with what I worked out with the tutor on the step "${stepTxt}".`,
+    `CONVERSATION WITH THE TUTOR ABOUT THE STEP "${stepTxt}" (chapter/idea "${ref.idea.titulo}"):\n---\n${transcript}\n---\nTurn the conclusions of that conversation into changes to the project: rewrite, split, add, remove or reorder steps (including this one) and add notes/decisions/questions as needed. Use exact texts from the project context. Propose ALL the changes in the actions block.`);
+}
 function renderStepChat() {
   const ref = getStepRef();
   const log = document.getElementById("step-log");
   const chat = ref.step.chat || [];
   log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}${m.role === "model" ? " md" : ""}">${m.role === "model" ? mdLite(m.text) : escapeHtml(m.text)}${m.role === "model" ? `<button type="button" class="step-use" onclick="useTutorReply(${k})">+ Add to my work</button>` : ""}</div>`).join("")
+      + (chat.some(m => m.role === "model") ? `<button type="button" class="pc-getacts ${chat.length && MENTOR_PROPOSES.test(chat[chat.length - 1].text || "") || /update the plan|actualiz|modific|rediseñ|cambiar (el|los) paso/i.test((chat[chat.length - 1] || {}).text || "") ? "" : "soft"}" onclick="stepToMentor()"><span>🛠 Update the plan with this conversation</span><b>→</b></button>` : "")
     : `<div class="step-empty">Ask anything about this step. For example:</div>
        <div class="step-chips">${["How do I start this?", "Explain it like I'm a beginner", "Give me an example for my project", "Help me write it"].map(t => `<button type="button" class="ai-chip" onclick="stepSend(${JSON.stringify(t).replace(/"/g, "&quot;")})">${t}</button>`).join("")}</div>`;
   log.scrollTop = log.scrollHeight;
@@ -9061,7 +9077,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-03 00:45 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-03 01:00 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
