@@ -4225,6 +4225,42 @@ SHIPPING CHANGES
 
   .install-banner-go { flex-shrink: 0; background: var(--pen); color: #fff; border: none; border-radius: 999px; padding: 6px 14px; font-family: var(--hand); font-size: 1rem; cursor: pointer; }
   @media (display-mode: standalone) { .install-banner { display: none !important; } }
+
+  /* ---- first run ---- */
+  .welcome { max-width: 760px; margin: 24px auto 40px; display: flex; flex-direction: column; gap: 18px; }
+  .welcome-card { background: var(--panel); border: 2px solid var(--line-strong); border-radius: 6px; padding: 30px 28px 24px; text-align: center; box-shadow: 4px 6px 0 rgba(0,0,0,.22); position: relative; }
+  .welcome-card::before { content: ""; position: absolute; top: -10px; left: 50%; width: 110px; height: 22px; transform: translateX(-50%) rotate(-2deg); background: var(--tape, #e6c25a); opacity: .85; }
+  .welcome-logo { display: block; margin: 0 auto 6px; }
+  .welcome-title { font-family: var(--hand); font-weight: 400; font-size: 2.2rem; line-height: 1.1; color: var(--ink); margin: 0 0 10px; }
+  .welcome-sub { font-size: 1rem; color: var(--slate); max-width: 520px; margin: 0 auto 20px; line-height: 1.5; }
+  .welcome-go { display: inline-flex; align-items: center; gap: 10px; background: var(--pen); color: #fff; border: none; border-radius: 999px; padding: 14px 28px; font-family: var(--hand); font-size: 1.35rem; cursor: pointer; box-shadow: 0 4px 0 rgba(0,0,0,.22); }
+  [data-theme="dark"] .welcome-go { color: #10131c; }
+  .welcome-go:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,.22); }
+  .welcome-alt { display: block; margin: 12px auto 0; background: none; border: none; color: var(--slate); text-decoration: underline; font-size: .9rem; cursor: pointer; }
+  .welcome-examples { background: var(--panel); border: 1.5px solid var(--line-strong); border-radius: 6px; padding: 14px 16px; }
+  .welcome-ex-title { font-family: var(--hand); font-size: 1.2rem; color: var(--ink); margin-bottom: 10px; }
+  .welcome-ex-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .welcome-ex { display: flex; gap: 10px; align-items: center; text-align: left; background: var(--paper); border: 1px solid var(--line-strong); border-radius: 10px; padding: 10px 12px; cursor: pointer; color: var(--ink); font: inherit; min-height: 56px; }
+  .welcome-ex:hover { border-color: var(--pen); }
+  .welcome-ex-ico { font-size: 1.6rem; }
+  .welcome-ex strong { display: block; font-size: .92rem; } .welcome-ex small { display: block; font-size: .76rem; color: var(--slate); }
+  .welcome-how { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .welcome-how > div { background: var(--panel); border: 1px solid var(--line-strong); border-radius: 6px; padding: 12px; font-size: .86rem; color: var(--ink); line-height: 1.4; }
+  .welcome-how span { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; background: var(--pen); color: #fff; font-size: .78rem; align-items: center; justify-content: center; margin-right: 6px; }
+  .welcome-how strong { font-family: var(--hand); font-size: 1.05rem; font-weight: 400; }
+  .home-drive-strip { display: flex; align-items: center; gap: 12px; justify-content: space-between; background: var(--panel); border: 1.5px dashed var(--line-strong); border-radius: 8px; padding: 10px 14px; margin: 14px 0 4px; font-size: .88rem; color: var(--ink); }
+  .home-drive-strip button { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; background: var(--paper); border: 1.5px solid var(--line-strong); border-radius: 999px; padding: 6px 14px; font-family: var(--hand); font-size: 1rem; cursor: pointer; color: var(--ink); }
+  .example-strip { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #fff7d1; color: #4a3b12; border: 1.5px dashed #d9b84a; border-radius: 8px; padding: 10px 14px; margin: 12px 0; font-size: .88rem; }
+  .example-strip button { flex-shrink: 0; background: none; border: 1px solid #b89a3a; color: #4a3b12; border-radius: 999px; padding: 5px 12px; cursor: pointer; font-size: .82rem; }
+  @media (max-width: 600px) {
+    .welcome { margin: 10px auto 30px; gap: 14px; }
+    .welcome-card { padding: 24px 18px 20px; }
+    .welcome-title { font-size: 1.8rem; }
+    .welcome-go { width: 100%; justify-content: center; }
+    .welcome-ex-row, .welcome-how { grid-template-columns: 1fr; }
+    .home-drive-strip, .example-strip { flex-direction: column; align-items: stretch; text-align: left; }
+    .home-drive-strip button, .example-strip button { align-self: flex-start; }
+  }
 </style>
 </head>
 <body>
@@ -8163,15 +8199,9 @@ function markTour(name) { const t = toursSeen(); t[name] = 1; try { localStorage
 const isPhone = () => window.innerWidth < 1000;
 const TOURS = {
   home: [
-    { t: "Welcome to Ideary 👋", b: "A notebook for your creative ideas — a short film, a chair, a recipe, a game. Let me show you around in a minute. You can skip anytime." },
-    { sel: () => isPhone() ? ".mobile-icon-btn" : ".sidebar .sidebar-action-btn.primary", t: "Capture an idea", b: "Every idea starts here. Just a title is enough; you can fill in the rest later." },
-    { sel: ".today-card, .status-grid", t: "What's going on", b: "Your ideas sorted by status. When you're working on something, <strong>Today</strong> shows the next step so you know exactly what to do." },
-    { sel: ".home-filter", t: "Ideas and projects", b: "Big ideas can become <strong>projects</strong> with chapters. Switch here to see only one kind." },
-    { sel: () => isPhone() ? "#search-mobile, .mobile-search-wrap" : ".home-hero-search, .mobile-search-wrap", t: "Find anything", b: "Search titles, steps, notes… everything in your notebook." },
-    { sel: () => isPhone() ? ".mobile-menu-btn" : "#nav-categorias", t: "Your index", b: "Like the first page of a notebook: categories, ideas and project chapters. Projects open to show their chapters." },
-    { sel: () => isPhone() ? ".mobile-menu-btn" : "#sidebar-drive-cta:not([style*='none']), .settings-btn", t: "Keep it safe", b: "Connect Google Drive to see your ideas on your phone and computer. Ideary only touches its own file in your Drive." },
-    { sel: () => isPhone() ? ".mobile-menu-btn" : ".settings-btn", t: "Your AI mentor", b: "In Settings you can add a <strong>free Gemini key</strong> (there's a 2-minute guide) so the AI works right inside Ideary. Without it, every AI button gives you a prompt to paste in any AI." },
-    { sel: () => isPhone() ? ".mobile-icon-btn" : ".sidebar .sidebar-action-btn.primary", t: "Your turn ✏️", b: "Tap it and write your first idea. When you open it, I'll show you how to turn it into a plan.", tap: true }
+    { sel: () => isPhone() ? ".mobile-icon-btn" : ".sidebar .sidebar-action-btn.primary", t: "New idea", b: "Every idea starts here. Tell the AI about it or just write a title — you can fill in the rest later." },
+    { sel: ".today-card, .status-grid", t: "What's next", b: "<strong>Today</strong> shows the next step of what you're working on, so you always know what to do." },
+    { sel: () => isPhone() ? ".mobile-menu-btn" : ".settings-btn, .hdr-tools", t: "Settings", b: "Connect Google Drive to keep everything safe on all your devices, and add a free Gemini key so the AI mentor works inside Ideary." }
   ],
   idea: [
     { sel: ".tool-btn.marker", t: "Turn it into a plan", b: "<strong>Develop idea</strong>: an AI that knows the craft builds a step-by-step plan, explaining how to do each step." },
@@ -9517,7 +9547,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-04 15:30 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-04 15:55 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -9960,7 +9990,7 @@ function maybeShowHowto() {
       (document.getElementById("reconnect-banner") && document.getElementById("reconnect-banner").style.display !== "none") ||
       (getDriveSession() && !driveReady && !driveSettingsLoaded && tries < 40);
     if (busy) return setTimeout(attempt, 500);
-    if (view === "home") startTour("home");
+    if (view === "home" && hasRealIdeas()) startTour("home");
   };
   setTimeout(attempt, 1200);
 }
@@ -10042,6 +10072,7 @@ function saveViewState() {
 }
 
 function goHome() {
+  setTimeout(() => { if (view === "home" && hasRealIdeas() && !document.querySelector(".modal-overlay.open")) startTour("home"); }, 700);
   editingIdeaId = null;
   view = "home";
   viewParam = null;
@@ -11669,41 +11700,68 @@ function renderStatusCardsOnly() {
     </div></div>`;
 }
 
+function hasRealIdeas() { return IDEAS.some(i => i.estado !== "eliminada" && !isChapter(i) && !isNotebook(i)); }
 function renderHomeView() {
   const statusCardsHtml = renderStatusCardsOnly();
-
   const resultsHtml = currentSearch ? renderSearchResults(currentSearch) : "";
-
+  if (!hasRealIdeas() && !currentSearch) return renderWelcome();
+  // once there's work, the work comes first: no big poster; Drive asks in one quiet line
+  const drive = (!driveReady && !driveExpired) ? `<div class="home-drive-strip"><span>☁️ Save your ideas in Google Drive so you never lose them and see them on every device.</span><button type="button" onclick="connectGoogleDrive()">${DRIVE_SVG_HTML}Connect</button></div>` : "";
+  return `${drive}<div id="home-results-area">${currentSearch ? resultsHtml : statusCardsHtml}</div>`;
+}
+const DRIVE_SVG_HTML = `<svg width="16" height="14" viewBox="0 0 87.3 78" style="flex-shrink:0"><path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/><path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/><path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/><path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/><path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/></svg>`;
+/* ---- First run: one clear thing to do ---- */
+function renderWelcome() {
   return `
-    <div class="home-hero">
-      <div class="hero-top">
-      <div class="nb-label">
-      <div class="home-hero-logo-row">
-        <svg class="home-hero-logo" width="100" height="100" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    <div class="welcome">
+      <div class="welcome-card">
+        <svg class="welcome-logo" width="84" height="84" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
         <path fill-rule="evenodd" class="brand-blob" fill="#2b4fa8" d="m24.48 33.41c0 0-7.21-28.4 24.29-17.49 1.64-1.45 15.43-21 27.99 6.79 17.62 1.35 30.65 5.17 16.47 29.23 11.34 21.72 6.98 30.44-16.88 29.64-0.21 0.41-8.23 26.35-25.73 5.35 0 0-32.53 21.41-26.56-15.85 0 0-32.31-17.7 0.42-37.67z"/>
         <path fill-rule="evenodd" class="brand-blob" fill="#2b4fa8" d="m102.94 96.98c-3.95 0-7.14-3.19-7.14-7.14 0-3.95 3.19-7.14 7.14-7.14 3.95 0 7.14 3.19 7.14 7.14 0 3.95-3.19 7.14-7.14 7.14z"/>
         <path fill-rule="evenodd" class="brand-blob" fill="#2b4fa8" d="m104.09 111.76c-2.62 0-4.73-2.12-4.73-4.74 0-2.62 2.11-4.73 4.73-4.73 2.62 0 4.73 2.11 4.73 4.73 0 2.62-2.11 4.74-4.73 4.74z"/>
         <defs><filter id="mk" x="-20%" y="-20%" width="140%" height="140%"><feTurbulence type="fractalNoise" baseFrequency="0.6" numOctaves="1" seed="2" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="1.4"/></filter></defs><g filter="url(#mk)" transform="rotate(8 58 50)"><path d="M56.8 48.2 C 58.6 53, 56.4 57.5, 57.9 62 S 56.6 70, 58.4 75.6" fill="none" stroke="#fffaf0" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M58.4 18 L60.9 26.6 L70.6 27.8 L62.8 33.4 L65.4 42.9 L57.5 37.2 L48.8 41.8 L52.6 33.6 L44.6 27.1 L54.6 26.9 Z" fill="#f5c842" stroke="#f5c842" stroke-width="2.6" stroke-linejoin="round"/></g>
       </svg>
-        <div class="home-hero-title">Ideary</div>
+        <h1 class="welcome-title">Got an idea? Let's make it real.</h1>
+        <p class="welcome-sub">Tell me what you want to make — a short film, a chair, a recipe, a game. I'll turn it into a step-by-step plan and walk you through it like a mentor.</p>
+        <button type="button" class="welcome-go" onclick="openNewChat()"><span>💬</span> Tell me your idea</button>
+        <button type="button" class="welcome-alt" onclick="openNewIdeaForm()">or write it down yourself</button>
       </div>
-      <div class="home-hero-desc">Capture your creative ideas, develop them into a real plan with the help of AI, and track your progress until they're done.</div>
+      <div class="welcome-examples">
+        <div class="welcome-ex-title">Or open an example to see how it works</div>
+        <div class="welcome-ex-row">
+          ${EXAMPLES.map((ex, k) => `<button type="button" class="welcome-ex" onclick="addExample(${k})"><span class="welcome-ex-ico">${ex.ico}</span><span><strong>${escapeHtml(ex.titulo)}</strong><small>${escapeHtml(ex.blurb)}</small></span></button>`).join("")}
+        </div>
       </div>
-      ${(!driveReady && !driveExpired) ? `<div class="home-drive-cta"><div><strong>Keep your ideas safe</strong><span>Connect Google Drive to sync across devices and never lose them.</span></div><button type="button" onclick="connectGoogleDrive()"><svg width="16" height="14" viewBox="0 0 87.3 78" style="flex-shrink:0"><path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/><path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/><path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/><path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/><path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/></svg>Connect Google Drive</button></div>` : ""}
+      <div class="welcome-how">
+        <div><span>1</span><strong>Tell it</strong> in your own words, typing or talking.</div>
+        <div><span>2</span><strong>Get a plan</strong> with steps in the right order.</div>
+        <div><span>3</span><strong>Do it</strong> one step at a time, with a tutor when you're stuck.</div>
       </div>
-
-      <button class="home-create-btn hero-create" onclick="openNewIdeaForm()">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Create new idea
-      </button>
-
-    </div>
-
-    <div id="home-results-area">${currentSearch ? resultsHtml : `
-
-      ${statusCardsHtml}
-    `}</div>
-  `;
+    </div>`;
+}
+const EXAMPLES = [
+  { ico: "🎬", titulo: "A 1-minute animated short", blurb: "A project with chapters", make: () => ({ tipo: "proyecto", titulo: "Example · 1-minute animated short", categoria: "Short film", descripcion: "A tiny 3D short about a robot that tries to water a plant during a storm. One location, one character, about 60 seconds.", decisiones: [{ texto: "Length: about 60 seconds" }, { texto: "Software: Blender" }], cosasAResolver: [{ texto: "How does the robot move — wheels or legs?", resuelto: false }], notas: [{ texto: "Maybe the plant turns out to be fake at the end", fecha: new Date().toISOString() }],
+      chapters: [["Story", ["Write the idea in one sentence", "Outline beginning, middle and end", "Write a short script"]], ["Character", ["Collect references for the robot", "Sketch 3 silhouettes and pick one", "Model the robot"]], ["Storyboard & animatic", ["Draw a thumbnail for each shot", "Time it to about 60 seconds"]]] }) },
+  { ico: "🪑", titulo: "A pine bedside table", blurb: "An idea with a plan", make: () => ({ titulo: "Example · Pine bedside table", categoria: "Furniture", descripcion: "A simple bedside table in pine with one drawer, sized to fit next to the bed.", decisiones: [{ texto: "Wood: pine" }], cosasAResolver: [{ texto: "Drawer with runners or a simple shelf?", resuelto: false }], notas: [],
+      fases: [{ nombre: "Plan", pasos: [{ texto: "Measure the space next to the bed", hecho: 2 }, { texto: "Draw the table with measurements", hecho: 1 }, { texto: "Make a cut list" }] }, { nombre: "Build", pasos: [{ texto: "Buy the wood and screws" }, { texto: "Cut and sand the pieces" }, { texto: "Assemble the frame" }] }, { nombre: "Finish", pasos: [{ texto: "Apply oil or varnish" }] }] }) },
+  { ico: "🍝", titulo: "Homemade fresh pasta", blurb: "A quick one", make: () => ({ titulo: "Example · Homemade fresh pasta", categoria: "Cooking", descripcion: "Learn to make fresh egg pasta from scratch and cook it for friends.", decisiones: [], cosasAResolver: [], notas: [],
+      fases: [{ nombre: "Make it", pasos: [{ texto: "Mix flour and eggs into a dough" }, { texto: "Knead and let it rest 30 minutes" }, { texto: "Roll it thin and cut tagliatelle" }, { texto: "Cook 2–3 minutes in salted water" }] }] }) }
+];
+function addExample(k) {
+  const ex = EXAMPLES[k].make(), chapters = ex.chapters; delete ex.chapters;
+  const item = Object.assign({ id: "ex-" + Date.now().toString(36), estado: "en-curso", dificultad: null, tiempo: null, fases: [], ejemplo: true }, ex);
+  IDEAS.push(item);
+  if (chapters) chapters.forEach(([t, ps], n) => { const ch = addChapter(item.id, t); if (ch) { ch.ejemplo = true; ch.fases = [{ nombre: "Plan", pasos: ps.map((x, j) => ({ texto: x, hecho: n === 0 && j === 0 ? 2 : n === 0 && j === 1 ? 1 : undefined })) }]; } });
+  saveIdeas(); openDetail(item.id);
+}
+function exampleStripHtml(item) {
+  const root = isChapter(item) ? IDEAS.find(x => x.id === item.proyectoId) : item;
+  if (!root || !root.ejemplo) return "";
+  return `<div class="example-strip"><span>✨ This is an example to look around. Change anything — or delete it when you're ready to start your own.</span><button type="button" onclick="deleteExample('${escapeAttr(root.id)}')">Delete example</button></div>`;
+}
+function deleteExample(id) {
+  IDEAS = IDEAS.filter(i => i.id !== id && i.proyectoId !== id);
+  saveIdeas(); goHome();
 }
 
 function renderSearchResults(query) {
@@ -12553,6 +12611,7 @@ function render() {
   if (view === "detalle") {
     const idea = IDEAS.find(i => i.id === viewParam);
     main.innerHTML = idea ? renderDetailView(idea) : renderHomeView();
+    if (idea) { const ex = exampleStripHtml(idea); if (ex) { const top = main.querySelector(".detail-sticky-top, .detail-top-row"); (top ? top.parentNode : main).insertAdjacentHTML("afterbegin", ex); } }
     if (idea) updateStickyHeaderHeight();
   } else if (view === "status" || view === "categoria") {
     main.innerHTML = renderListPageView();
