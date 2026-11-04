@@ -4215,6 +4215,10 @@ SHIPPING CHANGES
   .ref-ph { display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--pen) 7%, var(--paper)); color: color-mix(in srgb, var(--pen) 55%, var(--slate)); border: 1px solid color-mix(in srgb, var(--pen) 14%, transparent); }
   .ref-ph svg { width: 100%; height: 100%; opacity: .75; }
   .ref-ph-fav { position: absolute; right: 4px; bottom: 4px; width: 16px !important; height: 16px !important; border-radius: 4px; background: #fff; padding: 1px; box-shadow: 0 1px 2px rgba(0,0,0,.2); object-fit: contain; }
+
+  .ref-ph-badge { position: absolute; right: 4px; bottom: 4px; width: 18px; height: 18px; border-radius: 50%; background: var(--paper); color: var(--pen); box-shadow: 0 1px 2px rgba(0,0,0,.2); display: flex; align-items: center; justify-content: center; }
+  .ref-ph-badge svg { width: 12px; height: 12px; opacity: 1; }
+  .ref-ph-advice svg, .ref-ph-example svg { opacity: .75; }
 </style>
 </head>
 <body>
@@ -6571,14 +6575,16 @@ async function openRefFile(ideaId, k) {
    what it is (video, article, image, course, tool, search, document, website) + the site's icon. */
 function refKind(r) {
   if (r.kind === "file") return /pdf/.test(r.mime || r.nombre || "") ? "doc" : "file";
-  if (r.busqueda) return "search";
   const h = r.url ? refHost(r.url) : "";
+  // a search link still gets the drawing of WHAT it's looking for (video, book, course…); the lupa goes in the corner
+  if (r.busqueda && !r.tipo && !/youtube/.test(h)) return "search";
   if (r.tipo === "video" || /youtube|youtu\.be|vimeo|twitch|tiktok/.test(h)) return "video";
   if (r.tipo === "course" || /udemy|coursera|domestika|skillshare|schoolism|cgma|gnomon/.test(h)) return "course";
   if (r.tipo === "tool" || /github|blender\.org|adobe|autodesk|maxon|sidefx|foundry/.test(h)) return "tool";
   if (r.tipo === "book" || /amazon|goodreads|books\.google/.test(h)) return "book";
   if (r.tipo === "example" || /artstation|pinterest|behance|dribbble|instagram|deviantart|cara\.app|flickr|unsplash/.test(h)) return "image";
-  if (r.tipo === "article" || r.tipo === "advice" || /medium|substack|blog|80\.lv|cartoonbrew|linkedin/.test(h)) return "article";
+  if (r.tipo === "advice") return "advice";
+  if (r.tipo === "article" || /medium|substack|blog|80\.lv|cartoonbrew|linkedin/.test(h)) return "article";
   return "web";
 }
 const REF_SKETCH = {
@@ -6588,6 +6594,7 @@ const REF_SKETCH = {
   course: '<path d="M14 18l28-10 28 10-28 10z"/><path d="M24 22v10c6 5 30 5 36 0V22"/><path d="M70 18v12"/>',
   tool: '<path d="M30 36l18-18"/><circle cx="52" cy="14" r="7"/><path d="M24 42l-6-6 8-8 6 6z"/><path d="M56 38c-4-4-4-8 0-12"/>',
   book: '<path d="M42 10c-8-4-18-4-24 0v30c6-4 16-4 24 0 8-4 18-4 24 0V10c-6-4-16-4-24 0z"/><path d="M42 10v30"/>',
+  advice: '<path d="M18 10h30a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4H32l-8 7v-7h-6a4 4 0 0 1-4-4V14a4 4 0 0 1 4-4z"/><path d="M22 18h22M22 23h14"/><circle cx="62" cy="24" r="6"/><path d="M53 42c1-6 5-9 9-9s8 3 9 9"/>',
   search: '<circle cx="38" cy="22" r="11"/><path d="M46 30l10 10"/><path d="M33 22h10" opacity=".5"/>',
   doc: '<path d="M28 5h20l10 10v28H28z"/><path d="M48 5v10h10"/><path d="M33 24h18M33 30h18M33 36h12"/>',
   file: '<path d="M28 5h20l10 10v28H28z"/><path d="M48 5v10h10"/>',
@@ -6595,7 +6602,9 @@ const REF_SKETCH = {
 };
 function refThumbPlaceholder(r) {
   const k = refKind(r), h = r.url && !r.busqueda ? refHost(r.url) : "";
-  const fav = h ? `<img class="ref-ph-fav" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(h)}&sz=64" alt="" loading="lazy" onerror="this.remove()">` : "";
+  const fav = r.busqueda && k !== "search"
+    ? `<span class="ref-ph-badge" title="Opens a ${/youtube/.test(r.url || "") ? "YouTube" : "Google"} search"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="7" cy="7" r="4.2"/><path d="M10.2 10.2l3.3 3.3"/></svg></span>`
+    : h ? `<img class="ref-ph-fav" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(h)}&sz=64" alt="" loading="lazy" onerror="this.remove()">` : "";
   return `<span class="ref-pill-img ref-ph ref-ph-${k}"><svg viewBox="0 0 84 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${REF_SKETCH[k]}</svg>${fav}</span>`;
 }
 function fileSizeLabel(n) { return !n ? "" : n > 1e6 ? (n / 1e6).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1e3)) + " KB"; }
@@ -6673,7 +6682,8 @@ function renderReferencesBlock(idea) {
         const yt = r.url && ytId(r.url), m = r.meta || {};
         const img = yt ? `https://img.youtube.com/vi/${yt}/mqdefault.jpg` : m.img;
         const title = (r.nota ? r.titulo : (r.ai && !m.titulo ? r.titulo : m.titulo || r.titulo)) || refHost(r.url);
-        const by = [r.ai ? (RES_ICONS[r.tipo] || "🔗") : "", m.autor || (r.ai ? r.fuente : ""), r.busqueda ? "search" : (m.sitio || (r.url ? refHost(r.url) : ""))].filter(Boolean).filter((x, i, arr) => arr.indexOf(x) === i).join(" · ");
+        const KIND_LABEL = { video: "Video", article: "Article", course: "Course", book: "Book", tool: "Tool", example: "Examples", advice: "Advice" };
+        const by = [r.ai && r.tipo ? KIND_LABEL[r.tipo] || "" : "", m.autor || (r.ai ? r.fuente : ""), r.busqueda ? (/youtube/.test(r.url || "") ? "YouTube search" : "Google search") : (m.sitio || (r.url ? refHost(r.url) : ""))].filter(Boolean).filter((x, i, arr) => arr.indexOf(x) === i).join(" · ");
         if (r.url && !r.meta) setTimeout(() => fetchLinkPreview(r).then(ok => { if (ok) { saveIdeas(); render(); } }), 50 + k * 400);
         const tools = `<span class="ref-pill-tools"><button type="button" title="${!r.url && !r.ref ? "Edit" : "Add a note"}" onclick="renameReference('${escapeAttr(idea.id)}',${k})">✎</button><button type="button" title="Remove" onclick="removeReference('${escapeAttr(idea.id)}',${k})">&times;</button></span>`;
         if (r.ref) return `<li class="ref-pill-wrap">
@@ -9480,7 +9490,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-04 07:40 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-04 07:55 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
