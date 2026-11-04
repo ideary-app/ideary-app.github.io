@@ -4211,6 +4211,10 @@ SHIPPING CHANGES
   .ref-chip-wrap .ref-chip { border-top-right-radius: 0; border-bottom-right-radius: 0; margin-right: 0; }
   .ref-chip-x { border: 1px solid var(--line-strong); border-left: none; background: var(--paper); color: var(--slate); border-radius: 0 999px 999px 0; padding: 0 8px; align-self: stretch; cursor: pointer; font-size: .95rem; }
   .ref-chip-x:hover { color: #c8382f; }
+
+  .ref-ph { display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--pen) 7%, var(--paper)); color: color-mix(in srgb, var(--pen) 55%, var(--slate)); border: 1px solid color-mix(in srgb, var(--pen) 14%, transparent); }
+  .ref-ph svg { width: 100%; height: 100%; opacity: .75; }
+  .ref-ph-fav { position: absolute; right: 4px; bottom: 4px; width: 16px !important; height: 16px !important; border-radius: 4px; background: #fff; padding: 1px; box-shadow: 0 1px 2px rgba(0,0,0,.2); object-fit: contain; }
 </style>
 </head>
 <body>
@@ -6563,6 +6567,37 @@ async function openRefFile(ideaId, k) {
   if (!u) { if (w) w.close(); return showAlert(r.driveId && !accessToken ? "Connect Google Drive to open this file here." : "This file isn't on this device yet.", { title: "Can't open it" }); }
   if (w) w.location.href = u; else location.href = u;
 }
+/* Placeholder "thumbnail" for links/files without a preview image: a quiet monochrome sketch of
+   what it is (video, article, image, course, tool, search, document, website) + the site's icon. */
+function refKind(r) {
+  if (r.kind === "file") return /pdf/.test(r.mime || r.nombre || "") ? "doc" : "file";
+  if (r.busqueda) return "search";
+  const h = r.url ? refHost(r.url) : "";
+  if (r.tipo === "video" || /youtube|youtu\.be|vimeo|twitch|tiktok/.test(h)) return "video";
+  if (r.tipo === "course" || /udemy|coursera|domestika|skillshare|schoolism|cgma|gnomon/.test(h)) return "course";
+  if (r.tipo === "tool" || /github|blender\.org|adobe|autodesk|maxon|sidefx|foundry/.test(h)) return "tool";
+  if (r.tipo === "book" || /amazon|goodreads|books\.google/.test(h)) return "book";
+  if (r.tipo === "example" || /artstation|pinterest|behance|dribbble|instagram|deviantart|cara\.app|flickr|unsplash/.test(h)) return "image";
+  if (r.tipo === "article" || r.tipo === "advice" || /medium|substack|blog|80\.lv|cartoonbrew|linkedin/.test(h)) return "article";
+  return "web";
+}
+const REF_SKETCH = {
+  video: '<rect x="14" y="8" width="56" height="32" rx="5"/><path d="M38 17v14l11-7z" fill="currentColor" stroke="none"/><path d="M20 44h44" opacity=".5"/>',
+  article: '<rect x="22" y="5" width="40" height="38" rx="3"/><path d="M28 13h20M28 19h28M28 25h28M28 31h22M28 37h14"/>',
+  image: '<rect x="16" y="7" width="52" height="34" rx="3"/><circle cx="30" cy="17" r="4"/><path d="M18 38l14-13 9 8 8-6 17 11"/>',
+  course: '<path d="M14 18l28-10 28 10-28 10z"/><path d="M24 22v10c6 5 30 5 36 0V22"/><path d="M70 18v12"/>',
+  tool: '<path d="M30 36l18-18"/><circle cx="52" cy="14" r="7"/><path d="M24 42l-6-6 8-8 6 6z"/><path d="M56 38c-4-4-4-8 0-12"/>',
+  book: '<path d="M42 10c-8-4-18-4-24 0v30c6-4 16-4 24 0 8-4 18-4 24 0V10c-6-4-16-4-24 0z"/><path d="M42 10v30"/>',
+  search: '<circle cx="38" cy="22" r="11"/><path d="M46 30l10 10"/><path d="M33 22h10" opacity=".5"/>',
+  doc: '<path d="M28 5h20l10 10v28H28z"/><path d="M48 5v10h10"/><path d="M33 24h18M33 30h18M33 36h12"/>',
+  file: '<path d="M28 5h20l10 10v28H28z"/><path d="M48 5v10h10"/>',
+  web: '<rect x="12" y="7" width="60" height="34" rx="4"/><path d="M12 15h60"/><circle cx="17" cy="11" r="1" fill="currentColor"/><circle cx="21" cy="11" r="1" fill="currentColor"/><circle cx="25" cy="11" r="1" fill="currentColor"/>'
+};
+function refThumbPlaceholder(r) {
+  const k = refKind(r), h = r.url && !r.busqueda ? refHost(r.url) : "";
+  const fav = h ? `<img class="ref-ph-fav" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(h)}&sz=64" alt="" loading="lazy" onerror="this.remove()">` : "";
+  return `<span class="ref-pill-img ref-ph ref-ph-${k}"><svg viewBox="0 0 84 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${REF_SKETCH[k]}</svg>${fav}</span>`;
+}
 function fileSizeLabel(n) { return !n ? "" : n > 1e6 ? (n / 1e6).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1e3)) + " KB"; }
 function removeReference(ideaId, k) {
   const idea = IDEAS.find(i => i.id === ideaId);
@@ -6643,20 +6678,20 @@ function renderReferencesBlock(idea) {
         const tools = `<span class="ref-pill-tools"><button type="button" title="${!r.url && !r.ref ? "Edit" : "Add a note"}" onclick="renameReference('${escapeAttr(idea.id)}',${k})">✎</button><button type="button" title="Remove" onclick="removeReference('${escapeAttr(idea.id)}',${k})">&times;</button></span>`;
         if (r.ref) return `<li class="ref-pill-wrap">
           <a class="ref-pill" href="#" onclick="event.preventDefault();openRefFile('${escapeAttr(idea.id)}',${k})">
-            ${r.kind === "img" ? `<span class="ref-pill-img"><img ${imgAttrs(r)} alt=""></span>` : `<span class="ref-pill-ico ref-file-ico">${/pdf/.test(r.mime || r.nombre || "") ? "PDF" : "📄"}</span>`}
+            ${r.kind === "img" ? `<span class="ref-pill-img"><img ${imgAttrs(r)} alt=""></span>` : refThumbPlaceholder(r)}
             <span class="ref-pill-body"><span class="ref-pill-title">${escapeHtml(r.nota || r.titulo || r.nombre)}</span><span class="ref-pill-by">${escapeHtml([r.kind === "img" ? "Image" : (r.nombre || "").split(".").pop().toUpperCase() + " file", fileSizeLabel(r.size)].filter(Boolean).join(" · "))}</span></span>
           </a>${tools}</li>`;
         if (!r.url) return `<li class="ref-pill-wrap"><div class="ref-text">${escapeHtml(r.titulo)}</div>${tools}</li>`;
         return r.url ? `<li class="ref-pill-wrap">
           <a class="ref-pill" href="${escapeAttr(r.url)}" target="_blank" rel="noopener">
-            ${img ? `<span class="ref-pill-img"><img src="${escapeAttr(img)}" alt="" loading="lazy" onerror="this.parentNode.remove()">${yt ? '<span class="ref-play">▶</span>' : ""}</span>` : `<span class="ref-pill-ico">${m.logo ? `<img src="${escapeAttr(m.logo)}" alt="" onerror="this.replaceWith('🔗')">` : "🔗"}</span>`}
+            ${img ? `<span class="ref-pill-img"><img src="${escapeAttr(img)}" alt="" loading="lazy" onerror="this.parentNode.outerHTML=${escapeAttr(JSON.stringify(refThumbPlaceholder(r)))}">${yt ? '<span class="ref-play">▶</span>' : ""}</span>` : refThumbPlaceholder(r)}
             <span class="ref-pill-body"><span class="ref-pill-title">${escapeHtml(title)}</span><span class="ref-pill-by">${escapeHtml(by)}</span>${r.nota && m.titulo && r.nota !== m.titulo ? `<span class="ref-pill-note">${escapeHtml(m.titulo)}</span>` : ""}${r.ai && (r.porque || r.paso) ? `<span class="ref-pill-why">✨ ${r.paso ? "For “" + escapeHtml(r.paso) + "”" + (r.porque ? " — " : "") : ""}${escapeHtml(r.porque || "")}</span>` : ""}</span>
           </a>
           <span class="ref-pill-tools"><button type="button" title="Add a note" onclick="renameReference('${escapeAttr(idea.id)}',${k})">✎</button><button type="button" title="Remove" onclick="removeReference('${escapeAttr(idea.id)}',${k})">&times;</button></span>
         </li>` : `<li class="ref-item"><span class="ref-ico">📝</span><div class="ref-body"><span>${escapeHtml(r.titulo)}</span><span class="ref-host"><button type="button" onclick="renameReference('${escapeAttr(idea.id)}',${k})">edit note</button></span></div><button type="button" class="resolve-delete-btn" title="Remove" onclick="removeReference('${escapeAttr(idea.id)}',${k})">&times;</button></li>`;
       }).join("")}</ul>
       <div class="ref-add-row">
-        <textarea rows="1" class="note-quick-add ref-add" placeholder="+ Paste a link or write a note (Enter)" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,160)+'px'" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addReference('${escapeAttr(idea.id)}',this);this.style.height=''}"></textarea>
+        <textarea rows="1" class="note-quick-add ref-add" placeholder="+ Paste a link or write a note" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,160)+'px'" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addReference('${escapeAttr(idea.id)}',this);this.style.height=''}"></textarea>
         <label class="ref-add-file" title="Add an image, a PDF or any file">📎<input type="file" multiple style="display:none" onchange="addReferenceFiles('${escapeAttr(idea.id)}', this)"></label>
       </div>
     </div>`;
@@ -9445,7 +9480,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-04 07:25 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-04 07:40 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
