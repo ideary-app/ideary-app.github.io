@@ -4291,6 +4291,8 @@ SHIPPING CHANGES
 
   /* iPhone installed app (status bar over the page): keep everything below the clock/notch */
   .mobile-header { padding-top: calc(10px + env(safe-area-inset-top, 0px)) !important; }
+  /* iOS blurs/dims a band under the clock in installed apps: give the search bar extra room there */
+  @media (display-mode: standalone) { .mobile-header { padding-top: calc(22px + env(safe-area-inset-top, 0px)) !important; } }
   .sidebar { padding-top: env(safe-area-inset-top, 0px); }
   @media (max-width: 600px) {
     #pc-overlay .modal-box, #step-overlay .modal-box, #nc-overlay .modal-box, #chats-overlay .modal-box, #settings-overlay .modal-box { padding-top: calc(14px + env(safe-area-inset-top, 0px)) !important; }
@@ -9589,7 +9591,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-04 17:40 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-04 18:05 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
