@@ -4200,6 +4200,17 @@ SHIPPING CHANGES
   .ref-add { flex: 1; resize: none; font-family: inherit; overflow-y: auto; }
   .ref-add-file { flex-shrink: 0; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px dashed var(--line-strong); border-radius: 10px; cursor: pointer; font-size: 1.1rem; }
   .ref-add-file:hover { border-color: var(--pen); }
+
+  .refs-block .block-title { flex-wrap: wrap; }
+  .refs-block .block-title > span:first-child { white-space: nowrap; }
+  .refs-head-btns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
+  .ref-sugs-box { border: 1px dashed var(--line-strong); border-radius: 10px; padding: 8px 10px; margin: 6px 0 10px; }
+  .ref-sugs-head { display: flex; justify-content: space-between; align-items: center; font-size: .78rem; color: var(--slate); margin-bottom: 6px; }
+  .ref-sugs-head button { background: none; border: none; color: var(--slate); text-decoration: underline; cursor: pointer; font-size: .78rem; }
+  .ref-chip-wrap { display: inline-flex; align-items: center; }
+  .ref-chip-wrap .ref-chip { border-top-right-radius: 0; border-bottom-right-radius: 0; margin-right: 0; }
+  .ref-chip-x { border: 1px solid var(--line-strong); border-left: none; background: var(--paper); color: var(--slate); border-radius: 0 999px 999px 0; padding: 0 8px; align-self: stretch; cursor: pointer; font-size: .95rem; }
+  .ref-chip-x:hover { color: #c8382f; }
 </style>
 </head>
 <body>
@@ -6577,8 +6588,13 @@ async function suggestSearches(ideaId) {
   const idea = IDEAS.find(i => i.id === ideaId);
   if (!idea) return;
   const proj = isChapter(idea) && IDEAS.find(x => x.id === idea.proyectoId);
-  const prompt = `PROJECT: ${proj ? proj.titulo + " — " + projAbout(proj) + "\nCHAPTER: " : ""}${idea.titulo} — ${idea.descripcion || ""}\nPLAN: ${(idea.fases || []).map(f => f.nombre + ": " + (f.pasos || []).map(stepText).join(" | ")).join("\n")}`;
-  const rules = `You are an experienced professional in this field helping someone gather references before working. Suggest 6 short, concrete search queries (in the language that gets the best results for this craft, usually English) for videos, tutorials or artwork that would help with THIS idea right now. Output ONLY raw JSON: {"busquedas":[{"q":"query","donde":"youtube"|"images"|"web"}]}`;
+  // same focus as "Find for where I am": the current chapter and its next steps
+  const pool = isProject(idea) ? projectChapters(idea) : [idea];
+  const open = c => { const o = []; (c.fases || []).forEach(f => (f.pasos || []).forEach(st => { const h = (typeof st === "object" && st.hecho) || 0; if (h !== 2) o.push({ t: stepText(st), h }); })); return o.sort((a, b) => b.h - a.h); };
+  const cur = pool.find(c => open(c).some(x => x.h === 1)) || pool.find(c => open(c).length) || pool[0];
+  const now = cur ? open(cur).slice(0, 3).map(x => x.t) : [];
+  const prompt = `PROJECT: ${proj ? proj.titulo + " — " + projAbout(proj) + "\nCHAPTER: " : ""}${idea.titulo} — ${idea.descripcion || ""}\n${isProject(idea) && cur ? "CURRENT CHAPTER: " + cur.titulo + "\n" : ""}WORKING ON NOW: ${now.join(" | ") || "(getting started)"}`;
+  const rules = `You are an experienced professional in this field helping someone figure out WHAT TO RESEARCH for what they're doing right now (not later stages). Suggest 6 short, concrete search queries (in the language that gets the best results for this craft, usually English) for videos, tutorials, artwork or articles that would help with those current steps. Output ONLY raw JSON: {"busquedas":[{"q":"query","donde":"youtube"|"images"|"web"}]}`;
   if (!geminiKey) {
     try { await navigator.clipboard.writeText(rules + "\n\n" + prompt); } catch (e) {}
     await showAlert("No Gemini key yet, so I copied a prompt. Paste it into any AI to get search ideas.", { title: "Prompt copied" });
@@ -6588,13 +6604,15 @@ async function suggestSearches(ideaId) {
   if (btn) { btn.disabled = true; btn.textContent = "Thinking…"; }
   try {
     const data = parseJsonLenient(stripJsonFences(await geminiGenerate([{ role: "user", text: prompt }], rules)));
-    idea._busquedas = (data.busquedas || []).slice(0, 8);
-    render();
+    idea.busquedas = (data.busquedas || []).slice(0, 8); delete idea._busquedas;
+    saveIdeas(); render();
   } catch (e) {
     await showAlert(e.message, { title: "Couldn't get ideas" });
-    if (btn) { btn.disabled = false; btn.textContent = "What should I look for?"; }
+    if (btn) { btn.disabled = false; btn.textContent = "💡 What should I research?"; }
   }
 }
+function removeSearch(id, k) { const it = IDEAS.find(i => i.id === id); if (!it || !it.busquedas) return; it.busquedas.splice(k, 1); if (!it.busquedas.length) delete it.busquedas; saveIdeas(); render(); }
+function clearSearches(id) { const it = IDEAS.find(i => i.id === id); if (!it) return; delete it.busquedas; delete it._busquedas; saveIdeas(); render(); }
 function searchUrl(b) {
   const q = encodeURIComponent(b.q);
   return b.donde === "youtube" ? "https://www.youtube.com/results?search_query=" + q : b.donde === "images" ? "https://www.google.com/search?tbm=isch&q=" + q : "https://www.google.com/search?q=" + q;
@@ -6609,12 +6627,13 @@ function migrateResToRefs(item) {
 function renderReferencesBlock(idea) {
   migrateResToRefs(idea);
   const list = idea.referencias || [];
-  const sug = idea._busquedas || [];
+  if (idea._busquedas && !idea.busquedas) { idea.busquedas = idea._busquedas; delete idea._busquedas; }
+  const sug = idea.busquedas || [];
   return `
     <div class="detail-block refs-block">
-      <div class="block-title c-plan" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>References</span>
-        <button type="button" class="stuck-btn" style="margin:0" onclick="findResources('${escapeAttr(idea.id)}', this)">🔎 Find for where I am</button></div>
-      ${sug.length ? `<div class="ref-sugs">${sug.map(b => `<a class="ref-chip" href="${escapeAttr(searchUrl(b))}" target="_blank" rel="noopener">${b.donde === "youtube" ? "▶" : b.donde === "images" ? "🖼" : "🔎"} ${escapeHtml(b.q)}</a>`).join("")}</div>` : ""}
+      <div class="block-title c-plan" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="white-space:nowrap;flex-shrink:0">References</span>
+        <span class="refs-head-btns"><button type="button" class="stuck-btn" style="margin:0" id="ref-suggest-${escapeAttr(idea.id)}" title="Ideas of what to search for, for what you're doing now" onclick="suggestSearches('${escapeAttr(idea.id)}')">💡 What should I research?</button><button type="button" class="stuck-btn" style="margin:0" title="The AI finds links for what you're doing now" onclick="findResources('${escapeAttr(idea.id)}', this)">🔎 Find links for me</button></span></div>
+      ${sug.length ? `<div class="ref-sugs-box"><div class="ref-sugs-head"><span>💡 Worth searching — tap one to open it</span><button type="button" onclick="clearSearches('${escapeAttr(idea.id)}')">Clear</button></div><div class="ref-sugs">${sug.map((b, k) => `<span class="ref-chip-wrap"><a class="ref-chip" href="${escapeAttr(searchUrl(b))}" target="_blank" rel="noopener">${b.donde === "youtube" ? "▶" : b.donde === "images" ? "🖼" : "🔎"} ${escapeHtml(b.q)}</a><button type="button" class="ref-chip-x" title="Remove" onclick="removeSearch('${escapeAttr(idea.id)}',${k})">&times;</button></span>`).join("")}</div></div>` : ""}
       <ul class="ref-list">${list.map((r, k) => {
         const yt = r.url && ytId(r.url), m = r.meta || {};
         const img = yt ? `https://img.youtube.com/vi/${yt}/mqdefault.jpg` : m.img;
@@ -9426,7 +9445,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-04 07:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-04 07:25 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
