@@ -370,3 +370,9 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 - **Miniatura de respaldo en References:** si un link o archivo no tiene imagen de preview, ocupa el mismo lugar un dibujito monocromo sutil según qué es (video, artículo, imagen, curso, herramienta, libro, búsqueda, PDF, archivo, web; `refKind`, `refThumbPlaceholder`) con el ícono del sitio en una esquina (favicon de Google, gratis). Sin gastar créditos.
 - Links de búsqueda de la IA: muestran el dibujo de lo que se busca (video, libro, curso, consejo de reclutador, ejemplos…) con una lupita en la esquina, y abajo "Video · YouTube · search on YouTube". La lupa grande queda solo si no se sabe qué es.
 - **Inicio más limpio:** un solo buscador (el del header; se sacó el del cartel). Los tableros de estado solo aparecen si tienen algo (nada de "0 · No ideas yet"), y el filtro All/Projects/Ideas se esconde si no hay ideas.
+
+## App instalable (PWA, v1.11.0)
+- Archivos nuevos en la raíz: `manifest.webmanifest` (nombre, colores, íconos), `sw.js` (service worker), `icon-192.png`, `icon-512.png`, `icon-maskable-*.png`, `apple-touch-icon.png`.
+- `sw.js`: la página va **network first** (las versiones nuevas llegan enseguida; sin internet usa la copia guardada); los archivos propios estáticos, cache first. **Nada de otros dominios** (Drive, Gemini, fuentes, previews) pasa por el cache. Si se cambia `sw.js`, subir `CACHE` (ideary-v1 → v2).
+- Instalar: Android muestra el botón "Install" del banner (`beforeinstallprompt` → `installApp`); iPhone explica Compartir → Agregar a inicio. Instalada (`display-mode: standalone`) no muestra el banner.
+- **Botón atrás:** cada capa abierta (modal, chat, visor de imagen, diálogo) suma un paso al historial (`navSync` vía MutationObserver) y atrás la cierra (`LAYER_CLOSE`); cada página (idea, cuaderno, categoría) también (`navPage` al final de `render`), así atrás vuelve a la página anterior en vez de salir de la app.
