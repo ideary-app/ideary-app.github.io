@@ -4191,6 +4191,8 @@ SHIPPING CHANGES
   .ref-pill-tools { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); display: flex; gap: 2px; }
   .ref-pill-tools button { background: none; border: none; color: var(--slate); font-size: 1.05rem; cursor: pointer; padding: 4px 6px; }
   .ref-pill-tools button:hover { color: var(--pen); }
+
+  .ref-pill-why { font-size: .76rem; color: var(--ink); opacity: .8; margin-top: 3px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 </style>
 </head>
 <body>
@@ -6558,24 +6560,32 @@ function searchUrl(b) {
   const q = encodeURIComponent(b.q);
   return b.donde === "youtube" ? "https://www.youtube.com/results?search_query=" + q : b.donde === "images" ? "https://www.google.com/search?tbm=isch&q=" + q : "https://www.google.com/search?q=" + q;
 }
+// AI-found resources live in References too (one place). Move old ones over.
+function migrateResToRefs(item) {
+  migrateStepRes(item);
+  if (!item.recursos) return;
+  item.referencias = (item.referencias || []).concat(item.recursos.map(r => ({ url: r.url, titulo: r.titulo, ai: true, tipo: r.tipo, fuente: r.fuente, paso: r.paso, porque: r.nota, busqueda: r.busqueda, fecha: r.fecha, meta: r.busqueda ? { none: 1 } : undefined })));
+  delete item.recursos;
+}
 function renderReferencesBlock(idea) {
+  migrateResToRefs(idea);
   const list = idea.referencias || [];
   const sug = idea._busquedas || [];
   return `
     <div class="detail-block refs-block">
       <div class="block-title c-plan" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>References</span>
-        <button type="button" class="stuck-btn" style="margin:0" id="ref-suggest-${escapeAttr(idea.id)}" onclick="suggestSearches('${escapeAttr(idea.id)}')">What should I look for?</button></div>
+        <button type="button" class="stuck-btn" style="margin:0" onclick="findResources('${escapeAttr(idea.id)}', this)">🔎 Find for where I am</button></div>
       ${sug.length ? `<div class="ref-sugs">${sug.map(b => `<a class="ref-chip" href="${escapeAttr(searchUrl(b))}" target="_blank" rel="noopener">${b.donde === "youtube" ? "▶" : b.donde === "images" ? "🖼" : "🔎"} ${escapeHtml(b.q)}</a>`).join("")}</div>` : ""}
       <ul class="ref-list">${list.map((r, k) => {
         const yt = r.url && ytId(r.url), m = r.meta || {};
         const img = yt ? `https://img.youtube.com/vi/${yt}/mqdefault.jpg` : m.img;
-        const title = (r.nota ? r.titulo : m.titulo || r.titulo) || refHost(r.url);
-        const by = [m.autor, m.sitio || (r.url ? refHost(r.url) : "")].filter(Boolean).filter((x, i, arr) => arr.indexOf(x) === i).join(" · ");
+        const title = (r.nota ? r.titulo : (r.ai && !m.titulo ? r.titulo : m.titulo || r.titulo)) || refHost(r.url);
+        const by = [r.ai ? (RES_ICONS[r.tipo] || "🔗") : "", m.autor || (r.ai ? r.fuente : ""), r.busqueda ? "search" : (m.sitio || (r.url ? refHost(r.url) : ""))].filter(Boolean).filter((x, i, arr) => arr.indexOf(x) === i).join(" · ");
         if (r.url && !r.meta) setTimeout(() => fetchLinkPreview(r).then(ok => { if (ok) { saveIdeas(); render(); } }), 50 + k * 400);
         return r.url ? `<li class="ref-pill-wrap">
           <a class="ref-pill" href="${escapeAttr(r.url)}" target="_blank" rel="noopener">
             ${img ? `<span class="ref-pill-img"><img src="${escapeAttr(img)}" alt="" loading="lazy" onerror="this.parentNode.remove()">${yt ? '<span class="ref-play">▶</span>' : ""}</span>` : `<span class="ref-pill-ico">${m.logo ? `<img src="${escapeAttr(m.logo)}" alt="" onerror="this.replaceWith('🔗')">` : "🔗"}</span>`}
-            <span class="ref-pill-body"><span class="ref-pill-title">${escapeHtml(title)}</span><span class="ref-pill-by">${escapeHtml(by)}</span>${r.nota && m.titulo && r.nota !== m.titulo ? `<span class="ref-pill-note">${escapeHtml(m.titulo)}</span>` : ""}</span>
+            <span class="ref-pill-body"><span class="ref-pill-title">${escapeHtml(title)}</span><span class="ref-pill-by">${escapeHtml(by)}</span>${r.nota && m.titulo && r.nota !== m.titulo ? `<span class="ref-pill-note">${escapeHtml(m.titulo)}</span>` : ""}${r.ai && (r.porque || r.paso) ? `<span class="ref-pill-why">✨ ${r.paso ? "For “" + escapeHtml(r.paso) + "”" + (r.porque ? " — " : "") : ""}${escapeHtml(r.porque || "")}</span>` : ""}</span>
           </a>
           <span class="ref-pill-tools"><button type="button" title="Add a note" onclick="renameReference('${escapeAttr(idea.id)}',${k})">✎</button><button type="button" title="Remove" onclick="removeReference('${escapeAttr(idea.id)}',${k})">&times;</button></span>
         </li>` : `<li class="ref-item"><span class="ref-ico">📝</span><div class="ref-body"><span>${escapeHtml(r.titulo)}</span><span class="ref-host"><button type="button" onclick="renameReference('${escapeAttr(idea.id)}',${k})">edit note</button></span></div><button type="button" class="resolve-delete-btn" title="Remove" onclick="removeReference('${escapeAttr(idea.id)}',${k})">&times;</button></li>`;
@@ -9072,7 +9082,7 @@ function renderProjectView(p) {
       <div class="detail-dashboard-sidecol" id="detail-sticky-sidecol">
         <div class="detail-order-resolve">${resolveHtml}</div>
         <div class="detail-order-notes">${notesHtml}</div>
-        <div class="detail-order-sketch">${renderSketchBlock(p)}${renderReferencesBlock(p)}${renderResourcesBlock(p)}</div>
+        <div class="detail-order-sketch">${renderSketchBlock(p)}${renderReferencesBlock(p)}</div>
         <div class="detail-order-wrap">${renderHistoryBlock(p)}</div>
       </div>
     </div>
@@ -9165,7 +9175,8 @@ async function findResources(id, btn) {
   const openSteps = c => { const out = []; (c.fases || []).forEach(f => (f.pasos || []).forEach(st => { const h = (typeof st === "object" && st.hecho) || 0; if (h !== 2) out.push({ t: stepText(st), h }); })); return out.sort((a, b) => b.h - a.h); };
   const cur = pool.find(c => openSteps(c).some(x => x.h === 1)) || pool.find(c => openSteps(c).length) || pool[0];
   const todo = cur ? openSteps(cur).slice(0, 3).map(x => (isProject(item) ? cur.titulo + " → " : "") + x.t + (x.h === 1 ? " (in progress)" : "")) : [];
-  const have = (item.recursos || []).map(r => r.url);
+  migrateResToRefs(item);
+  const have = (item.referencias || []).map(r => r.url);
   const hist = [{ role: "user", text: `${chatContextText(item)}
 
 FIND RESOURCES for what the person is doing RIGHT NOW${todo.length ? ":\n- " + todo.join("\n- ") : " in this " + (isProject(item) ? "project" : "idea")}
@@ -9187,10 +9198,10 @@ Output ONLY a JSON array: [{"titulo":"Title of the page or video","url":"exact U
     const host = resHost(x.url || "").toLowerCase();
     const trusted = host && [...seen].some(t => t && (host === t || host.endsWith("." + t) || t.endsWith("." + host)));
     const q = encodeURIComponent(x.titulo + (x.fuente ? " " + x.fuente : ""));
-    return { titulo: String(x.titulo).slice(0, 160), url: trusted ? x.url : (x.tipo === "video" ? "https://www.youtube.com/results?search_query=" + q : "https://www.google.com/search?q=" + q), busqueda: !trusted || undefined, tipo: x.tipo, fuente: x.fuente, paso: x.paso || undefined, nota: x.nota, fecha: new Date().toISOString() };
+    return { titulo: String(x.titulo).slice(0, 160), url: trusted ? x.url : (x.tipo === "video" ? "https://www.youtube.com/results?search_query=" + q : "https://www.google.com/search?q=" + q), ai: true, busqueda: !trusted || undefined, meta: trusted ? undefined : { none: 1 }, tipo: x.tipo, fuente: x.fuente, paso: x.paso || undefined, porque: x.nota, fecha: new Date().toISOString() };
   }).filter(x => !have.includes(x.url));
   if (!good.length) { await showAlert("I couldn't find good material this time. Try again in a moment.", { title: "Nothing found" }); render(); return; }
-  item.recursos = (item.recursos || []).concat(good).slice(0, 40);
+  item.referencias = (item.referencias || []).concat(good).slice(-60);
   saveIdeas(); render();
   if (!sources.length && !item._resWarned) { item._resWarned = 1; showAlert("Your free Gemini quota doesn't include live web search right now, so these suggestions open as Google / YouTube searches instead of direct links. They're still picked for your steps.", { title: "Found resources" }); }
 }
@@ -9365,7 +9376,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-04 06:35 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-04 06:50 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -12087,7 +12098,7 @@ function renderDetailReadMode(idea) {
       <div class="detail-dashboard-sidecol" id="detail-sticky-sidecol">
         <div class="detail-order-desc">${descBlockHtml}</div>
         <div class="detail-order-notes">${notasStickyHtml}</div>
-        <div class="detail-order-sketch">${renderSketchBlock(idea)}${renderReferencesBlock(idea)}${renderResourcesBlock(idea)}</div>
+        <div class="detail-order-sketch">${renderSketchBlock(idea)}${renderReferencesBlock(idea)}</div>
         <div class="detail-order-wrap">${renderHistoryBlock(idea)}</div>
       </div>
     </div>
