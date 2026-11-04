@@ -9160,14 +9160,17 @@ async function findResources(id, btn) {
   const item = IDEAS.find(i => i.id === id); if (!item) return;
   if (!geminiKey) { await showAlert("Add a free Gemini key in Settings → AI to search for resources.", { title: "AI needs a key" }); return; }
   if (btn) { btn.disabled = true; btn.textContent = "Searching the web…"; }
-  // focus: the steps still to do (current one first)
+  // FOCUS = where the person is right now: the current chapter and its next few steps (not later stages).
   const pool = isProject(item) ? projectChapters(item) : [item];
-  const todo = []; pool.forEach(c => (c.fases || []).forEach(f => (f.pasos || []).forEach(st => { const h = (typeof st === "object" && st.hecho) || 0; if (h !== 2) todo.push((isProject(item) ? c.titulo + " → " : "") + stepText(st) + (h === 1 ? " (in progress)" : "")); })));
+  const openSteps = c => { const out = []; (c.fases || []).forEach(f => (f.pasos || []).forEach(st => { const h = (typeof st === "object" && st.hecho) || 0; if (h !== 2) out.push({ t: stepText(st), h }); })); return out.sort((a, b) => b.h - a.h); };
+  const cur = pool.find(c => openSteps(c).some(x => x.h === 1)) || pool.find(c => openSteps(c).length) || pool[0];
+  const todo = cur ? openSteps(cur).slice(0, 3).map(x => (isProject(item) ? cur.titulo + " → " : "") + x.t + (x.h === 1 ? " (in progress)" : "")) : [];
   const have = (item.recursos || []).map(r => r.url);
   const hist = [{ role: "user", text: `${chatContextText(item)}
 
-FIND RESOURCES for what the person has to do next${todo.length ? ":\n- " + todo.slice(0, 8).join("\n- ") : " in this " + (isProject(item) ? "project" : "idea")}
-Search the web and pick 6–8 of the most useful, CURRENT resources to do these well in THIS project: tutorials (YouTube, courses), articles or posts by professionals and recruiters/talent acquisition when it's about getting hired, great examples to study, and tools. Prefer specific, reputable pages over generic home pages. ${have.length ? "Don't repeat: " + have.join(", ") : ""}
+FIND RESOURCES for what the person is doing RIGHT NOW${todo.length ? ":\n- " + todo.join("\n- ") : " in this " + (isProject(item) ? "project" : "idea")}
+STRICT FOCUS: every resource must help with exactly these current steps and this stage of the work. Nothing for later stages (e.g. if they're designing characters or writing the story, no texturing, rigging, rendering or compositing tutorials). If a step is about story/characters, think of craft resources for that (character design, story structure, worldbuilding), not software.
+Search the web and pick 6–8 of the most useful, CURRENT resources for those steps in THIS project: tutorials (YouTube, courses), articles or posts by professionals and recruiters/talent acquisition when it's about getting hired, great examples to study, and tools. Prefer specific, reputable pages over generic home pages. ${have.length ? "Don't repeat: " + have.join(", ") : ""}
 Output ONLY a JSON array: [{"titulo":"Title of the page or video","url":"exact URL you found","tipo":"video|article|course|book|tool|example|advice","fuente":"site or author","paso":"which of the steps above it's for (short) or null","nota":"one line: why it helps (in the person's language)"}]` }];
   const searching = !(geminiSearchOffUntil > Date.now());
   if (searching) hist._tools = [{ google_search: {} }];
@@ -9362,7 +9365,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-04 06:20 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-04 06:35 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
