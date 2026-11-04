@@ -4193,6 +4193,13 @@ SHIPPING CHANGES
   .ref-pill-tools button:hover { color: var(--pen); }
 
   .ref-pill-why { font-size: .76rem; color: var(--ink); opacity: .8; margin-top: 3px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+  .ref-text { white-space: pre-wrap; font-size: .9rem; line-height: 1.45; color: var(--ink); background: var(--paper); border: 1px solid var(--line-strong); border-left: 3px solid var(--tape, #e6c25a); border-radius: 10px; padding: 10px 70px 10px 12px; }
+  .ref-file-ico { font-size: .72rem; font-weight: 700; color: #c8382f; border: 1px solid var(--line-strong); }
+  .ref-add-row { display: flex; gap: 8px; align-items: flex-end; }
+  .ref-add { flex: 1; resize: none; font-family: inherit; overflow-y: auto; }
+  .ref-add-file { flex-shrink: 0; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px dashed var(--line-strong); border-radius: 10px; cursor: pointer; font-size: 1.1rem; }
+  .ref-add-file:hover { border-color: var(--pen); }
 </style>
 </head>
 <body>
@@ -6519,20 +6526,52 @@ async function fetchLinkPreview(r) {
   if (meta.titulo && (!r.nota && (!r.titulo || r.titulo === refHost(r.url)))) r.titulo = meta.titulo;
   return !!meta.titulo;
 }
+async function addReferenceFiles(ideaId, input) {
+  const idea = IDEAS.find(i => i.id === ideaId); if (!idea) return;
+  const files = [...(input.files || [])]; input.value = "";
+  for (const f of files) {
+    try {
+      if (/^image\//.test(f.type)) {
+        const o = await storeImage(await prepareImageBlob(f), { nombre: f.name, tipo: "img" });
+        idea.referencias = (idea.referencias || []).concat([Object.assign(o, { titulo: f.name.replace(/\.[a-z0-9]+$/i, ""), kind: "img" })]);
+      } else {
+        if (f.size > 25e6) { await showAlert(`“${f.name}” is over 25 MB.`, { title: "File too big" }); continue; }
+        const o = await storeImage(f, { nombre: f.name, tipo: "file", mime: f.type || "application/octet-stream", size: f.size });
+        idea.referencias = (idea.referencias || []).concat([Object.assign(o, { titulo: f.name, kind: "file" })]);
+      }
+    } catch (e) { await showAlert(e.message, { title: "Couldn't add it" }); }
+  }
+  saveIdeas(); render(); syncImages && syncImages();
+}
+// open a stored file: open the tab right away (popup blockers), then point it to the file
+async function openRefFile(ideaId, k) {
+  const idea = IDEAS.find(i => i.id === ideaId), r = idea && idea.referencias && idea.referencias[k]; if (!r) return;
+  if (r.kind === "img") { const u = await getImageUrl(r); return openImageViewer(u || IMG_PLACEHOLDER, "", r, { title: r.titulo || r.nombre }); }
+  const w = window.open("", "_blank");
+  const u = await getImageUrl(r);
+  if (!u) { if (w) w.close(); return showAlert(r.driveId && !accessToken ? "Connect Google Drive to open this file here." : "This file isn't on this device yet.", { title: "Can't open it" }); }
+  if (w) w.location.href = u; else location.href = u;
+}
+function fileSizeLabel(n) { return !n ? "" : n > 1e6 ? (n / 1e6).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1e3)) + " KB"; }
 function removeReference(ideaId, k) {
   const idea = IDEAS.find(i => i.id === ideaId);
   if (!idea || !idea.referencias) return;
-  idea.referencias.splice(k, 1); saveIdeas(); render();
+  const [gone] = idea.referencias.splice(k, 1);
+  if (gone && gone.ref) forgetImage(gone);
+  saveIdeas(); render();
 }
 function renameReference(ideaId, k) {
   const idea = IDEAS.find(i => i.id === ideaId);
   const r = idea && idea.referencias && idea.referencias[k];
   if (!r) return;
-  const v = window.prompt("What is this reference? (a short note)", r.titulo || "");
+  const isText = !r.url && !r.ref;
+  showPrompt(isText ? "" : "A short note about what this is (leave empty to use its own title).", { title: isText ? "Edit note" : "Add a note", value: isText ? r.titulo : (r.nota || ""), multiline: isText, confirmLabel: "Save" }).then(v => {
   if (v == null) return;
+  if (isText) { if (v.trim()) { r.titulo = v.trim(); saveIdeas(); render(); } return; }
   const t = v.trim();
-  if (t) { r.titulo = t; r.nota = t; } else { delete r.nota; r.titulo = (r.meta && r.meta.titulo) || refHost(r.url); }
+  if (t) { r.titulo = t; r.nota = t; } else { delete r.nota; r.titulo = (r.meta && r.meta.titulo) || r.nombre || refHost(r.url); }
   saveIdeas(); render();
+  });
 }
 async function suggestSearches(ideaId) {
   const idea = IDEAS.find(i => i.id === ideaId);
@@ -6582,6 +6621,13 @@ function renderReferencesBlock(idea) {
         const title = (r.nota ? r.titulo : (r.ai && !m.titulo ? r.titulo : m.titulo || r.titulo)) || refHost(r.url);
         const by = [r.ai ? (RES_ICONS[r.tipo] || "🔗") : "", m.autor || (r.ai ? r.fuente : ""), r.busqueda ? "search" : (m.sitio || (r.url ? refHost(r.url) : ""))].filter(Boolean).filter((x, i, arr) => arr.indexOf(x) === i).join(" · ");
         if (r.url && !r.meta) setTimeout(() => fetchLinkPreview(r).then(ok => { if (ok) { saveIdeas(); render(); } }), 50 + k * 400);
+        const tools = `<span class="ref-pill-tools"><button type="button" title="${!r.url && !r.ref ? "Edit" : "Add a note"}" onclick="renameReference('${escapeAttr(idea.id)}',${k})">✎</button><button type="button" title="Remove" onclick="removeReference('${escapeAttr(idea.id)}',${k})">&times;</button></span>`;
+        if (r.ref) return `<li class="ref-pill-wrap">
+          <a class="ref-pill" href="#" onclick="event.preventDefault();openRefFile('${escapeAttr(idea.id)}',${k})">
+            ${r.kind === "img" ? `<span class="ref-pill-img"><img ${imgAttrs(r)} alt=""></span>` : `<span class="ref-pill-ico ref-file-ico">${/pdf/.test(r.mime || r.nombre || "") ? "PDF" : "📄"}</span>`}
+            <span class="ref-pill-body"><span class="ref-pill-title">${escapeHtml(r.nota || r.titulo || r.nombre)}</span><span class="ref-pill-by">${escapeHtml([r.kind === "img" ? "Image" : (r.nombre || "").split(".").pop().toUpperCase() + " file", fileSizeLabel(r.size)].filter(Boolean).join(" · "))}</span></span>
+          </a>${tools}</li>`;
+        if (!r.url) return `<li class="ref-pill-wrap"><div class="ref-text">${escapeHtml(r.titulo)}</div>${tools}</li>`;
         return r.url ? `<li class="ref-pill-wrap">
           <a class="ref-pill" href="${escapeAttr(r.url)}" target="_blank" rel="noopener">
             ${img ? `<span class="ref-pill-img"><img src="${escapeAttr(img)}" alt="" loading="lazy" onerror="this.parentNode.remove()">${yt ? '<span class="ref-play">▶</span>' : ""}</span>` : `<span class="ref-pill-ico">${m.logo ? `<img src="${escapeAttr(m.logo)}" alt="" onerror="this.replaceWith('🔗')">` : "🔗"}</span>`}
@@ -6590,7 +6636,10 @@ function renderReferencesBlock(idea) {
           <span class="ref-pill-tools"><button type="button" title="Add a note" onclick="renameReference('${escapeAttr(idea.id)}',${k})">✎</button><button type="button" title="Remove" onclick="removeReference('${escapeAttr(idea.id)}',${k})">&times;</button></span>
         </li>` : `<li class="ref-item"><span class="ref-ico">📝</span><div class="ref-body"><span>${escapeHtml(r.titulo)}</span><span class="ref-host"><button type="button" onclick="renameReference('${escapeAttr(idea.id)}',${k})">edit note</button></span></div><button type="button" class="resolve-delete-btn" title="Remove" onclick="removeReference('${escapeAttr(idea.id)}',${k})">&times;</button></li>`;
       }).join("")}</ul>
-      <input class="note-quick-add" placeholder="+ Paste a link (YouTube, ArtStation, Pinterest…) and press Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();addReference('${escapeAttr(idea.id)}',this)}">
+      <div class="ref-add-row">
+        <textarea rows="1" class="note-quick-add ref-add" placeholder="+ Paste a link or write a note (Enter)" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,160)+'px'" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addReference('${escapeAttr(idea.id)}',this);this.style.height=''}"></textarea>
+        <label class="ref-add-file" title="Add an image, a PDF or any file">📎<input type="file" multiple style="display:none" onchange="addReferenceFiles('${escapeAttr(idea.id)}', this)"></label>
+      </div>
     </div>`;
 }
 
@@ -6740,6 +6789,7 @@ function allImageObjs(list) {
     (i.bocetos || []).forEach(b => out.push(b));
     (i.fases || []).forEach(f => (f.pasos || []).forEach(st => { if (typeof st === "object") (st.adjuntos || []).forEach(a => { if (a.tipo === "img") out.push(a); }); }));
     (i.chat || []).forEach(m => (m.adj || []).forEach(a => { if (a.tipo === "img") out.push(a); }));
+    (i.referencias || []).forEach(r => { if (r.ref) out.push(r); });
   });
   return out;
 }
@@ -9376,7 +9426,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-04 06:50 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-04 07:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -9678,7 +9728,7 @@ function showPrompt(message, opts) {
     document.getElementById("dialog-title").textContent = opts.title || "";
     const msg = document.getElementById("dialog-message");
     msg.style.whiteSpace = "pre-line";
-    msg.innerHTML = (message ? `<div style="margin-bottom:10px">${escapeHtml(message)}</div>` : "") + `<input id="dialog-prompt-input" class="form-input" style="font-size:16px;width:100%" placeholder="${escapeAttr(opts.placeholder || "")}" value="${escapeAttr(opts.value || "")}" ${opts.suggestions && opts.suggestions.length ? 'list="dialog-prompt-list"' : ""} onkeydown="if(event.key==='Enter'){event.preventDefault();resolveDialog(true)}">`
+    msg.innerHTML = (message ? `<div style="margin-bottom:10px">${escapeHtml(message)}</div>` : "") + (opts.multiline ? `<textarea id="dialog-prompt-input" class="form-input" rows="5" style="font-size:16px;width:100%;resize:vertical" placeholder="${escapeAttr(opts.placeholder || "")}">${escapeHtml(opts.value || "")}</textarea>` : `<input id="dialog-prompt-input" class="form-input" style="font-size:16px;width:100%" placeholder="${escapeAttr(opts.placeholder || "")}" value="${escapeAttr(opts.value || "")}" ${opts.suggestions && opts.suggestions.length ? 'list="dialog-prompt-list"' : ""} onkeydown="if(event.key==='Enter'){event.preventDefault();resolveDialog(true)}">`)
       + (opts.suggestions && opts.suggestions.length ? `<div class="prompt-chips">${opts.suggestions.slice(0, 12).map(c => `<button type="button" onclick="document.getElementById('dialog-prompt-input').value=this.textContent;resolveDialog(true)">${escapeHtml(c)}</button>`).join("")}</div>` : "");
     document.getElementById("dialog-actions").innerHTML = `
       <button class="dialog-btn" onclick="resolveDialog(false)">Cancel</button>
