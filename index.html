@@ -4298,6 +4298,8 @@ SHIPPING CHANGES
     #pc-overlay .modal-box, #step-overlay .modal-box, #nc-overlay .modal-box, #chats-overlay .modal-box, #settings-overlay .modal-box { padding-top: calc(14px + env(safe-area-inset-top, 0px)) !important; }
     #settings-overlay .modal-head { top: calc(-1 * env(safe-area-inset-top, 0px)); padding-top: calc(16px + env(safe-area-inset-top, 0px)); }
   }
+  @keyframes searchFlash { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,.9); } 100% { box-shadow: 0 0 0 10px rgba(255,255,255,0); } }
+  .mobile-search-wrap.flash { animation: searchFlash .6s ease-out; border-radius: 999px; }
 </style>
 </head>
 <body>
@@ -9591,7 +9593,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-04 18:05 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-05 20:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -10170,9 +10172,13 @@ function goBack() {
 }
 
 function navSearch() {
-  if (document.querySelector(".sidebar.open, .sidebar.mobile-open")) { try { closeMobileMenu(); } catch (e) {} }
-  window.scrollTo({ top: 0, behavior: "smooth" });
-  const i = document.getElementById("search-mobile"); if (i) setTimeout(() => i.focus(), 150);
+  // iPhone only opens the keyboard if focus happens right inside the tap — no timeouts, no smooth scroll
+  try { closeMobileMenu(); } catch (e) {}
+  const i = document.getElementById("search-mobile"); if (!i) return;
+  i.focus({ preventScroll: true });
+  window.scrollTo(0, 0);
+  i.select && i.select();
+  const w = i.closest(".mobile-search-wrap"); if (w) { w.classList.remove("flash"); void w.offsetWidth; w.classList.add("flash"); }
 }
 function markBottomNav() {
   const n = document.getElementById("bottom-nav"); if (!n) return;
