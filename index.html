@@ -4328,6 +4328,15 @@ SHIPPING CHANGES
   .pop-steps li { display: flex; gap: 10px; align-items: flex-start; padding: 7px 4px; border-bottom: 1px dashed var(--line); cursor: pointer; font-size: .94rem; }
   .pop-steps li.h2 { color: var(--slate); text-decoration: line-through; }
   .pop-box { flex-shrink: 0; width: 20px; height: 20px; border: 1.5px solid var(--line-strong); border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; font-size: .8rem; color: var(--pen); }
+
+  .step-use small { display: block; font-size: .74rem; opacity: .75; font-family: var(--sans); margin-top: 1px; }
+  .tutor-plan { margin-top: 10px; border: 1.5px solid var(--pen); border-radius: 10px; padding: 10px 12px; background: color-mix(in srgb, var(--pen) 7%, var(--paper)); white-space: normal; }
+  .tutor-plan-t { font-family: var(--hand); font-size: 1.1rem; color: var(--pen); }
+  .tutor-plan-d { font-size: .88rem; margin: 2px 0 8px; }
+  .tutor-plan button { background: var(--pen); color: #fff; border: none; border-radius: 999px; padding: 7px 14px; font-family: var(--hand); font-size: 1.02rem; cursor: pointer; }
+  [data-theme="dark"] .tutor-plan button { color: #10131c; }
+  .tutor-plan-h { font-size: .72rem; color: var(--slate); margin-top: 6px; }
+  .tutor-plan-link { display: block; margin: 10px auto 4px; background: none; border: none; color: var(--slate); text-decoration: underline; font-size: .78rem; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -8522,6 +8531,9 @@ function ideaImages(idea) {
 }
 
 /* ---------- Project mentor chat: ask anything about the whole project ---------- */
+const HONEST_RULES = `
+- BE AN HONEST MENTOR, NOT A YES-MAN. Your job is to help the person actually pull this off, not to please them. When they want to do things in an order or a way a professional wouldn't (for example sculpting the final character before the story and the design are defined), say so clearly: what you'd do first and why, and what it will cost them (rework, wasted time). If they still want to do it their way, respect it — it's their project — but say plainly that it's not how it's normally done. Don't drop your opinion just because they insist; change it only if they give you a good reason. Same with weak ideas or unrealistic plans: say what's weak and how to make it work. Be warm, but never agree just to agree.
+- MEMORY ACROSS CHATS: the context may include "FROM YOUR OTHER CONVERSATIONS IN THIS PROJECT". Treat it like a teacher who remembers what you told them last week. If something said there matters here and isn't in the project yet — or contradicts what's here — bring it up ("In the chat about X you said Y — keep it?") and offer to add or fix it.`;
 const PROJECT_MENTOR_RULES = `You are a veteran professional in the field of this project (a film director for a short film, a master carpenter for furniture, a head chef for a recipe…) acting as the person's mentor for the WHOLE project. You can see every chapter, its plan and progress, the key decisions, notes and open questions.
 - Answer like a good teacher: clear, concrete, applied to THIS project, short paragraphs. Guide and give options with their trade-offs; don't make the person's creative decisions for them.
 - Respect the key decisions as fixed rules. If one seems wrong, say so and explain why instead of ignoring it.
@@ -8541,7 +8553,7 @@ Only include actions the person would clearly want offered; they will accept or 
 - PENDING (for later): when the person says to leave something for later / "dejalo pendiente", offer a "pendiente" action. When they ask what's pending, list the PENDING items from the context (only those). When they say one is done or no longer needed, offer "pendiente_hecho" with its exact text. Pending = things they already know they want to do later; "resolver" = decisions not taken yet.
 - BE INVOLVED WITH THE PROJECT: when the person shares an idea (a character trait, a scene, a material, a flavour…), figure out WHERE in the project it belongs and offer to put it there: a "nota" with "paso" set to the exact text of the step it feeds (e.g. a character idea → the step about designing the characters) and/or "capitulo" set to that chapter's exact name. Say in your answer where you'd put it and why. Only use a plain note with no place when nothing fits. A "decision" is only for things the person has firmly decided, not loose ideas.
 - When the person attaches images or files, look at them and use them in your answer. If a file clearly belongs to one of the listed steps (e.g. a reference board for "Collect references"), offer an "archivar" action with that step's exact text.
-- When the person picks an option for one of the THINGS TO FIGURE OUT (or clearly settles it), offer a "resuelto" action with that thing's exact text in "pregunta" and the choice in "texto", asking briefly if they want it written into the project. "capitulo" only applies to projects.`;
+- When the person picks an option for one of the THINGS TO FIGURE OUT (or clearly settles it), offer a "resuelto" action with that thing's exact text in "pregunta" and the choice in "texto", asking briefly if they want it written into the project. "capitulo" only applies to projects.${HONEST_RULES}`;
 
 let pcPendingAtts = [];
 async function pcAddFiles(input) {
@@ -8617,6 +8629,9 @@ ${cosas.length ? "THINGS TO FIGURE OUT: " + cosas.join(" | ") : ""}
 ${(proj.notas || []).length ? "NOTES: " + proj.notas.map(noteText).join(" | ") : ""}${pendingText(proj)}${notebookContextFor(proj)}${lessonsFor(proj)}`;
 }
 function chatContextText(idea) {
+  return chatContextBase(idea) + (isNotebook(idea) ? "" : otherChatsDigest(idea, "m:" + idea.id));
+}
+function chatContextBase(idea) {
   if (isNotebook(idea)) return notebookContextText(idea);
   if (isProject(idea)) return projectContextText(idea);
   if (isChapter(idea)) { const pr = IDEAS.find(x => x.id === idea.proyectoId); if (pr) return projectContextText(pr) + `\n\nTHE PERSON IS TALKING FROM THE CHAPTER "${idea.titulo}" — focus on it, but you can change anything in the project.`; }
@@ -9388,7 +9403,11 @@ const TUTOR_RULES = `You are a patient, experienced teacher and professional in 
 - Never make their creative decisions for them: offer 2-3 options and explain trade-offs, then let them choose.
 - If they ask you to help write something (rules, a character sheet, a list…), draft it WITH them, based on what they told you, and mark it clearly as a draft they can edit.
 - Plain text, no markdown symbols. Same language as the person.
-- If the conversation reaches conclusions that change the plan (this step should be split, rewritten, reordered, other steps added or removed…), say so clearly and tell the person to tap "Update the plan with this" below — that hands the conversation to the project mentor, who can change the plan. You can't change it yourself.`;
+- If the conversation reaches conclusions that change the plan (this step should be split, rewritten, reordered, other steps added or removed…), say so clearly and add the [PLAN: …] marker — the person gets a button that hands this to the project mentor, who can change the plan. You can't change it yourself.
+- At the very END of your reply, on their own lines, add markers when they apply (the app turns them into buttons and hides them):
+  [WORK: what it is] — ONLY when your reply contains something the person can keep in their work for this step (a draft, a list, a sheet, rules). Example: [WORK: draft of Speck's personality sheet]
+  [PLAN: the change] — ONLY when the conversation means the plan should change (split, rewrite, add, remove or reorder steps). Example: [PLAN: split "Design the characters" into one step per character]
+  No marker when neither applies. Never mention the markers in your text.${HONEST_RULES}`;
 let stepCtx = null;
 function getStepRef() {
   if (!stepCtx) return null;
@@ -9559,11 +9578,34 @@ function renderStepChat() {
   const ref = getStepRef();
   const log = document.getElementById("step-log");
   const chat = ref.step.chat || [];
-  log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}${m.role === "model" ? " md" : ""}">${m.role === "model" ? mdLite(m.text) : escapeHtml(m.text)}${m.role === "model" ? `<button type="button" class="step-use" onclick="useTutorReply(${k})">+ Add to my work</button>` : ""}</div>`).join("")
-      + (chat.some(m => m.role === "model") ? `<button type="button" class="pc-getacts ${chat.length && MENTOR_PROPOSES.test(chat[chat.length - 1].text || "") || /update the plan|actualiz|modific|rediseñ|cambiar (el|los) paso/i.test((chat[chat.length - 1] || {}).text || "") ? "" : "soft"}" onclick="stepToMentor()"><span>🛠 Update the plan with this conversation</span><b>→</b></button>` : "")
+  log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}${m.role === "model" ? " md" : ""}">${m.role === "model" ? mdLite(m.text) : escapeHtml(m.text)}${m.role === "model" ? tutorButtons(m, k) : ""}</div>`).join("")
+      + (chat.some(m => m.role === "model") ? `<button type="button" class="tutor-plan-link" onclick="stepToMentor()">Want to change the plan anyway? Update it with this conversation →</button>` : "")
     : `<div class="step-empty">Ask anything about this step. For example:</div>
        <div class="step-chips">${["How do I start this?", "Explain it like I'm a beginner", "Give me an example for my project", "Help me write it"].map(t => `<button type="button" class="ai-chip" onclick="stepSend(${JSON.stringify(t).replace(/"/g, "&quot;")})">${t}</button>`).join("")}</div>`;
   log.scrollTop = log.scrollHeight;
+}
+/* What the person said in the OTHER chats of the same project (mentors of the project, its chapters,
+   and every step's tutor) so each chat remembers what was said elsewhere. `skip` = this chat. */
+function otherChatsDigest(item, skip) {
+  const root = (isChapter(item) && IDEAS.find(x => x.id === item.proyectoId)) || item;
+  const pool = [root].concat(isProject(root) ? projectChapters(root) : []);
+  const entries = [];
+  pool.forEach(it => {
+    const where = it === root ? (isProject(root) ? "project mentor" : "mentor") : `"${it.titulo}" mentor`;
+    if (skip !== "m:" + it.id) (it.chat || []).forEach(m => { if (m.role === "user" && m.text && m.text.length > 12) entries.push({ t: m.t || 0, where, text: m.text }); });
+    (it.fases || []).forEach((f, fi) => (f.pasos || []).forEach((st, si) => {
+      if (!st || typeof st !== "object" || !st.chat || skip === `s:${it.id}:${fi}:${si}`) return;
+      st.chat.forEach(m => { if (m.role === "user" && m.text && m.text.length > 12) entries.push({ t: m.t || 0, where: `tutor of step "${st.texto}"`, text: m.text }); });
+    }));
+  });
+  entries.sort((a, b) => b.t - a.t);
+  let out = "", used = 0;
+  for (const e of entries) {
+    const line = `- (${e.where}) ${e.text.replace(/\s+/g, " ").slice(0, 260)}\n`;
+    if (used + line.length > 3200) break;
+    out += line; used += line.length;
+  }
+  return out ? "\n\nFROM YOUR OTHER CONVERSATIONS IN THIS PROJECT (what the person said there, newest first):\n" + out : "";
 }
 function stepContextText(ref) {
   const idea = ref.idea;
@@ -9571,7 +9613,7 @@ function stepContextText(ref) {
   return `PROJECT: ${proj ? proj.titulo + " — " + projAbout(proj) + "\nCURRENT CHAPTER: " + idea.titulo : idea.titulo + " — " + idea.descripcion}
 PLAN OF THIS ${proj ? "CHAPTER" : "IDEA"}: ${(idea.fases || []).map(f => f.nombre + ": " + (f.pasos || []).map(stepText).join(" | ")).join("\n")}
 STEP I'M WORKING ON: ${ref.step.texto}${ref.step.explicacion ? " — " + ref.step.explicacion : ""}
-${ref.step.trabajo ? "WHAT I HAVE SO FAR:\n" + ref.step.trabajo : ""}${attsText(ref.step.adjuntos)}`;
+${ref.step.trabajo ? "WHAT I HAVE SO FAR:\n" + ref.step.trabajo : ""}${attsText(ref.step.adjuntos)}${otherChatsDigest(ref.idea, `s:${ref.idea.id}:${stepCtx ? stepCtx.f : ""}:${stepCtx ? stepCtx.s : ""}`)}`;
 }
 async function stepSend(textOverride) {
   if (micHold("step-input", () => stepSend())) return;
@@ -9595,8 +9637,10 @@ async function stepSend(textOverride) {
     const hist = ref.step.chat.slice(-12).map((m, k, arr) => ({ role: m.role, text: k === 0 ? stepContextText(ref) + "\n\n" + m.text : m.text }));
     if (hist[0].role !== "user") hist.unshift({ role: "user", text: stepContextText(ref) });
     hist[hist.length - 1].images = await attsImages(ref.step.adjuntos);
-    const reply = (await withThinking(wait, "step-input", () => geminiGenerate(hist, TUTOR_RULES, false, undefined, "low"))).trim();
-    ref.step.chat.push({ role: "model", text: reply, t: Date.now() });
+    const raw = (await withThinking(wait, "step-input", () => geminiGenerate(hist, TUTOR_RULES, false, undefined, "low"))).trim();
+    const wk = raw.match(/\[WORK:\s*([^\]]+)\]/i), pl = raw.match(/\[PLAN:\s*([^\]]+)\]/i);
+    const reply = raw.replace(/\[(WORK|PLAN):[^\]]*\]/gi, "").trim();
+    ref.step.chat.push({ role: "model", text: reply, t: Date.now(), mk: 1, work: wk ? wk[1].trim() : undefined, plan: pl ? pl[1].trim() : undefined });
     ref.step.chat = ref.step.chat.slice(-30);
     saveIdeas();
   } catch (e) {
@@ -9605,6 +9649,13 @@ async function stepSend(textOverride) {
     return;
   }
   renderStepChat();
+}
+// Two different things, shown only when they apply: keep this answer in your work, or change the plan.
+function tutorButtons(m, k) {
+  const out = [];
+  if (m.work || !m.mk) out.push(`<button type="button" class="step-use" onclick="useTutorReply(${k})" title="Copies this answer into My work for this step">📝 Add to my work${m.work ? `<small>${escapeHtml(m.work)}</small>` : ""}</button>`);
+  if (m.plan) out.push(`<div class="tutor-plan"><div class="tutor-plan-t">🛠 This changes your plan</div><div class="tutor-plan-d">${escapeHtml(m.plan)}</div><button type="button" onclick="stepToMentor()">Update the plan →</button><div class="tutor-plan-h">Opens your mentor with this conversation; you approve each change.</div></div>`);
+  return out.join("");
 }
 function useTutorReply(k) {
   const ref = getStepRef();
@@ -9655,7 +9706,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-10 20:30 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-10 21:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -10587,7 +10638,7 @@ function ncRules() {
 \`\`\`
   Use "capitulos" for a project and "fases" for a single idea (leave the other one out). Steps must follow a logical order (what each step needs must come before it). Only put in "decisiones" what they actually decided.
 - Whenever they ask for a change, send the FULL updated block again. Tell them they can tap "Create it" when it looks right, or keep chatting.
-- Existing categories (reuse one if it fits): ${cats.join(", ") || "(none yet)"}.
+- Existing categories (reuse one if it fits): ${cats.join(", ") || "(none yet)"}.${HONEST_RULES}
 ${nbs.length ? "Existing notebooks (suggest one only if it clearly belongs): " + nbs.join(", ") + "." : ""}`;
 }
 function ncSplit(text) {
@@ -11201,7 +11252,7 @@ ORDER COHERENCE — THE MOST IMPORTANT RULE, FOR ANY KIND OF PROJECT (film, furn
 - Inside each phase, order the steps the same way: every step only after the steps it needs. If something I already have is in the wrong place or missing, fix it and mention it in "notas".
 - Every step needs "texto" (short action) AND "explicacion" (how to do it concretely, why it matters, typical beginner mistakes, rough time/cost when useful).
 - In "cosasAResolver" put the real unknowns/decisions I must settle, each with an English search hint in "busqueda".
-- "descripcion" = a clear paragraph of what the final result is. "notas" = key decisions and creative choices we agreed on.`;
+- "descripcion" = a clear paragraph of what the final result is. "notas" = key decisions and creative choices we agreed on.${HONEST_RULES}`;
 
 function buildEnrichMessage(idea, request) {
   const fasesArray = Array.isArray(idea.fases) ? idea.fases.filter(f => f.pasos && f.pasos.length) : [];
