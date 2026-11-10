@@ -405,3 +405,5 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 - La bienvenida (sin ideas) arranca un tour corto (`TOURS.welcome`) la primera vez; "? Show me how it works" y el "?" del header lo repiten.
 - Sin key de Gemini: el botón principal es "Write down your idea" (formulario) y debajo "turn on AI" abre Settings → AI. "Tell me your idea" solo aparece con key. En el modal New idea se oculta "Just tell the AI about it" sin key, y `openNewChat()` sin key ofrece "Turn on AI" o "Write it myself".
 - El micrófono sin key usa el reconocimiento de voz del navegador/WebView (gratis, no usa ninguna cuenta ni key del usuario).
+
+- El script de Google (GIS) se precarga al abrir, para que Connect/Reconnect abra el popup con un solo toque en celular.
