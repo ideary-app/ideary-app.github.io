@@ -1,8 +1,10 @@
 name: Desktop app (Windows)
-# Builds the Windows installer when a tag like desktop-v0.1.0 is pushed, and publishes it as a GitHub release.
+# Builds the Windows installer whenever something in desktop/ changes on main, and publishes it as
+# the GitHub release "desktop-v<version>" (version from desktop/src-tauri/tauri.conf.json).
 on:
   push:
-    tags: ["desktop-v*"]
+    branches: [main]
+    paths: ["desktop/**", ".github/workflows/desktop.yml"]
   workflow_dispatch:
 permissions:
   contents: write
@@ -26,8 +28,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: desktop
-          tagName: ${{ github.ref_name }}
-          releaseName: "Ideary desktop ${{ github.ref_name }}"
+          tagName: desktop-v__VERSION__
+          releaseName: "Ideary desktop v__VERSION__"
           releaseBody: "Windows installer for Ideary desktop."
           releaseDraft: false
           prerelease: false
