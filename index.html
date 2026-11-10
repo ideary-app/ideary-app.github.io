@@ -4300,6 +4300,34 @@ SHIPPING CHANGES
   }
   @keyframes searchFlash { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,.9); } 100% { box-shadow: 0 0 0 10px rgba(255,255,255,0); } }
   .mobile-search-wrap.flash { animation: searchFlash .6s ease-out; border-radius: 999px; }
+
+  /* desktop app */
+  .desk-only { display: none !important; }
+  html.is-desktop .desk-only { display: inline-flex !important; }
+  .pop-chat-btn { background: none; border: 1px solid var(--line-strong); border-radius: 8px; width: 34px; height: 34px; align-items: center; justify-content: center; cursor: pointer; font-size: 1.05rem; color: var(--ink); margin-left: auto; margin-right: 6px; }
+  .pop-chat-btn.on { background: var(--pen); color: #fff; border-color: var(--pen); }
+  .pop-row { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .pop-row .pop-label { font-size: .78rem; color: var(--slate); }
+  .pop-row button { background: var(--paper); border: 1px solid var(--line-strong); border-radius: 999px; padding: 4px 12px; font-family: var(--hand); font-size: 1rem; cursor: pointer; color: var(--ink); }
+  html.popout-mode .sidebar, html.popout-mode .mobile-header, html.popout-mode .bottom-nav, html.popout-mode .desktop-header, html.popout-mode header, html.popout-mode .go-top-btn, html.popout-mode .install-banner, html.popout-mode #coach { display: none !important; }
+  html.popout-mode .main, html.popout-mode #main { margin: 0 !important; padding: 0 !important; max-width: none !important; }
+  html.popout-mode body { padding: 0 !important; }
+  html.popout-mode .app { display: block !important; grid-template-columns: none !important; }
+  html.popout-mode .main { width: 100% !important; }
+  html.popout-mode #pc-overlay .modal-box { width: 100vw; max-width: none !important; height: 100vh !important; max-height: none; margin: 0; border-radius: 0; }
+  html.popout-mode #pc-overlay.open { padding: 0 !important; align-items: stretch; background: var(--panel); }
+  .pop-bar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--line-strong); }
+  .pop-title { flex: 1; font-family: var(--hand); font-size: 1.15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #pop-pin { background: none; border: 1px solid var(--line-strong); border-radius: 999px; padding: 3px 10px; font-size: .78rem; cursor: pointer; color: var(--slate); }
+  #pop-pin.on { background: var(--pen); color: #fff; border-color: var(--pen); }
+  .pop-body { padding: 12px 14px 30px; background: var(--panel); min-height: calc(100vh - 50px); }
+  .pop-desc { font-size: .92rem; line-height: 1.5; margin-bottom: 10px; white-space: pre-wrap; }
+  .pop-sub { font-family: var(--hand); font-size: 1.15rem; color: var(--pen); margin: 12px 0 4px; }
+  .pop-notes { margin: 0; padding-left: 1.1em; font-size: .92rem; } .pop-notes li { margin: 4px 0; } .pop-notes .muted { color: var(--slate); list-style: none; }
+  .pop-steps { list-style: none; margin: 0; padding: 0; }
+  .pop-steps li { display: flex; gap: 10px; align-items: flex-start; padding: 7px 4px; border-bottom: 1px dashed var(--line); cursor: pointer; font-size: .94rem; }
+  .pop-steps li.h2 { color: var(--slate); text-decoration: line-through; }
+  .pop-box { flex-shrink: 0; width: 20px; height: 20px; border: 1.5px solid var(--line-strong); border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; font-size: .8rem; color: var(--pen); }
 </style>
 </head>
 <body>
@@ -4384,7 +4412,7 @@ SHIPPING CHANGES
       <div id="nav-categorias"></div>
     </div>
 
-    <div class="version-link" onclick="openChangelog()">v1.11.0 · What's new</div>
+    <div class="version-link" onclick="openChangelog()">v1.12.0 · What's new</div>
     <div style="text-align:center;font-family:var(--hand);font-size:.9rem;margin-top:6px"><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--slate)">Privacy</a> · <a href="terms.html" target="_blank" rel="noopener" style="color:var(--slate)">Terms</a></div>
   </div>
   </aside>
@@ -4553,6 +4581,7 @@ SHIPPING CHANGES
     <div class="form-hint ai-usage" id="ai-usage"></div>
     <button class="form-submit" id="ai-key-save-btn" onclick="saveAiKeyFromUI()">Save key</button>
     <div style="text-align:center;margin-top:8px"><button onclick="removeAiKey()" style="background:none;border:none;font-size:0.8rem;color:var(--slate);cursor:pointer;text-decoration:underline">Remove key</button></div>
+      <div id="desk-settings" style="display:none;margin-top:14px;border-top:1px dashed var(--line-strong);padding-top:12px"><div style="font-family:var(--hand);font-size:1.2rem">🖥 Desktop app</div><div class="desk-body"></div></div>
       <details class="backup-ai" style="margin-top:14px">
         <summary style="cursor:pointer;font-family:var(--hand);font-size:1.1rem">Backup AI (optional)</summary>
         <div class="form-hint" style="margin:8px 0">When Gemini is busy or out of quota, Ideary can answer with <strong>Groq</strong> instead (free, very fast, also does voice notes). Not related to X/Twitter's "Grok". Get a key at <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a> → <strong>Create API Key</strong>, and paste it here.</div>
@@ -4617,6 +4646,7 @@ SHIPPING CHANGES
   </div>
 </div>
 
+<div id="desk-update-banner" style="display:none;position:fixed;left:12px;right:12px;bottom:12px;z-index:901;background:var(--postit);color:var(--postit-ink);border-radius:2px 2px 16px 2px;padding:12px 14px;align-items:center;gap:12px;box-shadow:0 6px 24px rgba(0,0,0,.3);max-width:460px;margin:0 auto;font-family:var(--hand);font-size:1.1rem"><span>A new version of Ideary desktop is ready.</span><button type="button" style="margin-left:auto;background:var(--pen);color:#fff;border:none;border-radius:var(--sketch-radius);padding:6px 12px;font-family:var(--hand);font-size:1rem;cursor:pointer" onclick="deskInstallUpdate()">Update</button><button type="button" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:inherit" onclick="this.parentNode.style.display='none'">&times;</button></div>
 <div id="update-banner" style="display:none;position:fixed;left:12px;right:12px;bottom:12px;z-index:900;background:var(--ink);color:var(--paper);border-radius:12px;padding:12px 14px;align-items:center;gap:12px;box-shadow:0 6px 24px rgba(0,0,0,.3);font-size:0.88rem;max-width:460px;margin:0 auto">
   <span style="flex:1">New version available</span>
   <button onclick="applyUpdate()" style="background:var(--paper);color:var(--ink);border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer">Update</button>
@@ -4744,6 +4774,7 @@ SHIPPING CHANGES
   <div class="modal-box step-ws-box" style="max-width:680px;display:flex;flex-direction:column;height:min(90vh,800px)">
     <div class="modal-head">
       <div class="modal-title" id="pc-title" style="font-size:1.4rem;line-height:1.2">Talk to your mentor</div>
+      <button type="button" class="pop-chat-btn desk-only" title="Pop out — a window that stays on top of other apps" onclick="POPOUT ? togglePopPin() : popOut('chat', pcProjId)">⧉</button>
       <button class="modal-close" onclick="closeProjectChat()">&times;</button>
     </div>
     <div class="form-hint" style="margin-bottom:8px">Ask anything about the whole project. The mentor sees every chapter, your progress, key decisions and notes. If it suggests adding something, you choose.</div>
@@ -5381,6 +5412,7 @@ async function initDriveSync(ideasParaCrearSiNoExiste) {
     driveExpired = false;
     showReconnectBanner(false);
     setDriveSession(currentUserEmail);
+    try { checkOwner(); } catch (e) {}
     writeDriveCache(false);
     updateDriveButtonUI();
     render();
@@ -5474,6 +5506,8 @@ function showSaveChip(state) {
   if (state === "saved") { clearTimeout(el._t); el._t = setTimeout(() => el.classList.add("gone"), 1600); }
 }
 function saveIdeas() {
+  if (typeof POPOUT !== "undefined" && POPOUT) { broadcastIdeas(); return; } // the main window stores it
+  setTimeout(() => { try { broadcastIdeas(); } catch (e) {} }, 0);
   stampWorkedOn();
   setTimeout(refreshLastSaved, 0);
   if (driveExpired) {
@@ -5993,6 +6027,7 @@ function openSettings(section) {
   setTimeout(() => setBgIntensity(bgIntensity, true), 0);
   setTimeout(() => { const el = document.getElementById("ai-usage"); if (el) el.innerHTML = aiUsageHtml(); }, 0);
   document.getElementById("ai-key-input").value = geminiKey;
+  try { deskRenderSettings(); } catch (e) {}
   { const g = document.getElementById("groq-key-input"); if (g) g.value = groqKey; const gs = document.getElementById("groq-key-status"); if (gs) gs.textContent = groqKey ? "✓ Backup AI ready" : ""; }
   document.getElementById("ai-key-status").textContent = "";
   renderCoverSwatches();
@@ -7344,6 +7379,7 @@ function openImageViewer(src, actionsHtml, o, opts) {
   ov.innerHTML = `<div class="iv-head">
       <div class="iv-title"><span>${escapeHtml(opts.title || (o && o.nombre) || "Image")}</span>${note ? `<small>${note}</small>` : ""}</div>
       <div class="iv-tools">
+        ${IS_DESKTOP && !POPOUT && o && o.ref ? `<button type="button" title="Pop out — stays on top of other apps" onclick="popOut('img', '', { ref: '${escapeAttr(o.ref)}' })">⧉</button>` : ""}
         <button type="button" data-z="-1" aria-label="Zoom out" title="Zoom out (−)">−</button><span class="iv-pct">100%</span><button type="button" data-z="1" aria-label="Zoom in" title="Zoom in (+)">+</button><button type="button" data-z="0" title="Fit (0)">Fit</button>
         ${o ? `<button type="button" class="iv-dl" title="Download the original file" onclick="downloadOriginal(ivObj, this)">⬇ <span class="iv-dl-l">Download </span>full res</button>` : ""}
         ${opts.headerHtml || ""}${actionsHtml || ""}
@@ -9310,7 +9346,7 @@ function renderProjectView(p) {
           ${dueBadgeHtml(p)}${workedBadgeHtml(p)}${notebookBadgeHtml(p)}
           <span class="badges-right">
             <button type="button" class="undo-project" onclick="revertProject('${escapeAttr(p.id)}')">Turn back into a single idea</button>
-            <button type="button" class="share-btn mentor-head-btn" title="Ask anything about the whole project — it sees every chapter, your progress and decisions" onclick="openProjectChat('${escapeAttr(p.id)}')">💬 Talk to your mentor</button>${chatsBtnHtml(p.id)}
+            <button type="button" class="share-btn mentor-head-btn" title="Ask anything about the whole project — it sees every chapter, your progress and decisions" onclick="openProjectChat('${escapeAttr(p.id)}')">💬 Talk to your mentor</button>${chatsBtnHtml(p.id)}${popoutButtonsHtml(p)}
           </span>
         </div>
       </div>
@@ -9619,9 +9655,18 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-07 00:55 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-10 20:30 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
+  {
+    version: "1.12.0",
+    public: true,
+    items: [
+      "New first screen: tell the AI your idea, or open one of three examples to see how it works",
+      "Bottom navigation bar on your phone: Home, Search, New idea, Chats and More",
+      "The backup AI handles long conversations",
+    ],
+  },
   {
     version: "1.11.0",
     public: true,
@@ -12372,7 +12417,7 @@ function renderDetailReadMode(idea) {
           ${isChapter(idea) ? chapterBadgeHtml(idea) : ""}
           ${dueBadgeHtml(idea)}${workedBadgeHtml(idea)}${isChapter(idea) ? "" : notebookBadgeHtml(idea)}
         </div>
-        <div class="idea-head-chat"><button type="button" class="share-btn mentor-head-btn" onclick="openProjectChat('${escapeAttr(idea.id)}')">💬 Talk to your mentor</button>${chatsBtnHtml(idea.id)}</div>
+        <div class="idea-head-chat"><button type="button" class="share-btn mentor-head-btn" onclick="openProjectChat('${escapeAttr(idea.id)}')">💬 Talk to your mentor</button>${chatsBtnHtml(idea.id)}${popoutButtonsHtml(idea)}</div>
         ${isChapter(idea) ? chapterNavHtml(idea) : ""}
       </div>
     </div>
@@ -12687,6 +12732,7 @@ function closePhasePicker() {
 }
 window.addEventListener("scroll", () => { if (openPhasePickerId) closePhasePicker(); }, { passive: true });
 function render() {
+  if (typeof POPOUT !== "undefined" && POPOUT) { renderPopout(); return; }
   if (typeof closeDueCal === "function") closeDueCal();
   setTimeout(refreshLastSaved, 0);
   closePhasePicker();
@@ -12851,6 +12897,158 @@ function escapeAttr(str) {
 
 // Restore the last view from the previous session (survives reload,
 // cleared when the tab closes — sessionStorage, not localStorage).
+/* ==================================================================
+   DESKTOP APP (Tauri shell, Windows) — pop-out windows that stay on top,
+   updating itself, and a desktop section in Settings only for the owner.
+================================================================== */
+const IS_DESKTOP = !!(window.__TAURI__ && window.__TAURI__.core);
+const POPOUT = (() => { try { return new URLSearchParams(location.search).get("popout"); } catch (e) { return null; } })();
+const POP_ARGS = (() => { try { return Object.fromEntries(new URLSearchParams(location.search)); } catch (e) { return {}; } })();
+const OWNER_HASH = "ec9690b583a5ab19cc844ae00fc02597564ae631a7f260898f80772dff11e107"; // sha-256 of the owner's Google account email
+let isOwner = false;
+async function checkOwner() {
+  try {
+    const e = String(currentUserEmail || "").trim().toLowerCase(); if (!e) return false;
+    const h = [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(e)))].map(b => b.toString(16).padStart(2, "0")).join("");
+    isOwner = h === OWNER_HASH;
+  } catch (err) { isOwner = false; }
+  document.documentElement.classList.toggle("is-owner", isOwner);
+  return isOwner;
+}
+function tauri(cmd, args) { return window.__TAURI__.core.invoke(cmd, args || {}); }
+if (IS_DESKTOP) document.documentElement.classList.add("is-desktop");
+if (POPOUT) document.documentElement.classList.add("popout-mode");
+
+// ---- pop-outs ----
+function popOut(kind, id, extra) {
+  if (!IS_DESKTOP) return;
+  const sizes = { chat: [440, 680], img: [520, 420], notes: [380, 520], steps: [380, 560] };
+  const [w, h] = sizes[kind] || [420, 560];
+  const it = IDEAS.find(i => i.id === id);
+  const q = new URLSearchParams(Object.assign({ popout: kind, id: id || "" }, extra || {})).toString();
+  const title = { chat: "Mentor", img: "Image", notes: "Notes", steps: "Plan" }[kind] + (it ? " · " + it.titulo : "");
+  tauri("popout", { label: (kind + "-" + (id || "") + "-" + ((extra && extra.ref) || "")).slice(0, 60), path: "?" + q, title, width: w, height: h, onTop: true }).catch(e => showAlert(String(e), { title: "Couldn't pop it out" }));
+  if (kind === "chat") { try { closeProjectChat(); } catch (e) {} }
+  if (kind === "img") { try { closeImageViewer(); } catch (e) {} }
+}
+function popoutButtonsHtml(it) {
+  if (!IS_DESKTOP || POPOUT || !it) return "";
+  const id = escapeAttr(it.id);
+  return `<span class="pop-row"><span class="pop-label">⧉ Pop out:</span><button type="button" onclick="popOut('chat','${id}')">Mentor</button><button type="button" onclick="popOut('notes','${id}')">Notes</button>${isProject(it) ? "" : `<button type="button" onclick="popOut('steps','${id}')">Plan</button>`}</span>`;
+}
+// ---- keep windows in sync (same app, several windows) ----
+const syncChan = (() => { try { return new BroadcastChannel("ideary-sync"); } catch (e) { return null; } })();
+let syncMuted = false;
+function broadcastIdeas() { if (!syncChan || syncMuted) return; try { syncChan.postMessage({ t: "ideas", ideas: IDEAS, from: POPOUT || "main" }); } catch (e) {} }
+if (syncChan) syncChan.onmessage = ev => {
+  const d = ev.data || {};
+  if (d.t === "hello" && !POPOUT) { broadcastIdeas(); return; }
+  if (d.t !== "ideas" || !Array.isArray(d.ideas)) return;
+  if (JSON.stringify(d.ideas) === JSON.stringify(IDEAS)) return;
+  IDEAS = d.ideas;
+  syncMuted = true;
+  try {
+    if (!POPOUT) saveIdeas(); // the main window saves it (Drive / this device)
+    if (POPOUT) renderPopout(); else render();
+    if (document.getElementById("pc-overlay").classList.contains("open")) renderPcChat();
+  } finally { syncMuted = false; }
+};
+// ---- what a pop-out window shows ----
+let popoutBooted = false, popOnTop = true;
+function popBar(title) {
+  return `<div class="pop-bar"><span class="pop-title">${escapeHtml(title)}</span><button type="button" id="pop-pin" class="${popOnTop ? "on" : ""}" title="Keep this window on top of other apps" onclick="togglePopPin()">📌 ${popOnTop ? "On top" : "Not on top"}</button></div>`;
+}
+async function togglePopPin() {
+  popOnTop = !popOnTop;
+  try { await tauri("set_on_top", { label: window.__TAURI__.webviewWindow ? window.__TAURI__.webviewWindow.getCurrentWebviewWindow().label : POPOUT, on: popOnTop }); } catch (e) {}
+  const cb = document.querySelector(".pop-chat-btn"); if (cb && POPOUT === "chat") { cb.classList.toggle("on", popOnTop); cb.title = "Keep on top of other apps (" + (popOnTop ? "on" : "off") + ")"; }
+  const b = document.getElementById("pop-pin"); if (b) { b.classList.toggle("on", popOnTop); b.textContent = "📌 " + (popOnTop ? "On top" : "Not on top"); }
+}
+function renderPopout() {
+  const main = document.getElementById("main"), it = IDEAS.find(i => i.id === POP_ARGS.id);
+  if (POPOUT === "chat") {
+    if (!popoutBooted && it) { popoutBooted = true; openProjectChat(it.id); }
+    main.innerHTML = "";
+    return;
+  }
+  if (POPOUT === "img") {
+    if (!popoutBooted) {
+      popoutBooted = true;
+      const o = allImageObjs().find(x => x.ref === POP_ARGS.ref);
+      if (o) getImageUrl(o).then(u => openImageViewer(u || IMG_PLACEHOLDER, "", o, { title: o.nombre || "Image" }));
+    }
+    main.innerHTML = "";
+    return;
+  }
+  if (!it) { main.innerHTML = `<div class="step-empty" style="margin:40px 16px">This was deleted or isn't loaded yet.</div>`; return; }
+  if (POPOUT === "notes") {
+    main.innerHTML = popBar(it.titulo) + `<div class="pop-body">
+      ${it.descripcion ? `<div class="pop-desc">${escapeHtml(it.descripcion)}</div>` : ""}
+      <div class="pop-sub">Notes</div>
+      <ul class="pop-notes">${(it.notas || []).map(n => `<li>${escapeHtml(noteText(n))}</li>`).join("") || `<li class="muted">No notes yet</li>`}</ul>
+      <input class="note-quick-add" placeholder="+ Add a note (Enter)" onkeydown="if(event.key==='Enter'&&this.value.trim()){quickAddNote('${escapeAttr(it.id)}',this.value.trim());this.value='';}">
+    </div>`;
+    return;
+  }
+  if (POPOUT === "steps") {
+    main.innerHTML = popBar(it.titulo) + `<div class="pop-body">${(it.fases || []).map((f, fi) => `<div class="pop-sub">${escapeHtml(f.nombre || "")}</div>
+      <ul class="pop-steps">${(f.pasos || []).map((st, si) => { const h = (typeof st === "object" && st.hecho) || 0; return `<li class="h${h}" onclick="cycleStep('${escapeAttr(it.id)}',${fi},${si})"><span class="pop-box">${h === 2 ? "✓" : h === 1 ? "◐" : ""}</span>${escapeHtml(stepText(st))}</li>`; }).join("")}</ul>`).join("") || `<div class="step-empty">No plan yet.</div>`}</div>`;
+    return;
+  }
+}
+if (POPOUT === "chat") {
+  setTimeout(() => { const b = document.querySelector(".pop-chat-btn"); if (b) { b.textContent = "📌"; b.title = "Keep on top of other apps (on)"; b.classList.add("on"); } }, 0);
+  // closing the chat in a pop-out closes the window
+  const _close = closeProjectChat;
+  closeProjectChat = function () { _close(); try { window.__TAURI__.webviewWindow.getCurrentWebviewWindow().close(); } catch (e) { window.close(); } };
+}
+
+// ---- updates (desktop) + Settings section (owner only) ----
+let deskLatest = null;
+async function deskCheckUpdate(manual) {
+  try {
+    const cur = await tauri("app_version");
+    const r = await fetch("https://api.github.com/repos/ideary-app/ideary-app.github.io/releases?per_page=10");
+    const rel = (await r.json()).find(x => /^desktop-v/.test(x.tag_name) && !x.draft);
+    const asset = rel && rel.assets.find(a => /setup\.exe$/i.test(a.name)) || rel && rel.assets.find(a => /\.exe$/i.test(a.name));
+    const latest = rel ? rel.tag_name.replace(/^desktop-v/, "") : null;
+    const newer = latest && asset && latest.split(".").map(Number).reduce((acc, n, i) => acc !== 0 ? acc : n - (+cur.split(".")[i] || 0), 0) > 0;
+    deskLatest = newer ? { version: latest, url: asset.browser_download_url } : null;
+    const st = document.getElementById("desk-status");
+    if (st) st.textContent = newer ? `Version ${latest} is available (you have ${cur}).` : `You have the latest version (${cur}).`;
+    const b = document.getElementById("desk-update-btn"); if (b) b.style.display = newer ? "" : "none";
+    if (newer && !manual) { const ub = document.getElementById("desk-update-banner"); if (ub) { ub.querySelector("span").textContent = `Ideary desktop ${latest} is ready.`; ub.style.display = "flex"; } }
+    return newer;
+  } catch (e) { const st = document.getElementById("desk-status"); if (st) st.textContent = "Couldn't check right now."; return false; }
+}
+async function deskInstallUpdate() {
+  if (!deskLatest) await deskCheckUpdate(true);
+  if (!deskLatest) return;
+  try { flushSave && await flushSave(); } catch (e) {}
+  const st = document.getElementById("desk-status"); if (st) st.textContent = "Downloading the update… Ideary will close and reopen.";
+  try { await tauri("install_update", { url: deskLatest.url }); } catch (e) { showAlert(String(e), { title: "Update failed" }); }
+}
+async function deskRenderSettings() {
+  const box = document.getElementById("desk-settings"); if (!box) return;
+  await checkOwner();
+  if (!isOwner) { box.style.display = "none"; return; }
+  box.style.display = "";
+  if (IS_DESKTOP) {
+    box.querySelector(".desk-body").innerHTML = `<div class="form-hint" id="desk-status" style="margin:4px 0 8px">Checking for updates…</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="stuck-btn" onclick="deskCheckUpdate(true)">Check for updates</button><button type="button" class="form-submit" id="desk-update-btn" style="display:none;width:auto;margin:0;padding:8px 16px" onclick="deskInstallUpdate()">Update now</button></div>`;
+    deskCheckUpdate(true);
+  } else {
+    box.querySelector(".desk-body").innerHTML = `<div class="form-hint" style="margin:4px 0 8px">Ideary for Windows: pop-out windows that stay on top of other apps (mentor chat, images, notes, plan), and it updates itself. Only you can see this.</div>
+      <a class="form-submit" id="desk-dl" style="display:inline-block;width:auto;padding:8px 16px;text-decoration:none" href="https://github.com/ideary-app/ideary-app.github.io/releases" target="_blank" rel="noopener">⬇ Download for Windows</a>`;
+    fetch("https://api.github.com/repos/ideary-app/ideary-app.github.io/releases?per_page=10").then(r => r.json()).then(list => {
+      const rel = list.find(x => /^desktop-v/.test(x.tag_name)); const a = rel && (rel.assets.find(x => /setup\.exe$/i.test(x.name)) || rel.assets.find(x => /\.exe$/i.test(x.name)));
+      const l = document.getElementById("desk-dl"); if (a && l) { l.href = a.browser_download_url; l.textContent = `⬇ Download for Windows (${rel.tag_name.replace(/^desktop-v/, "v")})`; }
+    }).catch(() => {});
+  }
+}
+if (IS_DESKTOP && !POPOUT) setTimeout(() => deskCheckUpdate(false), 8000);
+
+
 try {
   const saved = sessionStorage.getItem("ideary_view");
   if (saved) {
@@ -12862,12 +13060,18 @@ try {
   }
 } catch(e) {}
 
+if (typeof POPOUT !== "undefined" && POPOUT) {
+  const c = readDriveCache(); if (c && Array.isArray(c.ideas)) IDEAS = c.ideas;
+  if (syncChan) syncChan.postMessage({ t: "hello" });
+}
 render();
 updateDriveButtonUI();
 
 // If a Drive token exists, show a loading overlay while syncing
 // so the user doesn't see a confusing "empty / logged out" flash.
-if (getSavedToken()) {
+if (typeof POPOUT !== "undefined" && POPOUT) {
+  // pop-out windows don't sync on their own; the main window does
+} else if (getSavedToken()) {
   showDriveLoadingOverlay();
   initDriveSync().finally(() => hideDriveLoadingOverlay());
 } else if (getDriveSession()) {
@@ -12876,8 +13080,8 @@ if (getSavedToken()) {
   enterDriveExpired();
 }
 
-maybeShowInstallBanner();
-maybeShowHowto();
+if (!POPOUT && !IS_DESKTOP) maybeShowInstallBanner();
+if (!POPOUT) maybeShowHowto();
 // Preload Google sign-in so the first tap on "Connect" opens it right away.
 loadGisScript().catch(() => {});
 
@@ -12961,6 +13165,7 @@ window.addEventListener("popstate", e => {
   } else if (view !== "home") { navLastPage = "home|"; view = "home"; viewParam = null; render(); }
 });
 new MutationObserver(() => navSync()).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["class"], childList: true });
+
 
 // Auto-purge ideas that have been in trash for 30+ days
 purgeOldTrash();

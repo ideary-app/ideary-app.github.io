@@ -1,0 +1,33 @@
+name: Desktop app (Windows)
+# Builds the Windows installer when a tag like desktop-v0.1.0 is pushed, and publishes it as a GitHub release.
+on:
+  push:
+    tags: ["desktop-v*"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with: { workspaces: "desktop/src-tauri -> target" }
+      - name: Install CLI and make icons
+        working-directory: desktop
+        run: |
+          npm install
+          npx tauri icon ../icon-512.png
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: "Ideary desktop ${{ github.ref_name }}"
+          releaseBody: "Windows installer for Ideary desktop."
+          releaseDraft: false
+          prerelease: false
