@@ -5399,7 +5399,7 @@ async function reconnectDrive() {
 
 // Load Google's sign-in script right away, so the first tap on Connect/Reconnect can open the popup
 // (waiting for the script inside the tap makes phones block it, and you had to tap twice).
-if (!POPOUT) setTimeout(() => loadGisScript().catch(() => {}), 300);
+if (!/[?&]popout=/.test(location.search)) setTimeout(() => loadGisScript().catch(() => {}), 300);
 // Token ran out while the app was open: pause instead of logging out.
 function checkTokenStillValid() {
   if (driveReady && !getSavedToken() && getDriveSession()) enterDriveExpired();
