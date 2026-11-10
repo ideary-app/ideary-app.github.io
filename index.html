@@ -3875,7 +3875,9 @@ SHIPPING CHANGES
     #mobile-brand { justify-self: start; grid-column: 1; grid-row: 1; }
     .mobile-header-top .mobile-search-wrap { grid-column: 2; grid-row: 1; width: min(520px, 42vw); flex: none !important; margin: 0 !important; }
     .mobile-header-top .mobile-icon-btn { grid-column: 2; grid-row: 1; justify-self: end; transform: translateX(calc(100% + 10px)); }
-    .hdr-tools { display: flex; gap: 10px; justify-self: end; grid-column: 3; grid-row: 1; }
+    .hdr-tools { display: flex; gap: 10px; justify-self: end; grid-column: 3; grid-row: 1; padding-left: 56px; }
+    .mobile-header-top { grid-template-columns: minmax(max-content, 1fr) minmax(140px, 520px) minmax(max-content, 1fr) !important; }
+    .mobile-header-top .mobile-search-wrap { width: 100% !important; }
     .hdr-tool { width: 38px; height: 38px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
       background: #f4ecd4; color: #1f2430; border: none; outline: 1.5px dashed rgba(31,36,48,.45); outline-offset: -4px; box-shadow: 0 2px 3px rgba(0,0,0,.3);
       font: 700 1rem var(--sans); }
