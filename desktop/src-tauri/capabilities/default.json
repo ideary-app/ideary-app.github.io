@@ -2,7 +2,20 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Ideary's site may use the desktop features in every window",
-  "windows": ["*"],
-  "remote": { "urls": ["https://ideary-app.github.io/*", "https://ideary-app.github.io"] },
-  "permissions": ["core:default"]
+  "windows": [
+    "*"
+  ],
+  "remote": {
+    "urls": [
+      "https://ideary-app.github.io/*",
+      "https://ideary-app.github.io"
+    ]
+  },
+  "permissions": [
+    "core:default",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging"
+  ]
 }

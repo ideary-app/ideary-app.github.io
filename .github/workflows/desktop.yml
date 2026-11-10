@@ -22,7 +22,7 @@ jobs:
         working-directory: desktop
         run: |
           npm install
-          npx tauri icon ../icon-512.png
+          npx tauri icon icon.png
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

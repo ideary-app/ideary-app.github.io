@@ -1,6 +1,6 @@
 # Ideary — CONTEXTO
 
-**Última actualización:** 2026-10-18 (versión 1.4.0)
+**Última actualización:** 2026-11-10 (versión 1.13.0, escritorio 0.2.0)
 
 Este archivo sirve para entender Ideary sin haber leído las charlas en las que se construyó. Ideary es una app independiente: no comparte datos con las otras apps del autor (Receater, el inventario de casa). Solo va a aparecer como una entrada más en el futuro hub común.
 
@@ -385,6 +385,8 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 - **Groq de respaldo con chats largos:** el plan gratis de Groq acepta pocos tokens por pedido (ej. 8000). `groqFit` achica el pedido (reglas recortadas, mensajes recientes completos, contexto del proyecto hasta donde entre); si igual es muy grande reintenta más chico. Se prefiere `llama-3.3-70b` (más tokens por minuto gratis). Si fallan Gemini y Groq, el mensaje es corto y en criollo; el detalle técnico va a la consola.
 
 ## App de escritorio (Windows, Tauri)
+- **Sin marco de Windows (desde 0.2.0):** la ventana principal va con `decorations: false`; el header de Ideary hace de barra de título. Botones propios − □ × (`.win-ctrls`, `winCmd()` en la web, solo en escritorio y no en pop-outs). Arrastrar el header mueve la ventana y doble clic maximiza/restaura (botones, inputs, logo y cierre de la cartuchera no arrastran). Permisos `core:window:allow-minimize/toggle-maximize/close/start-dragging` en `capabilities/default.json`.
+- **Ícono:** `desktop/icon.png` (solo el logo, fondo transparente, sin renglones); el CI genera los íconos desde ahí. El de la web/PWA sigue siendo `icon-512.png`.
 - Código en `desktop/` (Tauri 2). Es una cáscara que abre https://ideary-app.github.io/?desktop=1, así que **casi todos los cambios de la web le llegan solos** sin actualizar. Solo hace falta sacar versión nueva si cambia algo de `desktop/`.
 - Comandos Rust (`desktop/src-tauri/src/lib.rs`): `popout` (ventana nueva siempre adelante con `?popout=chat|img|notes|steps&id=…`), `set_on_top`, `close_window`, `app_version`, `install_update` (baja el `.exe` del último release de GitHub y lo corre con `/P /R`: se cierra y vuelve a abrir actualizada). Solo acepta URLs de releases de este repo.
 - Permiso para que el sitio remoto use esos comandos: `desktop/src-tauri/capabilities/default.json` (`remote.urls`).
@@ -397,3 +399,8 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 - `HONEST_RULES` se suma a las reglas del mentor, del tutor de cada paso, de DIRECTOR y del chat de crear idea: si la persona quiere hacer algo en un orden o de una forma que un profesional no haría (ej. esculpir el personaje antes de tener guion y diseño), se lo dice claro, explica por qué y qué conviene primero; si igual quiere, lo respeta pero aclara que no es lo habitual y qué riesgo tiene. No cambia de opinión solo porque la persona insiste.
 - **Memoria entre chats:** cada chat (mentor del proyecto, de cada capítulo, tutor de cada paso) recibe `otherChatsDigest`: lo que la persona dijo en los OTROS chats del mismo proyecto (los más nuevos primero, ~3200 caracteres). Si algo importa y no está en el proyecto, o lo contradice, la IA lo menciona ("en el chat de X dijiste Y, ¿lo dejamos?") y ofrece agregarlo.
 - **Tutor del paso:** los botones salen solo cuando corresponden y separados. El tutor termina con marcas ocultas `[WORK: …]` (hay algo para guardar en My work → "📝 Add to my work" con qué es) y `[PLAN: …]` (cambia el plan → tarjeta "🛠 This changes your plan" con el cambio y "Update the plan →"). Abajo queda un link chico por si querés actualizar el plan igual.
+
+## Primera pantalla y la IA (1.13.0)
+- La bienvenida (sin ideas) arranca un tour corto (`TOURS.welcome`) la primera vez; "? Show me how it works" y el "?" del header lo repiten.
+- Sin key de Gemini: el botón principal es "Write down your idea" (formulario) y debajo "turn on AI" abre Settings → AI. "Tell me your idea" solo aparece con key. En el modal New idea se oculta "Just tell the AI about it" sin key, y `openNewChat()` sin key ofrece "Turn on AI" o "Write it myself".
+- El micrófono sin key usa el reconocimiento de voz del navegador/WebView (gratis, no usa ninguna cuenta ni key del usuario).

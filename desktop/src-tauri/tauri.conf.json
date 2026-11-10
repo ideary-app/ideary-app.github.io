@@ -1,20 +1,44 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Ideary",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "app.ideary.desktop",
-  "build": { "frontendDist": "../dist" },
+  "build": {
+    "frontendDist": "../dist"
+  },
   "app": {
     "withGlobalTauri": true,
     "windows": [
-      { "label": "main", "title": "Ideary", "width": 1280, "height": 820, "minWidth": 380, "minHeight": 500, "url": "https://ideary-app.github.io/?desktop=1" }
+      {
+        "label": "main",
+        "title": "Ideary",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 380,
+        "minHeight": 500,
+        "url": "https://ideary-app.github.io/?desktop=1",
+        "decorations": false
+      }
     ],
-    "security": { "csp": null }
+    "security": {
+      "csp": null
+    }
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"],
-    "windows": { "nsis": { "installMode": "currentUser" } }
+    "targets": [
+      "nsis"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
   }
 }

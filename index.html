@@ -4236,6 +4236,8 @@ SHIPPING CHANGES
   .welcome-go { display: inline-flex; align-items: center; gap: 10px; background: var(--pen); color: #fff; border: none; border-radius: 999px; padding: 14px 28px; font-family: var(--hand); font-size: 1.35rem; cursor: pointer; box-shadow: 0 4px 0 rgba(0,0,0,.22); }
   [data-theme="dark"] .welcome-go { color: #10131c; }
   .welcome-go:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,.22); }
+  .welcome-ai-off { margin: 12px auto 0; font-size: .9rem; color: var(--slate); }
+  .welcome-ai-off button { background: none; border: none; padding: 0; color: var(--pen); text-decoration: underline; font: inherit; cursor: pointer; }
   .welcome-alt { display: block; margin: 12px auto 0; background: none; border: none; color: var(--slate); text-decoration: underline; font-size: .9rem; cursor: pointer; }
   .welcome-examples { background: var(--panel); border: 1.5px solid var(--line-strong); border-radius: 6px; padding: 14px 16px; }
   .welcome-ex-title { font-family: var(--hand); font-size: 1.2rem; color: var(--ink); margin-bottom: 10px; }
@@ -4301,6 +4303,13 @@ SHIPPING CHANGES
   @keyframes searchFlash { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,.9); } 100% { box-shadow: 0 0 0 10px rgba(255,255,255,0); } }
   .mobile-search-wrap.flash { animation: searchFlash .6s ease-out; border-radius: 999px; }
 
+  /* desktop app: own title bar buttons in the header (window has no system frame) */
+  html.is-desktop:not(.popout-mode) .mobile-header { user-select: none; -webkit-user-select: none; }
+  .win-ctrls { align-items: center; gap: 4px; margin-left: 10px; }
+  html.popout-mode .win-ctrls { display: none !important; }
+  .win-btn { width: 34px; height: 30px; border: none; background: transparent; color: inherit; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; opacity: .85; }
+  .win-btn:hover { background: rgba(0,0,0,.14); opacity: 1; }
+  .win-btn.win-close:hover { background: #d9433a; color: #fff; }
   /* desktop app */
   .desk-only { display: none !important; }
   html.is-desktop .desk-only { display: inline-flex !important; }
@@ -4368,6 +4377,10 @@ SHIPPING CHANGES
       <button type="button" class="hdr-tool" onclick="replayTour()" title="Show me around" aria-label="Help">?</button>
       <button type="button" class="hdr-tool" onclick="openSettings()" title="Settings" aria-label="Settings"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     </div>
+    <div class="win-ctrls desk-only">
+      <button type="button" class="win-btn" onclick="winCmd('minimize')" title="Minimize" aria-label="Minimize"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6.5h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+      <button type="button" class="win-btn" id="win-max" onclick="winCmd('toggleMaximize')" title="Maximize" aria-label="Maximize"><svg width="12" height="12" viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>
+      <button type="button" class="win-btn win-close" onclick="winCmd('close')" title="Close" aria-label="Close"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button></div>
   </div>
 </header>
 
@@ -4421,7 +4434,7 @@ SHIPPING CHANGES
       <div id="nav-categorias"></div>
     </div>
 
-    <div class="version-link" onclick="openChangelog()">v1.12.0 · What's new</div>
+    <div class="version-link" onclick="openChangelog()">v1.13.0 · What's new</div>
     <div style="text-align:center;font-family:var(--hand);font-size:.9rem;margin-top:6px"><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--slate)">Privacy</a> · <a href="terms.html" target="_blank" rel="noopener" style="color:var(--slate)">Terms</a></div>
   </div>
   </aside>
@@ -4458,12 +4471,12 @@ SHIPPING CHANGES
       <button class="modal-close" onclick="closeNewIdeaForm()">&times;</button>
     </div>
 
-    <button type="button" class="nc-start" onclick="closeNewIdeaForm();openNewChat()">
+    <button type="button" class="nc-start" id="nc-start-btn" onclick="closeNewIdeaForm();openNewChat()">
       <span class="nc-start-ico">💬</span>
       <span><strong>Just tell the AI about it</strong><small>Describe it in your own words — it asks what it needs and sets everything up for you.</small></span>
       <b>→</b>
     </button>
-    <div class="nc-or">or fill it in yourself</div>
+    <div class="nc-or" id="nc-or">or fill it in yourself</div>
     <div class="new-idea-tabs">
       <button class="new-idea-tab active" id="tab-manual" onclick="switchNewIdeaMode('manual')">Write it myself</button>
       <button class="new-idea-tab" id="tab-import" onclick="switchNewIdeaMode('import')">Import from AI</button>
@@ -6092,6 +6105,7 @@ async function saveAiKeyFromUI() {
     try { if (driveReady) { await driveSaveSettings(); drive = true; } } catch (e) {}
     st.textContent = "✓ Key is valid and saved" + (drive ? " (also in your Drive)" : " in this browser") + ". Using " + geminiModel + ".";
     st.style.color = "var(--accent)";
+    try { if (view === "home") render(); } catch (e) {}
   } catch (e) {
     const bad = e.status === 400 || e.status === 403 || /api key/i.test(e.message);
     st.textContent = bad ? "✗ That key isn't valid. Check you copied all of it." : "✗ Couldn't check the key: " + e.message;
@@ -6107,6 +6121,7 @@ async function removeAiKey() {
   document.getElementById("ai-key-input").value = "";
   const st = document.getElementById("ai-key-status");
   st.textContent = "Key removed."; st.style.color = "var(--slate)";
+  try { if (view === "home") render(); } catch (e) {}
 }
 
 const AI_USAGE_KEY = "ideary_ai_usage_v1";
@@ -8315,6 +8330,13 @@ function toursSeen() { try { return JSON.parse(localStorage.getItem(TOUR_KEY) ||
 function markTour(name) { const t = toursSeen(); t[name] = 1; try { localStorage.setItem(TOUR_KEY, JSON.stringify(t)); } catch (e) {} if (driveReady) driveSaveSettings().catch(() => {}); }
 const isPhone = () => window.innerWidth < 1000;
 const TOURS = {
+  welcome: [
+    { sel: ".welcome-card", t: "Welcome to Ideary", b: "A notebook for your creative ideas: write them down, turn them into a step-by-step plan and follow it until it's done." },
+    { sel: ".welcome-go", t: "Start your first idea", b: "Write down what you want to make. With AI on, a mentor helps you shape it into a plan." },
+    { sel: ".welcome-examples", t: "Not sure yet?", b: "Open an example to see what a finished plan looks like. You can delete it later." },
+    { sel: () => isPhone() ? ".bottom-nav [data-nav=menu]" : ".settings-btn, .hdr-tools", t: "Settings", b: "Turn on the AI with a free Gemini key, and connect Google Drive so your ideas are safe on every device." },
+    { sel: ".hdr-tool[aria-label=Help]", t: "Need help later?", b: "Tap <strong>?</strong> any time to see this tour again." }
+  ],
   home: [
     { sel: () => isPhone() ? ".bottom-nav .bn-new" : ".sidebar .sidebar-action-btn.primary", t: "New idea", b: "Every idea starts here. Tell the AI about it or just write a title — you can fill in the rest later." },
     { sel: ".today-card, .status-grid", t: "What's next", b: "<strong>Today</strong> shows the next step of what you're working on, so you always know what to do." },
@@ -9710,6 +9732,14 @@ const DEPLOY_TIMESTAMP = "2026-11-10 21:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
+    version: "1.13.0",
+    public: true,
+    items: [
+      "First screen shows a quick tour, and a \"Show me how it works\" button",
+      "Without AI turned on, the first screen lets you write your idea yourself and shows how to turn AI on, instead of a chat that can't answer",
+    ],
+  },
+  {
     version: "1.12.0",
     public: true,
     items: [
@@ -10158,7 +10188,7 @@ function maybeShowHowto() {
       (document.getElementById("reconnect-banner") && document.getElementById("reconnect-banner").style.display !== "none") ||
       (getDriveSession() && !driveReady && !driveSettingsLoaded && tries < 40);
     if (busy) return setTimeout(attempt, 500);
-    if (view === "home" && hasRealIdeas()) startTour("home");
+    if (view === "home") startTour(hasRealIdeas() ? "home" : "welcome");
   };
   setTimeout(attempt, 1200);
 }
@@ -10167,7 +10197,7 @@ function replayTour() {
   const idea = view === "detalle" && IDEAS.find(i => i.id === viewParam);
   if (idea) return startTour(isProject(idea) ? "project" : "idea", true);
   if (view !== "home") goHome();
-  setTimeout(() => startTour("home", true), 250);
+  setTimeout(() => startTour(hasRealIdeas() ? "home" : "welcome", true), 250);
 }
 
 function openChangelog() {
@@ -10240,7 +10270,7 @@ function saveViewState() {
 }
 
 function goHome() {
-  setTimeout(() => { if (view === "home" && hasRealIdeas() && !document.querySelector(".modal-overlay.open")) startTour("home"); }, 700);
+  setTimeout(() => { if (view === "home" && !document.querySelector(".modal-overlay.open")) startTour(hasRealIdeas() ? "home" : "welcome"); }, 700);
   editingIdeaId = null;
   view = "home";
   viewParam = null;
@@ -10581,6 +10611,7 @@ function handleDropdownKey(event, inputId) {
 function updateCategoriaSuggestions() {} // kept for compatibility, no longer needed
 
 function openNewIdeaForm(presetCategoria) {
+  { const b = document.getElementById("nc-start-btn"), o = document.getElementById("nc-or"); if (b) b.style.display = geminiKey ? "" : "none"; if (o) o.style.display = geminiKey ? "" : "none"; }
   updateCategoriaSuggestions();
   switchNewIdeaMode("manual");
   document.getElementById("new-idea-overlay").classList.add("open");
@@ -10672,7 +10703,12 @@ function renderNewChat() {
   lockComposer("nc-input", !!ncBusy);
   if (stick) log.scrollTop = log.scrollHeight;
 }
-function openNewChat() {
+async function openNewChat() {
+  if (!geminiKey) {
+    const on = await showConfirm("The AI mentor needs a free Gemini key (it takes about 2 minutes and costs nothing). Until then you can write the idea down yourself.", { title: "AI is off", confirmLabel: "Turn on AI", cancelLabel: "Write it myself" });
+    if (on) openAiSettings(); else openNewIdeaForm();
+    return;
+  }
   document.getElementById("nc-overlay").classList.add("open");
   renderNewChat(); watchJump("nc-log");
   requestAnimationFrame(() => jumpBottom("nc-log", false));
@@ -11904,8 +11940,11 @@ function renderWelcome() {
       </svg>
         <h1 class="welcome-title">Got an idea? Let's make it real.</h1>
         <p class="welcome-sub">Tell me what you want to make — a short film, a chair, a recipe, a game. I'll turn it into a step-by-step plan and walk you through it like a mentor.</p>
-        <button type="button" class="welcome-go" onclick="openNewChat()"><span>💬</span> Tell me your idea</button>
-        <button type="button" class="welcome-alt" onclick="openNewIdeaForm()">or write it down yourself</button>
+        ${geminiKey ? `<button type="button" class="welcome-go" onclick="openNewChat()"><span>💬</span> Tell me your idea</button>
+        <button type="button" class="welcome-alt" onclick="openNewIdeaForm()">or write it down yourself</button>`
+        : `<button type="button" class="welcome-go" onclick="openNewIdeaForm()"><span>✏️</span> Write down your idea</button>
+        <div class="welcome-ai-off">✨ Want an AI mentor to help you shape it? It's free — <button type="button" onclick="openAiSettings()">turn on AI</button></div>`}
+        <button type="button" class="welcome-alt" onclick="replayTour()">? Show me how it works</button>
       </div>
       <div class="welcome-examples">
         <div class="welcome-ex-title">Or open an example to see how it works</div>
@@ -12970,6 +13009,18 @@ function tauri(cmd, args) { return window.__TAURI__.core.invoke(cmd, args || {})
 if (IS_DESKTOP) document.documentElement.classList.add("is-desktop");
 if (POPOUT) document.documentElement.classList.add("popout-mode");
 
+function winCmd(kind) {
+  try { const w = window.__TAURI__.window.getCurrentWindow(); w[kind]().catch(e => console.warn(e)); } catch (e) { console.warn(e); }
+}
+if (IS_DESKTOP && !POPOUT) {
+  // double-click the header to maximize/restore, like a normal title bar
+  document.addEventListener("dblclick", ev => { const t = ev.target; if (t.closest && t.closest(".mobile-header") && !t.closest("button,input,a,select,textarea,#zip-pull,.mobile-brand,.win-ctrls")) winCmd("toggleMaximize"); });
+  document.addEventListener("mousedown", ev => {
+    if (ev.button !== 0 || ev.detail > 1) return;
+    const t = ev.target; if (!t.closest || !t.closest(".mobile-header") || t.closest("button,input,a,select,textarea,#zip-pull,.mobile-brand,.win-ctrls")) return;
+    try { window.__TAURI__.window.getCurrentWindow().startDragging(); } catch (e) {}
+  });
+}
 // ---- pop-outs ----
 function popOut(kind, id, extra) {
   if (!IS_DESKTOP) return;
