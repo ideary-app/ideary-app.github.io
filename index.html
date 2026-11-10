@@ -4305,6 +4305,9 @@ SHIPPING CHANGES
 
   /* desktop app: own title bar buttons in the header (window has no system frame) */
   html.is-desktop:not(.popout-mode) .mobile-header { user-select: none; -webkit-user-select: none; }
+  html.is-desktop .hdr-update[style*="none"] { display: none !important; }
+  .hdr-update { margin-left: 8px; background: var(--postit); color: var(--postit-ink, #1f2430); border: none; border-radius: 999px; padding: 6px 12px; font-family: var(--hand); font-size: 1rem; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,.2); }
+  html.popout-mode .hdr-update { display: none !important; }
   .win-ctrls { align-items: center; gap: 4px; margin-left: 10px; }
   html.popout-mode .win-ctrls { display: none !important; }
   .win-btn { width: 34px; height: 30px; border: none; background: transparent; color: inherit; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; opacity: .85; }
@@ -4377,6 +4380,7 @@ SHIPPING CHANGES
       <button type="button" class="hdr-tool" onclick="replayTour()" title="Show me around" aria-label="Help">?</button>
       <button type="button" class="hdr-tool" onclick="openSettings()" title="Settings" aria-label="Settings"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     </div>
+    <button type="button" class="hdr-update desk-only" id="hdr-update" style="display:none" onclick="deskInstallUpdate()">⬆ Update</button>
     <div class="win-ctrls desk-only">
       <button type="button" class="win-btn" onclick="winCmd('minimize')" title="Minimize" aria-label="Minimize"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6.5h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
       <button type="button" class="win-btn" id="win-max" onclick="winCmd('toggleMaximize')" title="Maximize" aria-label="Maximize"><svg width="12" height="12" viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>
@@ -4434,7 +4438,7 @@ SHIPPING CHANGES
       <div id="nav-categorias"></div>
     </div>
 
-    <div class="version-link" onclick="openChangelog()">v1.13.0 · What's new</div>
+    <div class="version-link" onclick="openChangelog()">v1.13.1 · What's new</div>
     <div style="text-align:center;font-family:var(--hand);font-size:.9rem;margin-top:6px"><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--slate)">Privacy</a> · <a href="terms.html" target="_blank" rel="noopener" style="color:var(--slate)">Terms</a></div>
   </div>
   </aside>
@@ -9732,6 +9736,11 @@ const DEPLOY_TIMESTAMP = "2026-11-10 21:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
+    version: "1.13.1",
+    public: false,
+    items: ["Desktop app: an \"⬆ Update\" button appears in the header when a new version is ready"],
+  },
+  {
     version: "1.13.0",
     public: true,
     items: [
@@ -13119,6 +13128,7 @@ async function deskCheckUpdate(manual) {
     const st = document.getElementById("desk-status");
     if (st) st.textContent = newer ? `Version ${latest} is available (you have ${cur}).` : `You have the latest version (${cur}).`;
     const b = document.getElementById("desk-update-btn"); if (b) b.style.display = newer ? "" : "none";
+    const hb = document.getElementById("hdr-update"); if (hb) { hb.style.display = newer ? "" : "none"; hb.title = newer ? `Update to ${latest}` : ""; }
     if (newer && !manual) { const ub = document.getElementById("desk-update-banner"); if (ub) { ub.querySelector("span").textContent = `Ideary desktop ${latest} is ready.`; ub.style.display = "flex"; } }
     return newer;
   } catch (e) { const st = document.getElementById("desk-status"); if (st) st.textContent = "Couldn't check right now."; return false; }
@@ -13133,7 +13143,7 @@ async function deskInstallUpdate() {
 async function deskRenderSettings() {
   const box = document.getElementById("desk-settings"); if (!box) return;
   await checkOwner();
-  if (!isOwner) { box.style.display = "none"; return; }
+  if (!isOwner && !IS_DESKTOP) { box.style.display = "none"; return; }
   box.style.display = "";
   if (IS_DESKTOP) {
     box.querySelector(".desk-body").innerHTML = `<div class="form-hint" id="desk-status" style="margin:4px 0 8px">Checking for updates…</div>
@@ -13148,7 +13158,7 @@ async function deskRenderSettings() {
     }).catch(() => {});
   }
 }
-if (IS_DESKTOP && !POPOUT) setTimeout(() => deskCheckUpdate(false), 8000);
+if (IS_DESKTOP && !POPOUT) { setTimeout(() => deskCheckUpdate(false), 4000); setInterval(() => deskCheckUpdate(false), 30 * 60 * 1000); }
 
 
 try {
