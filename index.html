@@ -5143,7 +5143,14 @@ async function deskGoogleToken(interactive) {
     const sess = getDriveSession() || {};
     const t = await inv("google_login", { loginHint: sess.email || null });
     saveToken(t.access_token, t.expires_in); return true;
-  } catch (e) { console.error("Desktop Google sign-in:", e); return false; }
+  } catch (e) {
+    console.error("Desktop Google sign-in:", e);
+    const msg = String(e && e.message || e);
+    const old = /not found|unknown command|not allowed/i.test(msg);
+    showConfirm(old ? "This version of the desktop app can't sign in to Google yet. Tap \"⬆ Update\" at the top to get the new version, then try again." : `Google sign-in didn't finish: ${msg}`, { title: "Couldn't connect Google Drive", confirmLabel: "OK", danger: false });
+    setSyncStatus("Couldn't connect Google Drive.", true);
+    return false;
+  }
 }
 async function ensureGoogleAuth() {
   if (IS_DESKTOP) { const s0 = getSavedToken(); if (s0) { accessToken = s0; return true; } return deskGoogleToken(true); }
