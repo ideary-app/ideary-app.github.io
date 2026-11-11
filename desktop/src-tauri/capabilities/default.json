@@ -16,6 +16,14 @@
     "core:window:allow-minimize",
     "core:window:allow-toggle-maximize",
     "core:window:allow-close",
-    "core:window:allow-start-dragging"
+    "core:window:allow-start-dragging",
+    "allow-app-version",
+    "allow-popout",
+    "allow-set-on-top",
+    "allow-close-window",
+    "allow-install-update",
+    "allow-google-token",
+    "allow-google-login",
+    "allow-google-logout"
   ]
 }
