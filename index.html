@@ -4461,7 +4461,7 @@ SHIPPING CHANGES
       <div id="nav-categorias"></div>
     </div>
 
-    <div class="version-link" onclick="openChangelog()">v1.15.0 · What's new</div>
+    <div class="version-link" onclick="openChangelog()">v1.16.0 · What's new</div>
     <div style="text-align:center;font-family:var(--hand);font-size:.9rem;margin-top:6px"><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--slate)">Privacy</a> · <a href="terms.html" target="_blank" rel="noopener" style="color:var(--slate)">Terms</a></div>
   </div>
   </aside>
@@ -4638,6 +4638,19 @@ SHIPPING CHANGES
         <div id="groq-key-status" style="min-height:1.4em;font-size:0.82rem;margin-top:6px;font-weight:600"></div>
         <button class="form-submit" style="margin-top:4px" onclick="saveGroqKey()">Save backup key</button>
         <div style="text-align:center;margin-top:8px"><button onclick="saveGroqKey(true)" style="background:none;border:none;font-size:0.8rem;color:var(--slate);cursor:pointer;text-decoration:underline">Remove backup key</button></div>
+        <div class="form-hint" style="margin:14px 0 8px;border-top:1px dashed var(--line-strong);padding-top:10px">A second backup: <strong>OpenRouter</strong> (free models). Sign in at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a> with Google → <strong>Create Key</strong>, paste it here. No card needed.</div>
+        <input class="form-input" id="xk-openrouter" type="password" autocomplete="off" placeholder="OpenRouter key (starts with sk-or-)" style="font-size:16px">
+        <div id="xk-openrouter-st" style="min-height:1.4em;font-size:0.82rem;margin-top:6px;font-weight:600"></div>
+        <button class="form-submit" style="margin-top:4px" onclick="saveExtraKey('openrouter')">Save</button>
+        <div style="text-align:center;margin-top:8px"><button onclick="saveExtraKey('openrouter',true)" style="background:none;border:none;font-size:0.8rem;color:var(--slate);cursor:pointer;text-decoration:underline">Remove</button></div>
+      </details>
+      <details class="backup-ai" style="margin-top:10px">
+        <summary style="cursor:pointer;font-family:var(--hand);font-size:1.1rem">YouTube search (optional)</summary>
+        <div class="form-hint" style="margin:8px 0">"Find links for me" already searches YouTube and free sites by itself. If YouTube results stop showing up, a free YouTube key makes them reliable (about 100 searches a day):<br>1. Open <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noopener">YouTube Data API</a> and tap <strong>Enable</strong>.<br>2. Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Credentials</a> → <strong>Create credentials → API key</strong>.<br>3. Paste it here.</div>
+        <input class="form-input" id="xk-youtube" type="password" autocomplete="off" placeholder="YouTube API key (starts with AIza)" style="font-size:16px">
+        <div id="xk-youtube-st" style="min-height:1.4em;font-size:0.82rem;margin-top:6px;font-weight:600"></div>
+        <button class="form-submit" style="margin-top:4px" onclick="saveExtraKey('youtube')">Save</button>
+        <div style="text-align:center;margin-top:8px"><button onclick="saveExtraKey('youtube',true)" style="background:none;border:none;font-size:0.8rem;color:var(--slate);cursor:pointer;text-decoration:underline">Remove</button></div>
       </details>
     </div>
     <div class="settings-section">
@@ -5963,6 +5976,7 @@ async function driveLoadSettings() {
         if (s && s.caseStyle) applyCase(s.caseStyle);
         if (s && s.tours) { try { localStorage.setItem(TOUR_KEY, JSON.stringify(Object.assign(toursSeen(), s.tours))); } catch (e) {} }
         if (s && typeof s.bgIntensity === "number") setBgIntensity(s.bgIntensity, true);
+        if (s && s.xKeys && typeof s.xKeys === "object") { xKeys = Object.assign({}, s.xKeys); try { localStorage.setItem(XKEYS_STORAGE, JSON.stringify(xKeys)); } catch (e) {} }
         if (s && typeof s.groqKey === "string" && s.groqKey !== groqKey) { groqKey = s.groqKey; groqModels = null; try { groqKey ? localStorage.setItem(GROQ_KEY_STORAGE, groqKey) : localStorage.removeItem(GROQ_KEY_STORAGE); } catch (e) {} }
         if (s && s.geminiKey) {
           if (geminiKey !== s.geminiKey) geminiModel = "";
@@ -5980,7 +5994,7 @@ async function driveLoadSettings() {
 
 async function driveSaveSettings() {
   if (!driveReady && !accessToken) return;
-  const payload = JSON.stringify({ geminiKey, groqKey, coverColor, caseStyle, caseColor, tours: toursSeen(), bgIntensity });
+  const payload = JSON.stringify({ geminiKey, groqKey, xKeys, coverColor, caseStyle, caseColor, tours: toursSeen(), bgIntensity });
   if (driveSettingsFileId) {
     await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveSettingsFileId}?uploadType=media`, {
       method: "PATCH", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: payload });
@@ -6114,6 +6128,7 @@ function openSettings(section) {
   setTimeout(() => { const el = document.getElementById("ai-usage"); if (el) el.innerHTML = aiUsageHtml(); }, 0);
   document.getElementById("ai-key-input").value = geminiKey;
   try { deskRenderSettings(); } catch (e) {}
+  ["openrouter", "youtube"].forEach(n => { const i = document.getElementById("xk-" + n), st = document.getElementById("xk-" + n + "-st"); if (i) i.value = xKeys[n] || ""; if (st) st.textContent = xKeys[n] ? "✓ Ready" : ""; });
   { const g = document.getElementById("groq-key-input"); if (g) g.value = groqKey; const gs = document.getElementById("groq-key-status"); if (gs) gs.textContent = groqKey ? "✓ Backup AI ready" : ""; }
   document.getElementById("ai-key-status").textContent = "";
   renderCoverSwatches();
@@ -6470,19 +6485,69 @@ async function groqGenerate(history, system, onChunk) {
   finally { clearTimeout(t); }
 }
 let aiLastProvider = "";
+/* ---- Extra free keys: OpenRouter (2nd backup AI) and YouTube (real video search) ---- */
+const XKEYS_STORAGE = "ideary_xkeys_v1";
+let xKeys = {}; try { xKeys = JSON.parse(localStorage.getItem(XKEYS_STORAGE) || "{}") || {}; } catch (e) { xKeys = {}; }
+async function checkExtraKey(name, v) {
+  if (name === "openrouter") { const r = await fetch("https://openrouter.ai/api/v1/key", { headers: { Authorization: "Bearer " + v } }); if (!r.ok) throw new Error("That key didn't work (" + r.status + "). Copy it again from openrouter.ai/keys."); return; }
+  if (name === "youtube") { const r = await fetch("https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q=blender&key=" + encodeURIComponent(v)); if (!r.ok) { let m = ""; try { m = (await r.json()).error.message; } catch (e) {} throw new Error(/not been used|disabled/i.test(m) ? "Turn on \"YouTube Data API v3\" for that key first (step 1)." : "That key didn't work: " + (m || r.status)); } }
+}
+async function saveExtraKey(name, remove) {
+  const inp = document.getElementById("xk-" + name), st = document.getElementById("xk-" + name + "-st");
+  const v = remove ? "" : inp.value.trim();
+  if (!remove && !v) { st.textContent = "Paste your key first."; st.style.color = "var(--rust)"; return; }
+  if (v) { st.textContent = "Checking key…"; st.style.color = "var(--slate)"; try { await checkExtraKey(name, v); } catch (e) { st.textContent = e.message; st.style.color = "var(--rust)"; return; } }
+  if (v) xKeys[name] = v; else delete xKeys[name];
+  if (name === "youtube") ytKeyBad = 0;
+  try { localStorage.setItem(XKEYS_STORAGE, JSON.stringify(xKeys)); } catch (e) {}
+  inp.value = v; st.textContent = v ? "✓ Ready" : "Removed."; st.style.color = v ? "var(--sage, #4a7a4a)" : "var(--slate)";
+  try { await driveSaveSettings(); } catch (e) {}
+}
+let orModels = null;
+async function openrouterGenerate(history, system, onChunk) {
+  if (!orModels) {
+    const r = await fetch("https://openrouter.ai/api/v1/models");
+    const ids = r.ok ? ((await r.json()).data || []).map(m => m.id).filter(id => /:free$/.test(id)) : [];
+    const pref = [/llama-3\.3-70b/, /deepseek-(chat|v3)/, /qwen.*(72b|235b|max)/, /gemma-3-27b/, /mistral-(small|nemo)/, /llama/];
+    orModels = pref.map(re => ids.find(id => re.test(id))).filter(Boolean).filter((x, i, a) => a.indexOf(x) === i);
+    if (!orModels.length) orModels = ids.length ? ids.slice(0, 3) : ["openrouter/free"];
+  }
+  const messages = groqFit(system || DIRECTOR_RULES, history.map(m => ({ role: m.role === "model" ? "assistant" : "user", content: m.text })), 12000);
+  let lastErr = "";
+  for (const model of orModels.slice(0, 3)) {
+    const ctrl = new AbortController(); aiCtrlUser = ctrl; const t = setTimeout(() => ctrl.abort("timeout"), 60000);
+    try {
+      const r = await fetch("https://openrouter.ai/api/v1/chat/completions", { method: "POST", signal: ctrl.signal, headers: { Authorization: "Bearer " + xKeys.openrouter, "Content-Type": "application/json", "HTTP-Referer": "https://ideary-app.github.io", "X-Title": "Ideary" }, body: JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 2000 }) });
+      if (!r.ok) { lastErr = "error " + r.status; continue; }
+      const j = await r.json(); const out = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || "";
+      if (!out) { lastErr = "empty reply"; continue; }
+      aiLastProvider = "OpenRouter · " + model; if (onChunk) onChunk(out); return out;
+    } catch (e) { if (ctrl.signal.reason === "user") throw new Error("Cancelled. You can send it again."); lastErr = e.message; }
+    finally { clearTimeout(t); }
+  }
+  throw new Error("the second backup (OpenRouter) is busy too (" + lastErr + ")");
+}
 let geminiSearchOffUntil = 0; // web search quota used up: skip search until then
 let geminiLastGrounding = null; // web sources Google used for the last answer (when search was on)
 async function geminiGenerate(history, system, retried, modelOverride, think, onChunk) {
+  const hasAudio = history.some(m => (m.images || []).some(im => !/^image\//.test(im.mime)));
+  const backups = [];
+  if (groqKey) backups.push(["Groq", () => groqGenerate(history, system, onChunk)]);
+  if (xKeys.openrouter && !hasAudio) backups.push(["OpenRouter", () => openrouterGenerate(history, system, onChunk)]);
+  const tryBackups = async firstErr => {
+    const errs = [];
+    for (const [n, f] of backups) { try { return await f(); } catch (e) { if (/Cancelled/.test(e.message)) throw e; console.warn(n + ":", e.message); errs.push(e.message); } }
+    if (!firstErr) return null;
+    if (!backups.length) throw firstErr;
+    throw new Error(/busy|demand|quota|took too long/i.test(firstErr.message) ? `Gemini is out of free quota or overloaded right now (Google's side, not your key), and the backup AI couldn't help either — ${errs.join("; ")}. Try again in a while.` : firstErr.message + ` The backup AI couldn't help either — ${errs.join("; ")}.`);
+  };
   // Every Gemini model already marked busy/broken and a backup is set: go straight to it.
-  if (groqKey && !modelOverride && geminiAvailable && geminiAltModel() === null) {
-    try { return await groqGenerate(history, system, onChunk); } catch (e) { if (/Cancelled/.test(e.message)) throw e; }
-  }
+  if (backups.length && !modelOverride && geminiAvailable && geminiAltModel() === null) { const out = await tryBackups(null); if (out != null) return out; }
   try { const out = await geminiCore(history, system, retried, modelOverride, think, onChunk); aiLastProvider = "Gemini"; return out; }
   catch (e) {
-    if (!groqKey || /Cancelled|API key isn't valid/.test(e.message)) throw e;
-    console.warn("Gemini failed, using Groq backup:", e.message);
-    try { return await groqGenerate(history, system, onChunk); }
-    catch (e2) { if (/Cancelled/.test(e2.message)) throw e2; console.warn("Gemini:", e.message, "Groq:", e2.message); throw new Error(/busy|demand|quota|took too long/i.test(e.message) ? `Gemini is overloaded right now (that's on Google's side, not your key), and the backup AI couldn't help either — ${e2.message}. Try again in a minute.` : e.message + ` The backup AI couldn't help either — ${e2.message}.`); }
+    if (!backups.length || /Cancelled|API key isn't valid/.test(e.message)) throw e;
+    console.warn("Gemini failed, using backup:", e.message);
+    return await tryBackups(e);
   }
 }
 
@@ -6917,6 +6982,8 @@ async function suggestSearches(ideaId) {
     idea.busquedas = data.busquedas.filter(b => b && b.q).slice(0, 8); delete idea._busquedas;
     saveIdeas(); render();
   } catch (e) {
+    // AI down: still give useful searches, built from the steps themselves
+    if (now.length) { idea.busquedas = now.flatMap(t => [{ q: t + " free tutorial", donde: "youtube" }, { q: t + " reference", donde: "images" }]).slice(0, 6); saveIdeas(); render(); return showAlert("The AI is out of quota right now, so these searches come straight from your current steps.", { title: "Search ideas" }); }
     await showAlert(e.message, { title: "Couldn't get ideas" });
     if (btn) { btn.disabled = false; btn.textContent = "💡 What should I research?"; }
   }
@@ -9561,10 +9628,59 @@ function renderResourcesBlock(item) {
 function removeResource(id, k) { const it = IDEAS.find(i => i.id === id); if (!it || !it.recursos) return; it.recursos.splice(k, 1); if (!it.recursos.length) delete it.recursos; saveIdeas(); render(); }
 // Free first, always: these sell courses/subscriptions. A paid course only if the person asks the mentor for one.
 const PAID_SITES = /domestika|udemy|skillshare|coursera|masterclass|cgma|schoolofmotion|school of motion|gumroad|patreon|linkedin\.com\/learning|pluralsight|cgcookie|cgcircuit|cubebrush|wingfox|thegnomonworkshop|gnomon|cgspectrum|animationmentor|ianimate|domestica/i;
+/* ---- Real web search, free, from the browser (no AI web search needed) ----
+   YouTube: YouTube Data API (optional free key, or the Gemini key if it allows it) → else public Piped/Invidious mirrors.
+   Plus Wikipedia and Reddit, which need no key. Every source fails silently; we use whatever answers. */
+let ytKeyBad = 0; // the key didn't work for YouTube: don't retry it for a while
+const PIPED = ["https://pipedapi.kavin.rocks", "https://pipedapi.adminforge.de", "https://api.piped.private.coffee"];
+const INVID = ["https://inv.nadeko.net", "https://invidious.nerdvpn.de", "https://yewtu.be"];
+async function jfetch(url, ms) {
+  const c = new AbortController(); const t = setTimeout(() => c.abort(), ms || 8000);
+  try { const r = await fetch(url, { signal: c.signal }); if (!r.ok) throw new Error("HTTP " + r.status); return await r.json(); }
+  finally { clearTimeout(t); }
+}
+async function ytSearch(q, n) {
+  const key = xKeys.youtube || (ytKeyBad > Date.now() ? "" : geminiKey);
+  if (key) {
+    try {
+      const j = await jfetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=${n}&relevanceLanguage=en&safeSearch=moderate&q=${encodeURIComponent(q)}&key=${encodeURIComponent(key)}`);
+      return (j.items || []).filter(x => x.id && x.id.videoId).map(x => ({ titulo: decodeHtml(x.snippet.title), url: "https://www.youtube.com/watch?v=" + x.id.videoId, tipo: "video", fuente: decodeHtml(x.snippet.channelTitle) + " · YouTube", desc: x.snippet.description }));
+    } catch (e) { if (!xKeys.youtube) ytKeyBad = Date.now() + 6 * 3600000; }
+  }
+  for (const b of PIPED) {
+    try { const j = await jfetch(`${b}/search?q=${encodeURIComponent(q)}&filter=videos`, 7000); const it = (j.items || []).filter(x => x.url && /watch/.test(x.url)).slice(0, n); if (it.length) return it.map(x => ({ titulo: x.title, url: "https://www.youtube.com" + x.url, tipo: "video", fuente: (x.uploaderName || "") + " · YouTube", desc: x.shortDescription || "" })); } catch (e) {}
+  }
+  for (const b of INVID) {
+    try { const j = await jfetch(`${b}/api/v1/search?q=${encodeURIComponent(q)}&type=video`, 7000); const it = (Array.isArray(j) ? j : []).filter(x => x.videoId).slice(0, n); if (it.length) return it.map(x => ({ titulo: x.title, url: "https://www.youtube.com/watch?v=" + x.videoId, tipo: "video", fuente: (x.author || "") + " · YouTube", desc: x.description || "" })); } catch (e) {}
+  }
+  return [];
+}
+async function redditSearch(q, n) {
+  try { const j = await jfetch(`https://www.reddit.com/search.json?q=${encodeURIComponent(q)}&limit=${n}&sort=relevance&type=link`, 7000);
+    return ((j.data && j.data.children) || []).map(c => c.data).filter(d => d && !d.over_18).map(d => ({ titulo: d.title, url: "https://www.reddit.com" + d.permalink, tipo: "advice", fuente: "r/" + d.subreddit, desc: (d.selftext || "").slice(0, 200) }));
+  } catch (e) { return []; }
+}
+async function wikiSearch(q, n) {
+  try { const j = await jfetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&srlimit=${n}&format=json&origin=*`, 7000);
+    return ((j.query && j.query.search) || []).map(x => ({ titulo: x.title, url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(x.title.replace(/ /g, "_")), tipo: "article", fuente: "Wikipedia", desc: String(x.snippet || "").replace(/<[^>]+>/g, "") }));
+  } catch (e) { return []; }
+}
+function decodeHtml(t) { const d = document.createElement("textarea"); d.innerHTML = String(t || ""); return d.value; }
+async function realSearch(queries) {
+  const jobs = [];
+  queries.forEach(b => {
+    if (b.donde === "web") { jobs.push(redditSearch(b.q, 3)); jobs.push(wikiSearch(b.q, 1)); }
+    else jobs.push(ytSearch(b.q, 4));
+  });
+  const all = (await Promise.all(jobs)).flat();
+  const seen = new Set();
+  return all.filter(x => x && x.url && !seen.has(x.url) && seen.add(x.url) && !PAID_SITES.test(x.url + " " + x.titulo + " " + x.fuente));
+}
+
 async function findResources(id, btn) {
   const item = IDEAS.find(i => i.id === id); if (!item) return;
   if (!geminiKey) { await showAlert("Add a free Gemini key in Settings → AI to search for resources.", { title: "AI needs a key" }); return; }
-  if (btn) { btn.disabled = true; btn.textContent = "Searching the web…"; }
+  if (btn) { btn.disabled = true; btn.textContent = "Searching…"; }
   // FOCUS = where the person is right now: the current chapter and its next few steps (not later stages).
   const pool = isProject(item) ? projectChapters(item) : [item];
   const openSteps = c => { const out = []; (c.fases || []).forEach(f => (f.pasos || []).forEach(st => { const h = (typeof st === "object" && st.hecho) || 0; if (h !== 2) out.push({ t: stepText(st), h }); })); return out.sort((a, b) => b.h - a.h); };
@@ -9572,39 +9688,48 @@ async function findResources(id, btn) {
   const todo = cur ? openSteps(cur).slice(0, 3).map(x => (isProject(item) ? cur.titulo + " → " : "") + x.t + (x.h === 1 ? " (in progress)" : "")) : [];
   migrateResToRefs(item);
   const have = (item.referencias || []).map(r => r.url);
-  const hist = [{ role: "user", text: `${chatContextText(item)}
-
-FIND RESOURCES for what the person is doing RIGHT NOW${todo.length ? ":\n- " + todo.join("\n- ") : " in this " + (isProject(item) ? "project" : "idea")}
-STRICT FOCUS: every resource must help with exactly these current steps and this stage of the work. Nothing for later stages (e.g. if they're designing characters or writing the story, no texturing, rigging, rendering or compositing tutorials). If a step is about story/characters, think of craft resources for that (character design, story structure, worldbuilding), not software.
-RULE NUMBER ONE: ONLY FREE resources. Never paid courses, subscriptions, paywalled articles or paid marketplaces (no Domestika, Udemy, Skillshare, Coursera certificates, MasterClass, CGMA, School of Motion, Gumroad/ArtStation paid tutorials, Patreon-only, LinkedIn Learning, Pluralsight). Free YouTube videos, free official docs/manuals, free blogs and breakdowns, free forums (Blender Artists, Reddit, Polycount), free tools. If unsure it is free, leave it out.
-Then pick 6–8 of the most useful, CURRENT free resources for those steps in THIS project: tutorials (YouTube, courses), articles or posts by professionals and recruiters/talent acquisition when it's about getting hired, great examples to study, and tools. Prefer specific, reputable pages over generic home pages. ${have.length ? "Don't repeat: " + have.join(", ") : ""}
-Output ONLY a JSON array: [{"titulo":"Title of the page or video","url":"exact URL you found","tipo":"video|article|course|book|tool|example|advice","fuente":"site or author","paso":"which of the steps above it's for (short) or null","nota":"one line: why it helps (in the person's language)"}]` }];
-  const searching = !(geminiSearchOffUntil > Date.now());
-  if (searching) hist._tools = [{ google_search: {} }];
-  geminiLastGrounding = null;
-  let items = [], sources = [];
+  const proj = isChapter(item) && IDEAS.find(x => x.id === item.proyectoId);
+  const about = `PROJECT: ${proj ? proj.titulo + " — " + String(projAbout(proj)).slice(0, 600) + "\nCHAPTER: " : ""}${item.titulo} — ${String(item.descripcion || "").slice(0, 600)}\nWORKING ON NOW:\n- ${todo.join("\n- ") || "(getting started)"}`;
+  const FOCUS = "STRICT FOCUS: only what helps with exactly these current steps (no later stages: if they're designing characters or writing the story, no texturing, rigging or rendering). Story/characters steps → craft (character design, story structure), not software.";
+  const fail = async (msg, title) => { await showAlert(msg, { title: title || "Couldn't search" }); render(); };
+  let ai = true, queries = [];
+  // 1) the AI decides WHAT to search (short, cheap call)
   try {
-    const raw = await geminiGenerate(hist, "You are a research assistant for creative projects. You only recommend real resources you found with Google Search.", false, undefined, "minimal");
-    try { items = parseJsonLenient(raw); } catch (e) { items = salvageActions(String(raw)); }
-    if (!Array.isArray(items) || !items.some(x => x && x.titulo)) {
-      // the reply wasn't the list (often the backup AI chatting instead): ask once more, just for the JSON
-      const again = await geminiGenerate([{ role: "user", text: hist[0].text.slice(-2500) }, { role: "model", text: String(raw).slice(0, 2000) }, { role: "user", text: 'Now output ONLY the JSON array: [{"titulo":"…","url":"…","tipo":"video|article|course|book|tool|example|advice","fuente":"…","paso":null,"nota":"…"}]' }], "You output only valid JSON.", false, undefined, "minimal");
-      try { items = parseJsonLenient(again); } catch (e) { items = salvageActions(String(again)); }
-    }
-    sources = ((geminiLastGrounding && geminiLastGrounding.groundingChunks) || []).map(c => c.web).filter(Boolean);
-  } catch (e) { await showAlert(e.message, { title: "Couldn't search" }); render(); return; }
-  // Only trust a URL if Google's search really returned that site; otherwise link to a search for it (never a dead link).
-  const seen = new Set(sources.map(w => String(w.title || "").replace(/^www\./, "").toLowerCase()));
-  const good = (Array.isArray(items) ? items : []).filter(x => x && x.titulo).map(x => {
-    const host = resHost(x.url || "").toLowerCase();
-    const trusted = host && [...seen].some(t => t && (host === t || host.endsWith("." + t) || t.endsWith("." + host)));
-    const q = encodeURIComponent(x.titulo + (x.fuente ? " " + x.fuente : ""));
-    return { titulo: String(x.titulo).slice(0, 160), url: trusted ? x.url : (x.tipo === "video" ? "https://www.youtube.com/results?search_query=" + q : "https://www.google.com/search?q=" + q), ai: true, busqueda: !trusted || undefined, meta: trusted ? undefined : { none: 1 }, tipo: x.tipo, fuente: x.fuente, paso: x.paso || undefined, porque: x.nota, fecha: new Date().toISOString() };
-  }).filter(x => !have.includes(x.url) && !PAID_SITES.test(x.url + " " + (x.fuente || "")));
-  if (!good.length) { await showAlert("I couldn't find good material this time. Try again in a moment.", { title: "Nothing found" }); render(); return; }
+    const raw = await geminiGenerate([{ role: "user", text: about }], `You are an experienced professional in this field. ${FOCUS}\nWrite 5 short search queries (usually in English, the language with most free tutorials) to find FREE videos, breakdowns and forum advice for those steps. 3 for YouTube, 2 for forums/articles ("web"). Output ONLY raw JSON: {"busquedas":[{"q":"query","donde":"youtube"|"web"}]}`, false, undefined, "minimal");
+    let d = null; try { d = parseJsonLenient(stripJsonFences(raw)); } catch (e) {}
+    queries = ((d && d.busquedas) || []).filter(b => b && b.q).slice(0, 6);
+    if (!queries.length) queries = [...String(raw).matchAll(/"q"\s*:\s*"([^"]+)"/g)].map((m, k) => ({ q: m[1], donde: k < 3 ? "youtube" : "web" }));
+  } catch (e) { ai = false; console.warn("query AI failed:", e.message); }
+  if (!queries.length) { // no AI: search the steps themselves
+    queries = (todo.length ? todo : [item.titulo]).slice(0, 3).map(t => ({ q: String(t).replace(/.*→ /, "").replace(/\(in progress\)/, "") + " tutorial", donde: "youtube" }));
+    queries.push({ q: item.titulo, donde: "web" });
+  }
+  if (btn) btn.textContent = "Searching YouTube and forums…";
+  // 2) real results from real sites
+  const found = (await realSearch(queries)).filter(x => !have.includes(x.url));
+  if (!found.length) {
+    // nothing reachable: give the searches themselves as links (always real, never invented)
+    const good = queries.map(b => ({ titulo: b.q, url: searchUrl(b), ai: true, busqueda: true, meta: { none: 1 }, tipo: b.donde === "youtube" ? "video" : "article", fuente: b.donde === "youtube" ? "YouTube search" : "Google search", fecha: new Date().toISOString() })).filter(x => !have.includes(x.url));
+    if (!good.length) return fail("I couldn't reach YouTube or the forums right now. Check your connection and try again.");
+    item.referencias = (item.referencias || []).concat(good).slice(-60); saveIdeas(); render();
+    return showAlert("I couldn't reach YouTube or the forums right now, so I added the searches themselves — tap one to see the results.", { title: "Added searches" });
+  }
+  // 3) the AI picks the best ones and says why (if the AI is down, keep the top results as they are)
+  let picks = null;
+  if (ai) {
+    const list = found.slice(0, 30).map((x, k) => `${k}. [${x.tipo}] ${x.titulo} — ${x.fuente}${x.desc ? " — " + String(x.desc).slice(0, 140).replace(/\s+/g, " ") : ""}`).join("\n");
+    try {
+      const raw = await geminiGenerate([{ role: "user", text: `${about}\n\nREAL SEARCH RESULTS:\n${list}` }], `You pick resources for someone working on a creative project. ${FOCUS}\nFree only: drop anything that looks like an ad for a paid course, a paid product or a subscription. Drop off-topic results. Pick the 6–8 most useful. Output ONLY a JSON array: [{"n":number from the list,"paso":"which step it helps (short) or null","nota":"one line: why it helps, in the person's language (the language of the project text)"}]`, false, undefined, "minimal");
+      let arr = null; try { arr = parseJsonLenient(stripJsonFences(raw)); } catch (e) {}
+      if (Array.isArray(arr)) picks = arr.filter(p => p && Number.isInteger(+p.n) && found[+p.n]);
+    } catch (e) { console.warn("pick AI failed:", e.message); }
+  }
+  const chosen = picks && picks.length ? picks.map(p => Object.assign({}, found[+p.n], { paso: p.paso || undefined, porque: p.nota })) : found.slice(0, 8);
+  const seen = new Set();
+  const good = chosen.filter(x => !seen.has(x.url) && seen.add(x.url)).map(x => ({ titulo: String(x.titulo).slice(0, 160), url: x.url, ai: true, tipo: x.tipo, fuente: x.fuente, paso: x.paso, porque: x.porque, fecha: new Date().toISOString() }));
   item.referencias = (item.referencias || []).concat(good).slice(-60);
   saveIdeas(); render();
-  if (!sources.length && !item._resWarned) { item._resWarned = 1; showAlert("Your free Gemini quota doesn't include live web search right now, so these suggestions open as Google / YouTube searches instead of direct links. They're still picked for your steps.", { title: "Found resources" }); }
+  if (!ai) showAlert("The AI is out of quota right now, so I searched your steps directly. The links are real; they just aren't hand-picked this time.", { title: "Found links" });
 }
 
 /* ---------- Conversations hub: find any chat (mentors, notebook, step tutors) and search inside them ---------- */
@@ -9814,9 +9939,14 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-11 23:50 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-12 00:30 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
+  {
+    version: "1.16.0",
+    public: true,
+    items: ["\"Find links for me\" now searches YouTube, Reddit and Wikipedia for real: real links, free resources only (no paid courses)", "If the AI is out of quota, searching still works with your current steps", "A second free backup AI (OpenRouter) in Settings → AI, so chats keep working when Gemini is out"],
+  },
   {
     version: "1.15.0",
     public: true,
