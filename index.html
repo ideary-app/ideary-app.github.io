@@ -6897,7 +6897,7 @@ async function suggestSearches(ideaId) {
   const cur = pool.find(c => open(c).some(x => x.h === 1)) || pool.find(c => open(c).length) || pool[0];
   const now = cur ? open(cur).slice(0, 3).map(x => x.t) : [];
   const prompt = `PROJECT: ${proj ? proj.titulo + " — " + projAbout(proj) + "\nCHAPTER: " : ""}${idea.titulo} — ${idea.descripcion || ""}\n${isProject(idea) && cur ? "CURRENT CHAPTER: " + cur.titulo + "\n" : ""}WORKING ON NOW: ${now.join(" | ") || "(getting started)"}`;
-  const rules = `You are an experienced professional in this field helping someone figure out WHAT TO RESEARCH for what they're doing right now (not later stages). Suggest 6 short, concrete search queries (in the language that gets the best results for this craft, usually English) for videos, tutorials, artwork or articles that would help with those current steps. Output ONLY raw JSON: {"busquedas":[{"q":"query","donde":"youtube"|"images"|"web"}]}`;
+  const rules = `You are an experienced professional in this field helping someone figure out WHAT TO RESEARCH for what they're doing right now (not later stages). Suggest 6 short, concrete search queries (in the language that gets the best results for this craft, usually English) for FREE videos, tutorials, artwork or articles that would help with those current steps (never paid courses: add words like "free", "tutorial", "youtube" when useful). Output ONLY raw JSON: {"busquedas":[{"q":"query","donde":"youtube"|"images"|"web"}]}`;
   if (!geminiKey) {
     try { await navigator.clipboard.writeText(rules + "\n\n" + prompt); } catch (e) {}
     await showAlert("No Gemini key yet, so I copied a prompt. Paste it into any AI to get search ideas.", { title: "Prompt copied" });
@@ -8627,7 +8627,8 @@ function ideaImages(idea) {
 /* ---------- Project mentor chat: ask anything about the whole project ---------- */
 const HONEST_RULES = `
 - BE AN HONEST MENTOR, NOT A YES-MAN. Your job is to help the person actually pull this off, not to please them. When they want to do things in an order or a way a professional wouldn't (for example sculpting the final character before the story and the design are defined), say so clearly: what you'd do first and why, and what it will cost them (rework, wasted time). If they still want to do it their way, respect it — it's their project — but say plainly that it's not how it's normally done. Don't drop your opinion just because they insist; change it only if they give you a good reason. Same with weak ideas or unrealistic plans: say what's weak and how to make it work. Be warm, but never agree just to agree.
-- MEMORY ACROSS CHATS: the context may include "FROM YOUR OTHER CONVERSATIONS IN THIS PROJECT". Treat it like a teacher who remembers what you told them last week. If something said there matters here and isn't in the project yet — or contradicts what's here — bring it up ("In the chat about X you said Y — keep it?") and offer to add or fix it.`;
+- MEMORY ACROSS CHATS: the context may include "FROM YOUR OTHER CONVERSATIONS IN THIS PROJECT". Treat it like a teacher who remembers what you told them last week. If something said there matters here and isn't in the project yet — or contradicts what's here — bring it up ("In the chat about X you said Y — keep it?") and offer to add or fix it.
+FREE FIRST, ALWAYS: whenever you recommend resources, tutorials, tools or links, recommend only FREE ones (YouTube, official free docs, free blogs, forums, free software like Blender). Never push paid courses or subscriptions. Only if the person explicitly asks you for a paid course, help them find one, and say it is paid.`;
 const PROJECT_MENTOR_RULES = `You are a veteran professional in the field of this project (a film director for a short film, a master carpenter for furniture, a head chef for a recipe…) acting as the person's mentor for the WHOLE project. You can see every chapter, its plan and progress, the key decisions, notes and open questions.
 - Answer like a good teacher: clear, concrete, applied to THIS project, short paragraphs. Guide and give options with their trade-offs; don't make the person's creative decisions for them.
 - Respect the key decisions as fixed rules. If one seems wrong, say so and explain why instead of ignoring it.
@@ -9558,6 +9559,8 @@ function renderResourcesBlock(item) {
     </div>`;
 }
 function removeResource(id, k) { const it = IDEAS.find(i => i.id === id); if (!it || !it.recursos) return; it.recursos.splice(k, 1); if (!it.recursos.length) delete it.recursos; saveIdeas(); render(); }
+// Free first, always: these sell courses/subscriptions. A paid course only if the person asks the mentor for one.
+const PAID_SITES = /domestika|udemy|skillshare|coursera|masterclass|cgma|schoolofmotion|school of motion|gumroad|patreon|linkedin\.com\/learning|pluralsight|cgcookie|cgcircuit|cubebrush|wingfox|thegnomonworkshop|gnomon|cgspectrum|animationmentor|ianimate|domestica/i;
 async function findResources(id, btn) {
   const item = IDEAS.find(i => i.id === id); if (!item) return;
   if (!geminiKey) { await showAlert("Add a free Gemini key in Settings → AI to search for resources.", { title: "AI needs a key" }); return; }
@@ -9573,7 +9576,8 @@ async function findResources(id, btn) {
 
 FIND RESOURCES for what the person is doing RIGHT NOW${todo.length ? ":\n- " + todo.join("\n- ") : " in this " + (isProject(item) ? "project" : "idea")}
 STRICT FOCUS: every resource must help with exactly these current steps and this stage of the work. Nothing for later stages (e.g. if they're designing characters or writing the story, no texturing, rigging, rendering or compositing tutorials). If a step is about story/characters, think of craft resources for that (character design, story structure, worldbuilding), not software.
-Search the web and pick 6–8 of the most useful, CURRENT resources for those steps in THIS project: tutorials (YouTube, courses), articles or posts by professionals and recruiters/talent acquisition when it's about getting hired, great examples to study, and tools. Prefer specific, reputable pages over generic home pages. ${have.length ? "Don't repeat: " + have.join(", ") : ""}
+RULE NUMBER ONE: ONLY FREE resources. Never paid courses, subscriptions, paywalled articles or paid marketplaces (no Domestika, Udemy, Skillshare, Coursera certificates, MasterClass, CGMA, School of Motion, Gumroad/ArtStation paid tutorials, Patreon-only, LinkedIn Learning, Pluralsight). Free YouTube videos, free official docs/manuals, free blogs and breakdowns, free forums (Blender Artists, Reddit, Polycount), free tools. If unsure it is free, leave it out.
+Then pick 6–8 of the most useful, CURRENT free resources for those steps in THIS project: tutorials (YouTube, courses), articles or posts by professionals and recruiters/talent acquisition when it's about getting hired, great examples to study, and tools. Prefer specific, reputable pages over generic home pages. ${have.length ? "Don't repeat: " + have.join(", ") : ""}
 Output ONLY a JSON array: [{"titulo":"Title of the page or video","url":"exact URL you found","tipo":"video|article|course|book|tool|example|advice","fuente":"site or author","paso":"which of the steps above it's for (short) or null","nota":"one line: why it helps (in the person's language)"}]` }];
   const searching = !(geminiSearchOffUntil > Date.now());
   if (searching) hist._tools = [{ google_search: {} }];
@@ -9596,7 +9600,7 @@ Output ONLY a JSON array: [{"titulo":"Title of the page or video","url":"exact U
     const trusted = host && [...seen].some(t => t && (host === t || host.endsWith("." + t) || t.endsWith("." + host)));
     const q = encodeURIComponent(x.titulo + (x.fuente ? " " + x.fuente : ""));
     return { titulo: String(x.titulo).slice(0, 160), url: trusted ? x.url : (x.tipo === "video" ? "https://www.youtube.com/results?search_query=" + q : "https://www.google.com/search?q=" + q), ai: true, busqueda: !trusted || undefined, meta: trusted ? undefined : { none: 1 }, tipo: x.tipo, fuente: x.fuente, paso: x.paso || undefined, porque: x.nota, fecha: new Date().toISOString() };
-  }).filter(x => !have.includes(x.url));
+  }).filter(x => !have.includes(x.url) && !PAID_SITES.test(x.url + " " + (x.fuente || "")));
   if (!good.length) { await showAlert("I couldn't find good material this time. Try again in a moment.", { title: "Nothing found" }); render(); return; }
   item.referencias = (item.referencias || []).concat(good).slice(-60);
   saveIdeas(); render();
@@ -9810,7 +9814,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-11 23:30 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-11 23:50 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {

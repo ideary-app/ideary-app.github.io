@@ -419,3 +419,5 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 - Tapas: cada color tiene su versión lisa sin mármol (`<color>-plain`, `--marble: none`).
 
 - **Fix "Find links for me" / "What should I research?" (nov 2026):** `groqFit` ahora recorta los textos largos por el MEDIO (antes cortaba el final y se perdía el pedido y el formato JSON, entonces el respaldo contestaba charla y no salía nada). Las dos funciones, si la respuesta no trae el JSON, piden una vez más solo el JSON. `suggestSearches` usa pensamiento "minimal" (más rápido).
+- **Gratis siempre (regla nº1):** "Find links", "What should I research?" y todos los mentores/tutores recomiendan SOLO recursos gratis (regla en `HONEST_RULES` y en los prompts). `PAID_SITES` filtra Domestika, Udemy, Skillshare, Coursera, etc. Un curso pago solo si la persona se lo pide al mentor.
+- **Ojo:** el plan gratis de Gemini ya NO incluye búsqueda web (grounding); por eso los links que trae la IA pueden ser inventados y se abren como búsqueda de Google/YouTube. Groq Compound (que buscaba en la web) fue dado de baja en sept 2026.
