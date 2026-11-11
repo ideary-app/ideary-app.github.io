@@ -417,3 +417,5 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 ## Sidebar ocultable y tapas lisas (1.15.0)
 - En pantallas anchas el botón ☰ del header (a la izquierda del logo) oculta/muestra el sidebar; el contenido ocupa todo el ancho (`html.sb-hidden`, se recuerda en `ideary_sidebar_hidden_v1`). En celular ☰ sigue abriendo el menú.
 - Tapas: cada color tiene su versión lisa sin mármol (`<color>-plain`, `--marble: none`).
+
+- **Fix "Find links for me" / "What should I research?" (nov 2026):** `groqFit` ahora recorta los textos largos por el MEDIO (antes cortaba el final y se perdía el pedido y el formato JSON, entonces el respaldo contestaba charla y no salía nada). Las dos funciones, si la respuesta no trae el JSON, piden una vez más solo el JSON. `suggestSearches` usa pensamiento "minimal" (más rápido).

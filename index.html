@@ -6417,7 +6417,8 @@ function groqPick(ids, kind) {
 // Keeps the rules, the most recent messages whole, and as much of the project context as fits.
 function groqFit(system, msgs, budgetTok) {
   const tok = t => Math.ceil(String(t || "").length / 3.6);
-  const cut = (t, n) => { t = String(t || ""); return t.length <= n ? t : t.slice(0, Math.max(0, n - 40)) + "\n…(shortened to fit)"; };
+  // Trim from the MIDDLE: the start has who/what, the end has the actual request and output format — both must survive.
+  const cut = (t, n) => { t = String(t || ""); if (t.length <= n) return t; n = Math.max(0, n - 40); const tail = Math.floor(n * 0.6); return t.slice(0, n - tail) + "\n…(shortened to fit)…\n" + t.slice(t.length - tail); };
   let sys = cut(system, Math.min(String(system || "").length, budgetTok * 3.6 * 0.35));
   let left = budgetTok - tok(sys) - 300;
   const out = [];
@@ -6905,8 +6906,15 @@ async function suggestSearches(ideaId) {
   const btn = document.getElementById("ref-suggest-" + ideaId);
   if (btn) { btn.disabled = true; btn.textContent = "Thinking…"; }
   try {
-    const data = parseJsonLenient(stripJsonFences(await geminiGenerate([{ role: "user", text: prompt }], rules)));
-    idea.busquedas = (data.busquedas || []).slice(0, 8); delete idea._busquedas;
+    let raw = await geminiGenerate([{ role: "user", text: prompt }], rules, false, undefined, "minimal"), data = null;
+    try { data = parseJsonLenient(stripJsonFences(raw)); } catch (e) {}
+    if (!data || !Array.isArray(data.busquedas) || !data.busquedas.length) {
+      raw = await geminiGenerate([{ role: "user", text: prompt }, { role: "model", text: String(raw).slice(0, 1500) }, { role: "user", text: 'Now output ONLY the raw JSON: {"busquedas":[{"q":"query","donde":"youtube"|"images"|"web"}]}' }], rules, false, undefined, "minimal");
+      try { data = parseJsonLenient(stripJsonFences(raw)); } catch (e) { data = null; }
+      if (!data || !Array.isArray(data.busquedas)) { const qs = [...String(raw).matchAll(/"q"\s*:\s*"([^"]+)"/g)].map(m => ({ q: m[1], donde: "web" })); data = { busquedas: qs }; }
+    }
+    if (!data.busquedas.length) throw new Error("The AI answered, but not with search ideas. Try again in a moment.");
+    idea.busquedas = data.busquedas.filter(b => b && b.q).slice(0, 8); delete idea._busquedas;
     saveIdeas(); render();
   } catch (e) {
     await showAlert(e.message, { title: "Couldn't get ideas" });
@@ -9574,6 +9582,11 @@ Output ONLY a JSON array: [{"titulo":"Title of the page or video","url":"exact U
   try {
     const raw = await geminiGenerate(hist, "You are a research assistant for creative projects. You only recommend real resources you found with Google Search.", false, undefined, "minimal");
     try { items = parseJsonLenient(raw); } catch (e) { items = salvageActions(String(raw)); }
+    if (!Array.isArray(items) || !items.some(x => x && x.titulo)) {
+      // the reply wasn't the list (often the backup AI chatting instead): ask once more, just for the JSON
+      const again = await geminiGenerate([{ role: "user", text: hist[0].text.slice(-2500) }, { role: "model", text: String(raw).slice(0, 2000) }, { role: "user", text: 'Now output ONLY the JSON array: [{"titulo":"…","url":"…","tipo":"video|article|course|book|tool|example|advice","fuente":"…","paso":null,"nota":"…"}]' }], "You output only valid JSON.", false, undefined, "minimal");
+      try { items = parseJsonLenient(again); } catch (e) { items = salvageActions(String(again)); }
+    }
     sources = ((geminiLastGrounding && geminiLastGrounding.groundingChunks) || []).map(c => c.web).filter(Boolean);
   } catch (e) { await showAlert(e.message, { title: "Couldn't search" }); render(); return; }
   // Only trust a URL if Google's search really returned that site; otherwise link to a search for it (never a dead link).
@@ -9797,7 +9810,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-10 21:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-11 23:30 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
