@@ -26,6 +26,8 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IDEARY_G_CLIENT_ID: ${{ secrets.IDEARY_G_CLIENT_ID }}
+          IDEARY_G_CLIENT_SECRET: ${{ secrets.IDEARY_G_CLIENT_SECRET }}
         with:
           projectPath: desktop
           tagName: desktop-v__VERSION__

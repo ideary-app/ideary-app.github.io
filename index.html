@@ -5133,7 +5133,20 @@ function saveToken(token, expiresInSeconds) {
   }
 }
 
+// Desktop app: sign in through the system browser and keep a refresh token (no popups, no hourly logout).
+async function deskGoogleToken(interactive) {
+  const inv = window.__TAURI__.core.invoke;
+  try { const t = await inv("google_token"); saveToken(t.access_token, t.expires_in); return true; }
+  catch (e) { if (!interactive) return false; }
+  try {
+    setSyncStatus("Finish signing in in your browser…", false);
+    const sess = getDriveSession() || {};
+    const t = await inv("google_login", { loginHint: sess.email || null });
+    saveToken(t.access_token, t.expires_in); return true;
+  } catch (e) { console.error("Desktop Google sign-in:", e); return false; }
+}
 async function ensureGoogleAuth() {
+  if (IS_DESKTOP) { const s0 = getSavedToken(); if (s0) { accessToken = s0; return true; } return deskGoogleToken(true); }
   const saved0 = getSavedToken();
   // Only wait for the script if it isn't there yet: any await before the
   // popup makes browsers stop treating it as a response to the tap.
@@ -5354,9 +5367,9 @@ function enterDriveExpired() {
 
 // Must run from a tap (browsers only allow Google's popup after a user gesture).
 async function reconnectDrive() {
-  if (!(window.google && google.accounts && google.accounts.oauth2)) await loadGisScript();
   const sess = getDriveSession() || {};
-  const ok = await new Promise((resolve) => {
+  const ok = IS_DESKTOP ? await deskGoogleToken(true) : await new Promise(async (resolve) => {
+    if (!(window.google && google.accounts && google.accounts.oauth2)) await loadGisScript();
     const client = google.accounts.oauth2.initTokenClient({
       client_id: GOOGLE_CLIENT_ID,
       scope: DRIVE_SCOPE,
@@ -5397,12 +5410,23 @@ async function reconnectDrive() {
   await initDriveSync();
 }
 
-// Load Google's sign-in script right away, so the first tap on Connect/Reconnect can open the popup
-// (waiting for the script inside the tap makes phones block it, and you had to tap twice).
-if (!/[?&]popout=/.test(location.search)) setTimeout(() => loadGisScript().catch(() => {}), 300);
 // Token ran out while the app was open: pause instead of logging out.
-function checkTokenStillValid() {
-  if (driveReady && !getSavedToken() && getDriveSession()) enterDriveExpired();
+let deskRenewing = false;
+async function checkTokenStillValid() {
+  if (!getDriveSession()) return;
+  if (IS_DESKTOP) {
+    // renew quietly a few minutes before it runs out; never pause the session
+    let exp = 0; try { exp = (JSON.parse(localStorage.getItem(TOKEN_STORAGE_KEY) || "{}").expiresAt) || 0; } catch (e) {}
+    if (deskRenewing || exp - Date.now() > 5 * 60 * 1000) return;
+    deskRenewing = true;
+    try {
+      const ok = await deskGoogleToken(false);
+      if (ok && driveExpired) { showReconnectBanner(false); await initDriveSync(); }
+      else if (!ok && driveReady && !getSavedToken()) enterDriveExpired();
+    } finally { deskRenewing = false; }
+    return;
+  }
+  if (driveReady && !getSavedToken()) enterDriveExpired();
 }
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") checkTokenStillValid(); });
 setInterval(checkTokenStillValid, 60 * 1000);
@@ -5631,6 +5655,7 @@ async function disconnectGoogleDrive() {
     try {
       localStorage.removeItem(TOKEN_STORAGE_KEY);
       clearDriveSessionData();
+      if (IS_DESKTOP) window.__TAURI__.core.invoke("google_logout").catch(() => {});
       // Don't touch STORAGE_KEY — local anonymous ideas should survive a disconnect.
     } catch(e) {}
   }
@@ -13203,6 +13228,10 @@ if (typeof POPOUT !== "undefined" && POPOUT) {
 } else if (getSavedToken()) {
   showDriveLoadingOverlay();
   initDriveSync().finally(() => hideDriveLoadingOverlay());
+} else if (getDriveSession() && IS_DESKTOP) {
+  // desktop: get a new token quietly from the saved sign-in
+  showDriveLoadingOverlay();
+  deskGoogleToken(false).then(ok => ok ? initDriveSync() : enterDriveExpired()).finally(() => hideDriveLoadingOverlay());
 } else if (getDriveSession()) {
   // Remembered session with an expired token: show cached Drive ideas
   // and offer a one-tap reconnect instead of looking logged out.

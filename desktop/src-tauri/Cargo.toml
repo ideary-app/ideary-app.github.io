@@ -1,6 +1,6 @@
 [package]
 name = "ideary"
-version = "0.2.0"
+version = "0.3.0"
 description = "Ideary desktop"
 edition = "2021"
 
@@ -15,7 +15,11 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+sha2 = "0.10"
+base64 = "0.22"
+getrandom = "0.2"
+open = "5"
 
 [profile.release]
 strip = true
