@@ -5147,7 +5147,8 @@ async function deskGoogleToken(interactive) {
     console.error("Desktop Google sign-in:", e);
     const msg = String(e && e.message || e);
     const old = /not found|unknown command|not allowed/i.test(msg);
-    showConfirm(old ? "This version of the desktop app can't sign in to Google yet. Tap \"⬆ Update\" at the top to get the new version, then try again." : `Google sign-in didn't finish: ${msg}`, { title: "Couldn't connect Google Drive", confirmLabel: "OK", danger: false });
+    let ver = "?"; try { ver = await window.__TAURI__.core.invoke("app_version"); } catch (e2) {}
+    showConfirm((old ? "This version of the desktop app can't sign in to Google yet. Install the newest version, then try again." : "Google sign-in didn't finish.") + `\n\n(app ${ver} — ${msg})`, { title: "Couldn't connect Google Drive", confirmLabel: "OK", danger: false });
     setSyncStatus("Couldn't connect Google Drive.", true);
     return false;
   }
