@@ -413,3 +413,7 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 ## Header y sidebar (1.14.0)
 - Botón 💬 Conversations en el header (antes de ?): `openChatsHere()` abre solo las conversaciones del ítem abierto (idea, proyecto con sus capítulos, capítulo o cuaderno; usa `openChats(scopeId)`), y en Home todas. En celular el "Chats" de la barra de abajo hace lo mismo.
 - En pantallas anchas (>860 px) el sidebar ya no muestra Home, Conversations ni "+ New idea / ?" (clase `.phone-only-nav`): Home = logo, nueva idea = + del header. En celular siguen en el menú.
+
+## Sidebar ocultable y tapas lisas (1.15.0)
+- En pantallas anchas el botón ☰ del header (a la izquierda del logo) oculta/muestra el sidebar; el contenido ocupa todo el ancho (`html.sb-hidden`, se recuerda en `ideary_sidebar_hidden_v1`). En celular ☰ sigue abriendo el menú.
+- Tapas: cada color tiene su versión lisa sin mármol (`<color>-plain`, `--marble: none`).

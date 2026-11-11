@@ -3097,6 +3097,20 @@ SHIPPING CHANGES
   html[data-cover="red"]    { --cover: #a8494a; --marble: var(--marble-w); --cover-text: #f4ecd4; }
   html[data-cover="purple"] { --cover: #6b5a94; --marble: var(--marble-w); --cover-text: #f4ecd4; }
   html[data-cover="yellow"] { --cover: #d4b456; --marble: var(--marble-w); --cover-text: #111; }
+  html[data-cover="black-plain"] { --cover: #1a1a1a; --marble: none; --cover-text: #f4ecd4; }
+  .cover-swatch[data-sw="black-plain"] { background-color: #1a1a1a; background-image: none; }
+  html[data-cover="white-plain"] { --cover: #f3f0e6; --marble: none; --cover-text: #111; }
+  .cover-swatch[data-sw="white-plain"] { background-color: #f3f0e6; background-image: none; }
+  html[data-cover="blue-plain"] { --cover: #3d4f8c; --marble: none; --cover-text: #f4ecd4; }
+  .cover-swatch[data-sw="blue-plain"] { background-color: #3d4f8c; background-image: none; }
+  html[data-cover="green-plain"] { --cover: #477a4c; --marble: none; --cover-text: #f4ecd4; }
+  .cover-swatch[data-sw="green-plain"] { background-color: #477a4c; background-image: none; }
+  html[data-cover="red-plain"] { --cover: #a8494a; --marble: none; --cover-text: #f4ecd4; }
+  .cover-swatch[data-sw="red-plain"] { background-color: #a8494a; background-image: none; }
+  html[data-cover="purple-plain"] { --cover: #6b5a94; --marble: none; --cover-text: #f4ecd4; }
+  .cover-swatch[data-sw="purple-plain"] { background-color: #6b5a94; background-image: none; }
+  html[data-cover="yellow-plain"] { --cover: #d4b456; --marble: none; --cover-text: #111; }
+  .cover-swatch[data-sw="yellow-plain"] { background-color: #d4b456; background-image: none; }
   body[data-view="home"], [data-theme="dark"] body[data-view="home"] {
     background-color: var(--cover) !important;
     background-image: var(--marble) !important;
@@ -3266,8 +3280,11 @@ SHIPPING CHANGES
   /* ---- Pencil case also on desktop ---- */
   @media (min-width: 861px) {
     .mobile-header { padding: 12px 24px 24px !important; }
-    .mobile-menu-btn { display: none !important; }
-    #mobile-brand { display: block !important; }
+    /* the ☰ button hides/shows the sidebar on wide screens */
+    .mobile-menu-btn { grid-column: 1; grid-row: 1; justify-self: start; align-self: center; }
+    #mobile-brand { display: block !important; grid-column: 1; grid-row: 1; justify-self: start; margin-left: 52px; }
+    html.sb-hidden .app { grid-template-columns: minmax(0, 1fr) !important; }
+    html.sb-hidden .sidebar { display: none !important; }
     .mobile-search-wrap { flex: 0 1 440px !important; margin: 0 0 0 auto !important; }
     .sidebar { top: var(--hdr-h, 80px); height: calc(100vh - var(--hdr-h, 80px)); }
     .sidebar .brand-row, .sidebar .sidebar-search { display: none; }
@@ -4444,7 +4461,7 @@ SHIPPING CHANGES
       <div id="nav-categorias"></div>
     </div>
 
-    <div class="version-link" onclick="openChangelog()">v1.14.0 · What's new</div>
+    <div class="version-link" onclick="openChangelog()">v1.15.0 · What's new</div>
     <div style="text-align:center;font-family:var(--hand);font-size:.9rem;margin-top:6px"><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--slate)">Privacy</a> · <a href="terms.html" target="_blank" rel="noopener" style="color:var(--slate)">Terms</a></div>
   </div>
   </aside>
@@ -5978,7 +5995,8 @@ async function driveSaveSettings() {
 
 /* ---------- Settings: cover color, theme, sync, AI, backup ---------- */
 const COVER_KEY = "ideary_cover_v1";
-const COVERS = [["black","Black"],["white","White"],["blue","Blue"],["green","Green"],["red","Red"],["purple","Purple"],["yellow","Yellow"]];
+const COVERS = [["black","Black"],["white","White"],["blue","Blue"],["green","Green"],["red","Red"],["purple","Purple"],["yellow","Yellow"],
+  ["black-plain","Plain black"],["white-plain","Plain white"],["blue-plain","Plain blue"],["green-plain","Plain green"],["red-plain","Plain red"],["purple-plain","Plain purple"],["yellow-plain","Plain yellow"]];
 let coverColor = "black";
 try { coverColor = localStorage.getItem(COVER_KEY) || "black"; } catch (e) {}
 document.documentElement.setAttribute("data-cover", coverColor);
@@ -9783,6 +9801,11 @@ const DEPLOY_TIMESTAMP = "2026-11-10 21:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
+    version: "1.15.0",
+    public: true,
+    items: ["Hide the sidebar with the ☰ button to give your ideas the whole screen", "Plain covers: every cover color now also comes without the marble pattern"],
+  },
+  {
     version: "1.14.0",
     public: true,
     items: [
@@ -10405,7 +10428,14 @@ function markBottomNav() {
   const n = document.getElementById("bottom-nav"); if (!n) return;
   n.querySelectorAll("[data-nav]").forEach(b => b.classList.toggle("on", b.dataset.nav === "home" && view === "home" && !currentSearch || b.dataset.nav === "search" && !!currentSearch));
 }
+const SB_KEY = "ideary_sidebar_hidden_v1";
+try { if (localStorage.getItem(SB_KEY) === "1") document.documentElement.classList.add("sb-hidden"); } catch (e) {}
 function toggleMobileMenu() {
+  if (window.innerWidth > 860) {
+    const h = document.documentElement.classList.toggle("sb-hidden");
+    try { localStorage.setItem(SB_KEY, h ? "1" : "0"); } catch (e) {}
+    return;
+  }
   document.getElementById("sidebar").classList.toggle("open");
   document.getElementById("sidebar-overlay").classList.toggle("open");
 }
