@@ -409,3 +409,7 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 - Sin key de Gemini: el botón principal es "Write down your idea" (formulario) y debajo "turn on AI" abre Settings → AI. "Tell me your idea" solo aparece con key. En el modal New idea se oculta "Just tell the AI about it" sin key, y `openNewChat()` sin key ofrece "Turn on AI" o "Write it myself".
 - El micrófono sin key usa el reconocimiento de voz del navegador/WebView (gratis, no usa ninguna cuenta ni key del usuario).
 
+
+## Header y sidebar (1.14.0)
+- Botón 💬 Conversations en el header (antes de ?): `openChatsHere()` abre solo las conversaciones del ítem abierto (idea, proyecto con sus capítulos, capítulo o cuaderno; usa `openChats(scopeId)`), y en Home todas. En celular el "Chats" de la barra de abajo hace lo mismo.
+- En pantallas anchas (>860 px) el sidebar ya no muestra Home, Conversations ni "+ New idea / ?" (clase `.phone-only-nav`): Home = logo, nueva idea = + del header. En celular siguen en el menú.
