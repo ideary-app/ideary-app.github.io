@@ -4644,10 +4644,14 @@ SHIPPING CHANGES
         <button class="form-submit" style="margin-top:4px" onclick="saveExtraKey('openrouter')">Save</button>
         <div style="text-align:center;margin-top:8px"><button onclick="saveExtraKey('openrouter',true)" style="background:none;border:none;font-size:0.8rem;color:var(--slate);cursor:pointer;text-decoration:underline">Remove</button></div>
       </details>
-      <details class="backup-ai" style="margin-top:10px">
-        <summary style="cursor:pointer;font-family:var(--hand);font-size:1.1rem">YouTube search (optional)</summary>
-        <div class="form-hint" style="margin:8px 0">"Find links for me" already searches YouTube and free sites by itself. If YouTube results stop showing up, a free YouTube key makes them reliable (about 100 searches a day):<br>1. Open <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noopener">YouTube Data API</a> and tap <strong>Enable</strong>.<br>2. Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Credentials</a> → <strong>Create credentials → API key</strong>.<br>3. Paste it here.</div>
-        <input class="form-input" id="xk-youtube" type="password" autocomplete="off" placeholder="YouTube API key (starts with AIza)" style="font-size:16px">
+      <details class="backup-ai" id="yt-setup" style="margin-top:10px;display:none">
+        <summary style="cursor:pointer;font-family:var(--hand);font-size:1.1rem">⚠ YouTube videos aren't showing up</summary>
+        <div class="form-hint" style="margin:8px 0">Only needed if "Find links for me" brings links but <strong>no videos</strong>. It's free.<br>
+        1. Open <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noopener">this page</a> (sign in with your Google account).<br>
+        2. At the very top, next to "Google Cloud", there's a box with a project name. Tap it and pick <strong>the one called "Gemini API"</strong> (or "Default Gemini Project"). If it asks you to create one, just create it.<br>
+        3. Tap the blue <strong>Enable</strong> button. That's it — try "Find links for me" again.<br>
+        <span style="opacity:.8">Still no videos? Then on <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">this page</a> tap <strong>+ Create credentials → API key</strong>, copy it and paste it here:</span></div>
+        <input class="form-input" id="xk-youtube" type="password" autocomplete="off" placeholder="YouTube key (starts with AIza)" style="font-size:16px">
         <div id="xk-youtube-st" style="min-height:1.4em;font-size:0.82rem;margin-top:6px;font-weight:600"></div>
         <button class="form-submit" style="margin-top:4px" onclick="saveExtraKey('youtube')">Save</button>
         <div style="text-align:center;margin-top:8px"><button onclick="saveExtraKey('youtube',true)" style="background:none;border:none;font-size:0.8rem;color:var(--slate);cursor:pointer;text-decoration:underline">Remove</button></div>
@@ -6128,6 +6132,7 @@ function openSettings(section) {
   setTimeout(() => { const el = document.getElementById("ai-usage"); if (el) el.innerHTML = aiUsageHtml(); }, 0);
   document.getElementById("ai-key-input").value = geminiKey;
   try { deskRenderSettings(); } catch (e) {}
+  { const y = document.getElementById("yt-setup"); if (y) y.style.display = (xKeys.youtube || ytFailed) ? "" : "none"; }
   ["openrouter", "youtube"].forEach(n => { const i = document.getElementById("xk-" + n), st = document.getElementById("xk-" + n + "-st"); if (i) i.value = xKeys[n] || ""; if (st) st.textContent = xKeys[n] ? "✓ Ready" : ""; });
   { const g = document.getElementById("groq-key-input"); if (g) g.value = groqKey; const gs = document.getElementById("groq-key-status"); if (gs) gs.textContent = groqKey ? "✓ Backup AI ready" : ""; }
   document.getElementById("ai-key-status").textContent = "";
@@ -9629,9 +9634,9 @@ function removeResource(id, k) { const it = IDEAS.find(i => i.id === id); if (!i
 // Free first, always: these sell courses/subscriptions. A paid course only if the person asks the mentor for one.
 const PAID_SITES = /domestika|udemy|skillshare|coursera|masterclass|cgma|schoolofmotion|school of motion|gumroad|patreon|linkedin\.com\/learning|pluralsight|cgcookie|cgcircuit|cubebrush|wingfox|thegnomonworkshop|gnomon|cgspectrum|animationmentor|ianimate|domestica/i;
 /* ---- Real web search, free, from the browser (no AI web search needed) ----
-   YouTube: YouTube Data API (optional free key, or the Gemini key if it allows it) → else public Piped/Invidious mirrors.
+   YouTube: YouTube Data API (Gemini key if YouTube Data API is enabled on its project, or optional xKeys.youtube) → else public Piped/Invidious mirrors.
    Plus Wikipedia and Reddit, which need no key. Every source fails silently; we use whatever answers. */
-let ytKeyBad = 0; // the key didn't work for YouTube: don't retry it for a while
+let ytKeyBad = 0, ytFailed = false; try { ytFailed = localStorage.getItem("ideary_yt_failed") === "1"; } catch (e) {} // the key didn't work for YouTube: don't retry it for a while
 const PIPED = ["https://pipedapi.kavin.rocks", "https://pipedapi.adminforge.de", "https://api.piped.private.coffee"];
 const INVID = ["https://inv.nadeko.net", "https://invidious.nerdvpn.de", "https://yewtu.be"];
 async function jfetch(url, ms) {
@@ -9644,17 +9649,20 @@ async function ytSearch(q, n) {
   if (key) {
     try {
       const j = await jfetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=${n}&relevanceLanguage=en&safeSearch=moderate&q=${encodeURIComponent(q)}&key=${encodeURIComponent(key)}`);
+      ytOk();
       return (j.items || []).filter(x => x.id && x.id.videoId).map(x => ({ titulo: decodeHtml(x.snippet.title), url: "https://www.youtube.com/watch?v=" + x.id.videoId, tipo: "video", fuente: decodeHtml(x.snippet.channelTitle) + " · YouTube", desc: x.snippet.description }));
     } catch (e) { if (!xKeys.youtube) ytKeyBad = Date.now() + 6 * 3600000; }
   }
   for (const b of PIPED) {
-    try { const j = await jfetch(`${b}/search?q=${encodeURIComponent(q)}&filter=videos`, 7000); const it = (j.items || []).filter(x => x.url && /watch/.test(x.url)).slice(0, n); if (it.length) return it.map(x => ({ titulo: x.title, url: "https://www.youtube.com" + x.url, tipo: "video", fuente: (x.uploaderName || "") + " · YouTube", desc: x.shortDescription || "" })); } catch (e) {}
+    try { const j = await jfetch(`${b}/search?q=${encodeURIComponent(q)}&filter=videos`, 7000); const it = (j.items || []).filter(x => x.url && /watch/.test(x.url)).slice(0, n); if (it.length) { ytOk(); return it.map(x => ({ titulo: x.title, url: "https://www.youtube.com" + x.url, tipo: "video", fuente: (x.uploaderName || "") + " · YouTube", desc: x.shortDescription || "" })); } } catch (e) {}
   }
   for (const b of INVID) {
-    try { const j = await jfetch(`${b}/api/v1/search?q=${encodeURIComponent(q)}&type=video`, 7000); const it = (Array.isArray(j) ? j : []).filter(x => x.videoId).slice(0, n); if (it.length) return it.map(x => ({ titulo: x.title, url: "https://www.youtube.com/watch?v=" + x.videoId, tipo: "video", fuente: (x.author || "") + " · YouTube", desc: x.description || "" })); } catch (e) {}
+    try { const j = await jfetch(`${b}/api/v1/search?q=${encodeURIComponent(q)}&type=video`, 7000); const it = (Array.isArray(j) ? j : []).filter(x => x.videoId).slice(0, n); if (it.length) { ytOk(); return it.map(x => ({ titulo: x.title, url: "https://www.youtube.com/watch?v=" + x.videoId, tipo: "video", fuente: (x.author || "") + " · YouTube", desc: x.description || "" })); } } catch (e) {}
   }
+  ytFailed = true; try { localStorage.setItem("ideary_yt_failed", "1"); } catch (e) {}
   return [];
 }
+function ytOk() { if (ytFailed) { ytFailed = false; try { localStorage.removeItem("ideary_yt_failed"); } catch (e) {} } }
 async function redditSearch(q, n) {
   try { const j = await jfetch(`https://www.reddit.com/search.json?q=${encodeURIComponent(q)}&limit=${n}&sort=relevance&type=link`, 7000);
     return ((j.data && j.data.children) || []).map(c => c.data).filter(d => d && !d.over_18).map(d => ({ titulo: d.title, url: "https://www.reddit.com" + d.permalink, tipo: "advice", fuente: "r/" + d.subreddit, desc: (d.selftext || "").slice(0, 200) }));
@@ -9939,7 +9947,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-12 00:30 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-12 15:30 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
