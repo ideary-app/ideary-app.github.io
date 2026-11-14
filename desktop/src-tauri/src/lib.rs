@@ -11,8 +11,9 @@ fn app_version(app: AppHandle) -> String {
 
 /// Open (or bring back) a floating window showing one piece of Ideary.
 /// `path` is the query string after the site, e.g. "?popout=chat&id=abc".
+/// MUST be async: creating a window from a sync command deadlocks on Windows (blank, frozen window).
 #[tauri::command]
-fn popout(app: AppHandle, label: String, path: String, title: String, width: f64, height: f64, on_top: bool) -> Result<(), String> {
+async fn popout(app: AppHandle, label: String, path: String, title: String, width: f64, height: f64, on_top: bool) -> Result<(), String> {
     let label: String = label.chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '-' }).take(60).collect();
     if let Some(w) = app.get_webview_window(&label) {
         let _ = w.set_always_on_top(on_top);

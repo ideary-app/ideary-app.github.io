@@ -3873,7 +3873,7 @@ SHIPPING CHANGES
   .status-preview > div, .status-preview .pv-proj { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .status-preview .pv-proj { min-width: 0; flex: 0 1 auto; }
   .status-preview .pv-prog { flex-shrink: 0; }
-  .collapsed > .block-title > button:not(.notes-sort-btn), .collapsed > .block-title > span:last-child:not(.cs-caret):not(:nth-child(2)), .collapsed > .block-title > label { display: none !important; }
+  .collapsed > .block-title > button:not(.notes-sort-btn):not(.sec-pop), .collapsed > .block-title > span:last-child:not(.cs-caret):not(:nth-child(2)), .collapsed > .block-title > label { display: none !important; }
   .ch-add-input { min-width: 0; width: 100%; }
   body:has(.install-banner:not([style*="none"])) .next-fab { bottom: 96px; }
   @media (max-width: 600px) {
@@ -4371,6 +4371,10 @@ SHIPPING CHANGES
   [data-theme="dark"] .tutor-plan button { color: #10131c; }
   .tutor-plan-h { font-size: .72rem; color: var(--slate); margin-top: 6px; }
   .card-proj-of { display: block !important; font-size: .8rem; color: var(--pen); margin-bottom: 2px; letter-spacing: .02em; }
+.has-sec-pop { padding-right: 30px; }
+.sec-pop { position: absolute; top: 8px; right: 8px; z-index: 2; background: var(--paper, #fbf6e8); border: 1px solid var(--line-strong); border-radius: 6px; width: 24px; height: 24px; font-size: 13px; line-height: 1; cursor: pointer; color: var(--slate); flex-shrink: 0; }
+.sec-pop:hover { color: var(--ink); border-color: var(--ink); }
+.pop-sec .block-title .sec-pop { display: none; }
 .step-more { margin: 10px 0 4px; display: flex; flex-wrap: wrap; gap: 6px; }
 .step-more .step-chips { display: none; width: 100%; }
 .step-more.open .step-chips { display: flex; }
@@ -9962,7 +9966,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-14 18:40 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-14 19:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -13107,6 +13111,7 @@ function render() {
     main.innerHTML = idea ? renderDetailView(idea) : renderHomeView();
     if (idea) { const ex = exampleStripHtml(idea); if (ex) { const top = main.querySelector(".detail-sticky-top, .detail-top-row"); (top ? top.parentNode : main).insertAdjacentHTML("afterbegin", ex); } }
     if (idea) updateStickyHeaderHeight();
+    if (idea && typeof addSectionPopButtons === "function") addSectionPopButtons(main, idea.id);
   } else if (view === "status" || view === "categoria") {
     main.innerHTML = renderListPageView();
   } else if (view === "cuaderno") {
@@ -13301,13 +13306,28 @@ function popOut(kind, id, extra) {
   const [w, h] = sizes[kind] || [420, 560];
   const it = IDEAS.find(i => i.id === id);
   const q = new URLSearchParams(Object.assign({ popout: kind, id: id || "" }, extra || {})).toString();
-  const title = { chat: "Mentor", img: "Image", notes: "Notes", steps: "Plan" }[kind] + (it ? " · " + it.titulo : "");
-  tauri("popout", { label: (kind + "-" + (id || "") + "-" + ((extra && extra.ref) || "")).slice(0, 60), path: "?" + q, title, width: w, height: h, onTop: true }).catch(e => showAlert(String(e), { title: "Couldn't pop it out" }));
+  const title = (kind === "sec" ? (extra && extra.sec) : { chat: "Mentor", img: "Image", notes: "Notes", steps: "Plan" }[kind]) + (it ? " · " + it.titulo : "");
+  tauri("popout", { label: (kind + "-" + (id || "") + "-" + ((extra && (extra.ref || extra.sec)) || "")).slice(0, 60), path: "?" + q, title, width: w, height: h, onTop: true }).catch(e => showAlert(String(e), { title: "Couldn't pop it out" }));
   if (kind === "chat") { try { closeProjectChat(); } catch (e) {} }
   if (kind === "img") { try { closeImageViewer(); } catch (e) {} }
 }
+function secTitleText(bt) { const c = bt.cloneNode(true); c.querySelectorAll(".hint, button, label, input, .plan-tools, .sec-pop, .cs-caret, .refs-head-btns").forEach(x => x.remove()); return c.textContent.replace(/\s+/g, " ").trim().slice(0, 40); }
+// Desktop: a small ⧉ at the top-right of every section of an idea/project opens just that section in its own window.
+function addSectionPopButtons(root, id) {
+  if (!IS_DESKTOP || POPOUT) return;
+  root.querySelectorAll(".block-title").forEach(bt => {
+    if (bt.querySelector(".sec-pop")) return;
+    const name = secTitleText(bt); if (!name) return;
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "sec-pop"; b.title = "Open \"" + name + "\" in its own window"; b.textContent = "⧉";
+    b.onclick = e => { e.stopPropagation(); popOut("sec", id, { sec: name }); };
+    const box = bt.parentNode; if (!box) return;
+    if (getComputedStyle(box).position === "static") box.style.position = "relative";
+    bt.classList.add("has-sec-pop"); bt.appendChild(b);
+  });
+}
 function popoutButtonsHtml(it) {
-  if (!IS_DESKTOP || POPOUT || !it) return "";
+  return ""; // pop-outs now live as a ⧉ icon on each section (addSectionPopButtons)
   const id = escapeAttr(it.id);
   return `<span class="pop-row"><span class="pop-label">⧉ Pop out:</span><button type="button" onclick="popOut('chat','${id}')">Mentor</button><button type="button" onclick="popOut('notes','${id}')">Notes</button>${isProject(it) ? "" : `<button type="button" onclick="popOut('steps','${id}')">Plan</button>`}</span>`;
 }
@@ -13356,6 +13376,15 @@ function renderPopout() {
     return;
   }
   if (!it) { main.innerHTML = `<div class="step-empty" style="margin:40px 16px">This was deleted or isn't loaded yet.</div>`; return; }
+  if (POPOUT === "sec") {
+    // render the real detail page, then keep only the one section (all its buttons keep working)
+    document.body.dataset.view = "detalle"; view = "detalle"; viewParam = it.id;
+    const tmp = document.createElement("div"); tmp.innerHTML = renderDetailView(it);
+    const bt = [...tmp.querySelectorAll(".block-title")].find(x => secTitleText(x) === POP_ARGS.sec);
+    let block = bt; while (block && block.parentNode !== tmp && !(block.parentNode && block.parentNode.querySelectorAll(".block-title").length > 1)) block = block.parentNode;
+    main.innerHTML = popBar(it.titulo) + `<div class="pop-body pop-sec">${block ? block.outerHTML : `<div class="step-empty">This section isn't here anymore.</div>`}</div>`;
+    return;
+  }
   if (POPOUT === "notes") {
     main.innerHTML = popBar(it.titulo) + `<div class="pop-body">
       ${it.descripcion ? `<div class="pop-desc">${escapeHtml(it.descripcion)}</div>` : ""}
