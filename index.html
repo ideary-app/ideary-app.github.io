@@ -4375,6 +4375,11 @@ SHIPPING CHANGES
   .card-proj-of { display: block !important; font-size: .8rem; color: var(--pen); margin-bottom: 2px; letter-spacing: .02em; }
 .has-sec-pop { padding-right: 30px; }
 .ref-refine { margin: 10px 0 6px; }
+.st-group { margin: 0 0 26px; }
+.st-group-h { font-family: var(--hand); font-size: 1.35rem; color: var(--st-c, var(--slate)); margin: 0 0 8px 2px; cursor: pointer; display: flex; align-items: baseline; gap: 8px; border-bottom: 1px dashed var(--line-strong); padding-bottom: 4px; }
+.st-group-h span { font-family: var(--sans); font-size: .78rem; color: var(--slate); }
+.st-group-h.st-loose { cursor: default; }
+.st-group .card-proj-of { display: none !important; }
 .card-ch-row { font-size: .85rem; color: var(--slate); margin: 2px 0 2px 4px; cursor: pointer; }
 .card-ch-row:hover { color: var(--ink); text-decoration: underline; }
 .ref-refine-t { display: block; font-size: .8rem; color: var(--slate); margin-bottom: 4px; }
@@ -9998,7 +10003,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-14 21:35 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-14 21:50 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -10552,6 +10557,24 @@ function groupStatus(items) {
   const ids = new Set(items.map(i => i.id));
   return items.filter(i => !(isChapter(i) && ids.has(i.proyectoId)));
 }
+// Status page: one section per project (the project and its chapters in this status), then loose ideas.
+function renderStatusSections(list) {
+  if (!list.length) return `<div class="idea-list">${renderIdeaCards(list)}</div>`;
+  const groups = new Map(), loose = [];
+  list.forEach(i => {
+    const root = isChapter(i) ? IDEAS.find(x => x.id === i.proyectoId) : isProject(i) ? i : null;
+    if (!root) { loose.push(i); return; }
+    if (!groups.has(root.id)) groups.set(root.id, { root, items: [] });
+    groups.get(root.id).items.push(i);
+  });
+  let out = `<div style="--st-c:${(ESTADOS[viewParam] || {}).color || "inherit"}">`;
+  groups.forEach(({ root, items }) => {
+    items.sort((a, b) => (isProject(a) ? -1 : 0) - (isProject(b) ? -1 : 0) || (a.orden || 0) - (b.orden || 0));
+    out += `<section class="st-group"><div class="st-group-h" onclick="openDetail('${escapeAttr(root.id)}')">▤ ${escapeHtml(root.titulo)}<span>${items.length}</span></div><div class="idea-list">${renderIdeaCards(items)}</div></section>`;
+  });
+  if (loose.length) out += `<section class="st-group"><div class="st-group-h st-loose">${groups.size ? "Other ideas" : "Ideas"}<span>${loose.length}</span></div><div class="idea-list">${renderIdeaCards(loose)}</div></section>`;
+  return out + "</div>";
+}
 function chaptersIn(proj, estado) { return isProject(proj) ? projectChapters(proj).filter(c => effEstado(c) === estado) : []; }
 function inStatusLists(i) { if (!i || i.estado === "eliminada" || isNotebook(i)) return false; if (!isChapter(i)) return true; const p = IDEAS.find(x => x.id === i.proyectoId); return !!p && p.estado !== "eliminada"; }
 function isProject(i) { return !!(i && i.tipo === "proyecto"); }
@@ -10565,7 +10588,7 @@ function getCategorias() {
 
 function scopedIdeas() {
   if (view === "trash") return IDEAS.filter(i => i.estado === "eliminada" && !i._trashedWithProject);
-  if (view === "status") return groupStatus(IDEAS.filter(i => effEstado(i) === viewParam && inStatusLists(i)));
+  if (view === "status") return IDEAS.filter(i => effEstado(i) === viewParam && inStatusLists(i));
   if (view === "categoria") return IDEAS.filter(i => hasCat(i, viewParam) && i.estado !== "eliminada" && !isChapter(i) && !isNotebook(i));
   return IDEAS.filter(i => i.estado !== "eliminada" && !isChapter(i) && !isNotebook(i));
 }
@@ -12021,7 +12044,7 @@ function onSearchInput(e) {
     const area = document.getElementById("list-page-results-area");
     if (area) {
       const list = filteredIdeas();
-      area.innerHTML = `<div class="idea-list">${renderIdeaCards(list, view === "categoria")}</div>`;
+      area.innerHTML = view === "status" ? renderStatusSections(list) : `<div class="idea-list">${renderIdeaCards(list, view === "categoria")}</div>`;
     }
   }
 
@@ -12548,7 +12571,7 @@ function renderListPageView() {
       <input class="search-input" placeholder="Search within this view..." value="${escapeAttr(currentSearch)}" oninput="onSearchInput(event)">
     </div>
 
-    <div id="list-page-results-area"><div class="idea-list">${renderIdeaCards(list, view === "categoria")}</div></div>
+    <div id="list-page-results-area">${view === "status" ? renderStatusSections(list) : `<div class="idea-list">${renderIdeaCards(list, view === "categoria")}</div>`}</div>
   `;
 }
 
@@ -12596,7 +12619,7 @@ function renderIdeaCards(list, showActions) {
       <div class="idea-card-main">
         ${isChapter(idea) ? `<div class="card-proj-of">▤ ${escapeHtml((IDEAS.find(x => x.id === idea.proyectoId) || {}).titulo || "")}</div>` : ""}
         <div class="idea-card-title">${escapeHtml(idea.titulo)}</div>
-        ${view === "status" && isProject(idea) ? chaptersIn(idea, viewParam).map(c => `<div class="card-ch-row" onclick="event.stopPropagation();openDetail('${escapeAttr(c.id)}')">↳ ${escapeHtml(c.titulo)}</div>`).join("") : ""}
+
         <div class="idea-card-meta">
           <span class="tag" style="background:${cfg.soft};color:${cfg.color}">${cfg.label}</span>
           <span class="tag tag-cat">${escapeHtml(idea.categoria)}</span>

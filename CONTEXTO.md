@@ -435,3 +435,4 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 - **Listas de estado agrupadas (`groupStatus`):** si un proyecto y su capítulo están en el mismo estado, aparece una sola tarjeta (el proyecto) con los capítulos adentro ("↳ capítulo", clickeable). 
 - **"Searching…" compartido entre ventanas (`refBusy`, `setRefBusy`):** mientras busca links, el botón y el campo "Search this" quedan deshabilitados en la ventana principal y en los pop-outs (se avisa por BroadcastChannel, mensaje `busy`).
 - **Links en la app de escritorio (0.3.4):** comando Rust `open_url` (solo http/https) + en la web, si `IS_DESKTOP`, los clicks en links externos y `window.open` van al navegador predeterminado.
+- **Página de estado por secciones (`renderStatusSections`):** una sección por proyecto ("▤ Proyecto", con el proyecto y sus capítulos en ese estado) y al final "Other ideas" con las ideas sueltas.
