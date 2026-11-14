@@ -971,6 +971,7 @@ SHIPPING CHANGES
   }
 
   .status-preview {
+    max-height: 9.6em; overflow-y: auto; overscroll-behavior: contain;
     font-size: 0.78rem;
     color: var(--slate);
     line-height: 1.6;
@@ -9978,7 +9979,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-14 20:00 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-14 20:15 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -12168,7 +12169,7 @@ function renderStatusCardsOnly() {
   const statusCards = Object.keys(ESTADOS).filter(k => k !== "eliminada").filter(key => IDEAS.some(i => i.estado === key && inStatusLists(i) && passesHomeFilter(isChapter(i) ? IDEAS.find(x => x.id === i.proyectoId) : i))).map(key => {
     const cfg = ESTADOS[key];
     const items = IDEAS.filter(i => i.estado === key && inStatusLists(i) && passesHomeFilter(isChapter(i) ? IDEAS.find(x => x.id === i.proyectoId) : i));
-    const preview = items.slice(0, 5);
+    const preview = items.slice().sort((a, b) => (new Date(b.actualizado || 0) - new Date(a.actualizado || 0)) || 0); // all of them, most recent first
     return `
       <div class="status-card" style="--c:${cfg.color}" onclick="goStatus('${key}')">
         <div class="status-card-top">
