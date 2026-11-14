@@ -4370,7 +4370,8 @@ SHIPPING CHANGES
   .tutor-plan button { background: var(--pen); color: #fff; border: none; border-radius: 999px; padding: 7px 14px; font-family: var(--hand); font-size: 1.02rem; cursor: pointer; }
   [data-theme="dark"] .tutor-plan button { color: #10131c; }
   .tutor-plan-h { font-size: .72rem; color: var(--slate); margin-top: 6px; }
-  .step-more { margin: 10px 0 4px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .card-proj-of { display: block !important; font-size: .8rem; color: var(--pen); margin-bottom: 2px; letter-spacing: .02em; }
+.step-more { margin: 10px 0 4px; display: flex; flex-wrap: wrap; gap: 6px; }
 .step-more .step-chips { display: none; width: 100%; }
 .step-more.open .step-chips { display: flex; }
 .step-more-btn { background: none; border: 1px dashed var(--line-strong); border-radius: 14px; padding: 4px 10px; font: inherit; font-size: 0.8rem; color: var(--slate); cursor: pointer; }
@@ -9961,7 +9962,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-14 18:20 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-14 18:40 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -10503,6 +10504,8 @@ let viewParam = null; // status key, category name, or idea id depending on the 
 let currentSearch = "";
 
 function isChapter(i) { return !!(i && i.proyectoId); }
+// Status lists (In progress, Paused…) also show chapters, so work inside a project isn't hidden.
+function inStatusLists(i) { if (!i || i.estado === "eliminada" || isNotebook(i)) return false; if (!isChapter(i)) return true; const p = IDEAS.find(x => x.id === i.proyectoId); return !!p && p.estado !== "eliminada"; }
 function isProject(i) { return !!(i && i.tipo === "proyecto"); }
 function isNotebook(i) { return !!(i && i.tipo === "cuaderno"); }
 // An item has a main category (categoria) plus optional extra ones (categoriasExtra).
@@ -10514,7 +10517,7 @@ function getCategorias() {
 
 function scopedIdeas() {
   if (view === "trash") return IDEAS.filter(i => i.estado === "eliminada" && !i._trashedWithProject);
-  if (view === "status") return IDEAS.filter(i => i.estado === viewParam && i.estado !== "eliminada" && !isChapter(i));
+  if (view === "status") return IDEAS.filter(i => i.estado === viewParam && inStatusLists(i));
   if (view === "categoria") return IDEAS.filter(i => hasCat(i, viewParam) && i.estado !== "eliminada" && !isChapter(i) && !isNotebook(i));
   return IDEAS.filter(i => i.estado !== "eliminada" && !isChapter(i) && !isNotebook(i));
 }
@@ -12146,9 +12149,9 @@ function homeFilterHtml() {
 }
 function renderStatusCardsOnly() {
   // only the statuses that have something — five boxes in "0" read as an empty prototype
-  const statusCards = Object.keys(ESTADOS).filter(k => k !== "eliminada").filter(key => IDEAS.some(i => i.estado === key && !isChapter(i) && !isNotebook(i) && passesHomeFilter(i))).map(key => {
+  const statusCards = Object.keys(ESTADOS).filter(k => k !== "eliminada").filter(key => IDEAS.some(i => i.estado === key && inStatusLists(i) && passesHomeFilter(isChapter(i) ? IDEAS.find(x => x.id === i.proyectoId) : i))).map(key => {
     const cfg = ESTADOS[key];
-    const items = IDEAS.filter(i => i.estado === key && i.estado !== "eliminada" && !isChapter(i) && passesHomeFilter(i));
+    const items = IDEAS.filter(i => i.estado === key && inStatusLists(i) && passesHomeFilter(isChapter(i) ? IDEAS.find(x => x.id === i.proyectoId) : i));
     const preview = items.slice(0, 5);
     return `
       <div class="status-card" style="--c:${cfg.color}" onclick="goStatus('${key}')">
@@ -12159,6 +12162,7 @@ function renderStatusCardsOnly() {
         <div class="status-name">${cfg.label}</div>
         <div class="status-preview">
           ${preview.map(i => {
+            if (isChapter(i)) { const pj = IDEAS.find(x => x.id === i.proyectoId); return `<div><span class="pv-proj">▤ ${escapeHtml(pj ? pj.titulo : "")} ›</span> ${escapeHtml(i.titulo)}</div>`; }
             if (!isProject(i)) return `<div>${isDormant(i) ? '<span title="No changes in 3+ weeks">💤 </span>' : ''}${escapeHtml(i.titulo)}</div>`;
             const chs = projectChapters(i), done = chs.filter(c => c.estado === "completada").length;
             return `<div><span class="pv-proj">▤ ${escapeHtml(i.titulo)}</span><span class="pv-prog">${done}/${chs.length} ch.</span></div>`;
@@ -12542,6 +12546,7 @@ function renderIdeaCards(list, showActions) {
     return `
     <div class="idea-card" style="border-left:3px solid ${cfg.color}" onclick="openDetail('${idea.id}')">
       <div class="idea-card-main">
+        ${isChapter(idea) ? `<div class="card-proj-of">▤ ${escapeHtml((IDEAS.find(x => x.id === idea.proyectoId) || {}).titulo || "")}</div>` : ""}
         <div class="idea-card-title">${escapeHtml(idea.titulo)}</div>
         <div class="idea-card-meta">
           <span class="tag" style="background:${cfg.soft};color:${cfg.color}">${cfg.label}</span>
