@@ -9998,7 +9998,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-14 21:20 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-14 21:35 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -13315,6 +13315,17 @@ function escapeAttr(str) {
    updating itself, and a desktop section in Settings only for the owner.
 ================================================================== */
 const IS_DESKTOP = !!(window.__TAURI__ && window.__TAURI__.core);
+// Desktop: web links open in the person's normal browser (the app's window can't open new tabs).
+if (IS_DESKTOP) {
+  const openExt = url => { try { window.__TAURI__.core.invoke("open_url", { url: String(url) }).catch(e => { console.warn(e); }); } catch (e) {} };
+  document.addEventListener("click", e => {
+    const a = e.target && e.target.closest && e.target.closest("a[href]"); if (!a) return;
+    const href = a.href || ""; if (!/^https?:/i.test(href)) return;
+    if (a.target === "_blank" || new URL(href).origin !== location.origin) { e.preventDefault(); openExt(href); }
+  }, true);
+  const _wo = window.open;
+  window.open = function (url, ...rest) { if (url && /^https?:/i.test(String(url)) && new URL(url, location.href).origin !== location.origin) { openExt(new URL(url, location.href).href); return null; } return _wo.call(window, url, ...rest); };
+}
 const POPOUT = (() => { try { return new URLSearchParams(location.search).get("popout"); } catch (e) { return null; } })();
 const POP_ARGS = (() => { try { return Object.fromEntries(new URLSearchParams(location.search)); } catch (e) { return {}; } })();
 const OWNER_HASH = "ec9690b583a5ab19cc844ae00fc02597564ae631a7f260898f80772dff11e107"; // sha-256 of the owner's Google account email

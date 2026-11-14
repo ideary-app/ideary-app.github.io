@@ -34,6 +34,13 @@ async fn popout(app: AppHandle, label: String, path: String, title: String, widt
     Ok(())
 }
 
+/// Open a web link in the person's default browser (links inside the app would otherwise do nothing).
+#[tauri::command]
+fn open_url(url: String) -> Result<(), String> {
+    if !(url.starts_with("https://") || url.starts_with("http://")) { return Err("Only web links can be opened.".into()); }
+    open::that(&url).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn set_on_top(app: AppHandle, label: String, on: bool) -> Result<(), String> {
     let w = app.get_webview_window(&label).ok_or("no window")?;
@@ -186,7 +193,7 @@ fn google_logout(app: AppHandle) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![app_version, popout, set_on_top, close_window, install_update, google_token, google_login, google_logout])
+        .invoke_handler(tauri::generate_handler![app_version, popout, set_on_top, close_window, install_update, google_token, google_login, google_logout, open_url])
         .run(tauri::generate_context!())
         .expect("error while running Ideary");
 }

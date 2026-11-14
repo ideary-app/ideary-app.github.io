@@ -24,6 +24,7 @@
     "allow-install-update",
     "allow-google-token",
     "allow-google-login",
-    "allow-google-logout"
+    "allow-google-logout",
+    "allow-open-url"
   ]
 }
