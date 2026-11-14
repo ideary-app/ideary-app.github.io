@@ -431,3 +431,4 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 - **Tarjeta de estado en el inicio:** ahora lista TODOS los elementos (antes solo 5, por eso no se veían los de notebooks), los más recientes primero, con scroll.
 - **Estado efectivo (`effEstado`):** algo marcado "Idea" con pasos empezados (o un proyecto con capítulos empezados) cuenta como "In progress" en las listas y tarjetas de estado.
 - **Pop-out del chat (Develop idea / mentor):** también sin marco de Windows; el header del chat es la barra (se arrastra) con 📌 – ▢ × adentro. El botón de pop-out es el ícono sutil (sin recuadro).
+- **References → "Not quite what you need?":** cuando hay links de la IA aparece un campo para pedir algo puntual ("un tutorial de X"); llama `findResources(id, btn, hint)` y el pedido manda por sobre todo (búsquedas y elección).

@@ -4374,6 +4374,10 @@ SHIPPING CHANGES
   .tutor-plan-h { font-size: .72rem; color: var(--slate); margin-top: 6px; }
   .card-proj-of { display: block !important; font-size: .8rem; color: var(--pen); margin-bottom: 2px; letter-spacing: .02em; }
 .has-sec-pop { padding-right: 30px; }
+.ref-refine { margin: 10px 0 6px; }
+.ref-refine-t { display: block; font-size: .8rem; color: var(--slate); margin-bottom: 4px; }
+.ref-refine-row { display: flex; gap: 6px; align-items: center; }
+.ref-refine-row .form-input { flex: 1; min-width: 0; margin: 0; padding: 8px 10px; }
 .pop-sec-win { min-height: 100vh; }
 .pop-card { min-height: 100vh; width: 100% !important; max-width: none !important; margin: 0 !important; border-radius: 0 !important; box-shadow: none !important; transform: none !important; rotate: none !important; box-sizing: border-box; padding-top: 30px !important; position: relative; }
 .pop-card::before, .pop-card::after, .pop-card .tape, .pop-card > .tape { display: none !important; }
@@ -7063,6 +7067,7 @@ function renderReferencesBlock(idea) {
           <span class="ref-pill-tools"><button type="button" title="Add a note" onclick="renameReference('${escapeAttr(idea.id)}',${k})">✎</button><button type="button" title="Remove" onclick="removeReference('${escapeAttr(idea.id)}',${k})">&times;</button></span>
         </li>` : `<li class="ref-item"><span class="ref-ico">📝</span><div class="ref-body"><span>${escapeHtml(r.titulo)}</span><span class="ref-host"><button type="button" onclick="renameReference('${escapeAttr(idea.id)}',${k})">edit note</button></span></div><button type="button" class="resolve-delete-btn" title="Remove" onclick="removeReference('${escapeAttr(idea.id)}',${k})">&times;</button></li>`;
       }).join("")}</ul>
+      ${list.some(r => r.ai) ? `<form class="ref-refine" onsubmit="event.preventDefault();const v=this.q.value.trim();if(v)findResources('${escapeAttr(idea.id)}', this.querySelector('button'), v)"><span class="ref-refine-t">Not quite what you need?</span><div class="ref-refine-row"><input name="q" class="form-input" placeholder="e.g. a tutorial on rigging a tail" style="font-size:16px"><button type="submit" class="stuck-btn" style="margin:0;white-space:nowrap">🔎 Search this</button></div></form>` : ""}
       <div class="ref-add-row">
         <textarea rows="1" class="note-quick-add ref-add" placeholder="+ Paste a link or write a note" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,160)+'px'" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addReference('${escapeAttr(idea.id)}',this);this.style.height=''}"></textarea>
         <label class="ref-add-file" title="Add an image, a PDF or any file">📎<input type="file" multiple style="display:none" onchange="addReferenceFiles('${escapeAttr(idea.id)}', this)"></label>
@@ -9710,7 +9715,7 @@ async function realSearch(queries) {
   return all.filter(x => x && x.url && !seen.has(x.url) && seen.add(x.url) && !PAID_SITES.test(x.url + " " + x.titulo + " " + x.fuente));
 }
 
-async function findResources(id, btn) {
+async function findResources(id, btn, hint) {
   const item = IDEAS.find(i => i.id === id); if (!item) return;
   if (!geminiKey) { await showAlert("Add a free Gemini key in Settings → AI to search for resources.", { title: "AI needs a key" }); return; }
   if (btn) { btn.disabled = true; btn.textContent = "Searching…"; }
@@ -9723,7 +9728,8 @@ async function findResources(id, btn) {
   const have = (item.referencias || []).map(r => r.url);
   const proj = isChapter(item) && IDEAS.find(x => x.id === item.proyectoId);
   const about = `PROJECT: ${proj ? proj.titulo + " — " + String(projAbout(proj)).slice(0, 600) + "\nCHAPTER: " : ""}${item.titulo} — ${String(item.descripcion || "").slice(0, 600)}\nWORKING ON NOW:\n- ${todo.join("\n- ") || "(getting started)"}`;
-  const FOCUS = "STRICT FOCUS: only what helps with exactly these current steps (no later stages: if they're designing characters or writing the story, no texturing, rigging or rendering). Story/characters steps → craft (character design, story structure), not software.";
+  const ASK = hint ? `THE PERSON ASKED SPECIFICALLY FOR: "${hint}". That comes first: every result must be exactly that (if they ask for a tutorial, tutorials; for a specific technique, that technique). Use the project only as context.\n` : "";
+  const FOCUS = ASK + "STRICT FOCUS: only what helps with exactly these current steps (no later stages: if they're designing characters or writing the story, no texturing, rigging or rendering). Story/characters steps → craft (character design, story structure), not software.";
   const fail = async (msg, title) => { await showAlert(msg, { title: title || "Couldn't search" }); render(); };
   let ai = true, queries = [];
   // 1) the AI decides WHAT to search (short, cheap call)
@@ -9733,6 +9739,7 @@ async function findResources(id, btn) {
     queries = ((d && d.busquedas) || []).filter(b => b && b.q).slice(0, 6);
     if (!queries.length) queries = [...String(raw).matchAll(/"q"\s*:\s*"([^"]+)"/g)].map((m, k) => ({ q: m[1], donde: k < 3 ? "youtube" : "web" }));
   } catch (e) { ai = false; console.warn("query AI failed:", e.message); }
+  if (!queries.length && hint) queries = [{ q: hint, donde: "youtube" }, { q: hint + " tutorial", donde: "youtube" }, { q: hint, donde: "web" }];
   if (!queries.length) { // no AI: search the steps themselves
     queries = (todo.length ? todo : [item.titulo]).slice(0, 3).map(t => ({ q: String(t).replace(/.*→ /, "").replace(/\(in progress\)/, "") + " tutorial", donde: "youtube" }));
     queries.push({ q: item.titulo, donde: "web" });
@@ -9981,7 +9988,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-14 20:30 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-14 21:00 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
