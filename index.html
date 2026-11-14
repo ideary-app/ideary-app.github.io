@@ -4372,8 +4372,8 @@ SHIPPING CHANGES
   .tutor-plan-h { font-size: .72rem; color: var(--slate); margin-top: 6px; }
   .card-proj-of { display: block !important; font-size: .8rem; color: var(--pen); margin-bottom: 2px; letter-spacing: .02em; }
 .has-sec-pop { padding-right: 30px; }
-.sec-pop { position: absolute; top: 8px; right: 8px; z-index: 2; background: var(--paper, #fbf6e8); border: 1px solid var(--line-strong); border-radius: 6px; width: 24px; height: 24px; font-size: 13px; line-height: 1; cursor: pointer; color: var(--slate); flex-shrink: 0; }
-.sec-pop:hover { color: var(--ink); border-color: var(--ink); }
+.block-title .sec-pop.sec-pop { position: absolute !important; top: 10px !important; right: 10px !important; background: none !important; border: none !important; padding: 2px !important; font-size: 15px !important; line-height: 1 !important; cursor: pointer !important; color: inherit !important; opacity: .45 !important; }
+.block-title .sec-pop:hover { opacity: 1 !important; }
 .pop-sec .block-title .sec-pop { display: none; }
 .step-more { margin: 10px 0 4px; display: flex; flex-wrap: wrap; gap: 6px; }
 .step-more .step-chips { display: none; width: 100%; }
@@ -9966,7 +9966,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-14 19:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-14 19:40 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -13313,13 +13313,14 @@ function popOut(kind, id, extra) {
 }
 function secTitleText(bt) { const c = bt.cloneNode(true); c.querySelectorAll(".hint, button, label, input, .plan-tools, .sec-pop, .cs-caret, .refs-head-btns").forEach(x => x.remove()); return c.textContent.replace(/\s+/g, " ").trim().slice(0, 40); }
 // Desktop: a small ⧉ at the top-right of every section of an idea/project opens just that section in its own window.
+const POP_SECTIONS = /^(Production plan|Description|Notes|Things to figure out|Images|References)$/;
 function addSectionPopButtons(root, id) {
   if (!IS_DESKTOP || POPOUT) return;
   root.querySelectorAll(".block-title").forEach(bt => {
     if (bt.querySelector(".sec-pop")) return;
-    const name = secTitleText(bt); if (!name) return;
+    const name = secTitleText(bt); if (!POP_SECTIONS.test(name)) return;
     const b = document.createElement("button");
-    b.type = "button"; b.className = "sec-pop"; b.title = "Open \"" + name + "\" in its own window"; b.textContent = "⧉";
+    b.type = "button"; b.className = "sec-pop"; b.title = "Open \"" + name + "\" in its own window"; b.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>';
     b.onclick = e => { e.stopPropagation(); popOut("sec", id, { sec: name }); };
     const box = bt.parentNode; if (!box) return;
     if (getComputedStyle(box).position === "static") box.style.position = "relative";
