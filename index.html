@@ -4372,6 +4372,18 @@ SHIPPING CHANGES
   .tutor-plan-h { font-size: .72rem; color: var(--slate); margin-top: 6px; }
   .card-proj-of { display: block !important; font-size: .8rem; color: var(--pen); margin-bottom: 2px; letter-spacing: .02em; }
 .has-sec-pop { padding-right: 30px; }
+.pop-sec-win { min-height: 100vh; }
+.pop-card { min-height: 100vh; width: 100% !important; max-width: none !important; margin: 0 !important; border-radius: 0 !important; box-shadow: none !important; transform: none !important; rotate: none !important; box-sizing: border-box; padding-top: 30px !important; position: relative; }
+.pop-card::before, .pop-card::after, .pop-card .tape, .pop-card > .tape { display: none !important; }
+.pop-card .block-title > span:first-of-type, .pop-card .block-title > span:first-of-type > span { white-space: nowrap; flex-shrink: 0; }
+.pop-card .block-title { flex-wrap: wrap; position: static !important; padding-right: 110px !important; cursor: default; user-select: none; }
+.pop-crumb { position: absolute; top: 10px; left: 16px; right: 120px; font-family: var(--sans, sans-serif); font-size: .7rem; letter-spacing: .03em; opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: inherit; }
+.pop-ctl { position: absolute; top: 4px; right: 6px; display: flex; gap: 2px; }
+.pop-ctl button { background: none !important; border: none !important; color: inherit; font-size: 15px; width: 26px; height: 26px; cursor: pointer; opacity: .55; border-radius: 6px; padding: 0; line-height: 1; }
+.pop-ctl button:hover { opacity: 1; background: rgba(0,0,0,.07) !important; }
+.pop-ctl #pop-pin { filter: grayscale(1); opacity: .35; }
+.pop-ctl #pop-pin.on { filter: none; opacity: .9; }
+.pop-sec-win .sec-pop { display: none !important; }
 .block-title .sec-pop.sec-pop { position: absolute !important; top: 10px !important; right: 10px !important; background: none !important; border: none !important; padding: 2px !important; font-size: 15px !important; line-height: 1 !important; cursor: pointer !important; color: inherit !important; opacity: .45 !important; }
 .block-title .sec-pop:hover { opacity: 1 !important; }
 .pop-sec .block-title .sec-pop { display: none; }
@@ -9966,7 +9978,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-14 19:40 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-14 20:00 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -13307,7 +13319,7 @@ function popOut(kind, id, extra) {
   const it = IDEAS.find(i => i.id === id);
   const q = new URLSearchParams(Object.assign({ popout: kind, id: id || "" }, extra || {})).toString();
   const title = (kind === "sec" ? (extra && extra.sec) : { chat: "Mentor", img: "Image", notes: "Notes", steps: "Plan" }[kind]) + (it ? " · " + it.titulo : "");
-  tauri("popout", { label: (kind + "-" + (id || "") + "-" + ((extra && (extra.ref || extra.sec)) || "")).slice(0, 60), path: "?" + q, title, width: w, height: h, onTop: true }).catch(e => showAlert(String(e), { title: "Couldn't pop it out" }));
+  tauri("popout", { label: (kind + "-" + (id || "") + "-" + ((extra && (extra.ref || extra.sec)) || "")).slice(0, 60), path: "?" + q, title, width: w, height: h, onTop: true, frameless: kind === "sec" }).catch(e => showAlert(String(e), { title: "Couldn't pop it out" }));
   if (kind === "chat") { try { closeProjectChat(); } catch (e) {} }
   if (kind === "img") { try { closeImageViewer(); } catch (e) {} }
 }
@@ -13354,11 +13366,15 @@ let popoutBooted = false, popOnTop = true;
 function popBar(title) {
   return `<div class="pop-bar"><span class="pop-title">${escapeHtml(title)}</span><button type="button" id="pop-pin" class="${popOnTop ? "on" : ""}" title="Keep this window on top of other apps" onclick="togglePopPin()">📌 ${popOnTop ? "On top" : "Not on top"}</button></div>`;
 }
+function popWin(a) {
+  try { const w = window.__TAURI__.window.getCurrentWindow(); w[a](); }
+  catch (e) { if (a === "close") window.close(); }
+}
 async function togglePopPin() {
   popOnTop = !popOnTop;
   try { await tauri("set_on_top", { label: window.__TAURI__.webviewWindow ? window.__TAURI__.webviewWindow.getCurrentWebviewWindow().label : POPOUT, on: popOnTop }); } catch (e) {}
   const cb = document.querySelector(".pop-chat-btn"); if (cb && POPOUT === "chat") { cb.classList.toggle("on", popOnTop); cb.title = "Keep on top of other apps (" + (popOnTop ? "on" : "off") + ")"; }
-  const b = document.getElementById("pop-pin"); if (b) { b.classList.toggle("on", popOnTop); b.textContent = "📌 " + (popOnTop ? "On top" : "Not on top"); }
+  const b = document.getElementById("pop-pin"); if (b) { b.classList.toggle("on", popOnTop); if (!b.closest(".pop-ctl")) b.textContent = "📌 " + (popOnTop ? "On top" : "Not on top"); }
 }
 function renderPopout() {
   const main = document.getElementById("main"), it = IDEAS.find(i => i.id === POP_ARGS.id);
@@ -13383,7 +13399,22 @@ function renderPopout() {
     const tmp = document.createElement("div"); tmp.innerHTML = renderDetailView(it);
     const bt = [...tmp.querySelectorAll(".block-title")].find(x => secTitleText(x) === POP_ARGS.sec);
     let block = bt; while (block && block.parentNode !== tmp && !(block.parentNode && block.parentNode.querySelectorAll(".block-title").length > 1)) block = block.parentNode;
-    main.innerHTML = popBar(it.titulo) + `<div class="pop-body pop-sec">${block ? block.outerHTML : `<div class="step-empty">This section isn't here anymore.</div>`}</div>`;
+    if (!block) { main.innerHTML = popBar(it.titulo) + `<div class="pop-body"><div class="step-empty">This section isn't here anymore.</div></div>`; return; }
+    // the window IS the card: no app around it, window buttons inside the card's title
+    const proj = isChapter(it) && IDEAS.find(x => x.id === it.proyectoId);
+    const crumb = proj ? `${proj.titulo} › ${it.titulo}` : it.titulo;
+    main.innerHTML = `<div class="pop-sec-win">${block.outerHTML}</div>`;
+    const t0 = main.querySelector(".block-title"); const card = (t0 && t0.closest(".detail-block")) || main.querySelector(".pop-sec-win > *");
+    card.classList.add("pop-card"); main.querySelector(".pop-sec-win").replaceChildren(card);
+    card.classList.remove("collapsed"); card.classList.remove("collapsible");
+    const t = card.querySelector(".block-title");
+    if (t) {
+      t.removeAttribute("onclick"); t.setAttribute("data-tauri-drag-region", "");
+      t.querySelectorAll(".cs-caret").forEach(x => x.remove());
+      t.insertAdjacentHTML("afterbegin", `<div class="pop-crumb" data-tauri-drag-region>${escapeHtml(crumb)}</div>`);
+      t.insertAdjacentHTML("beforeend", `<span class="pop-ctl"><button type="button" class="${popOnTop ? "on" : ""}" id="pop-pin" title="Keep on top of other apps" onclick="togglePopPin()">📌</button><button type="button" title="Minimize" onclick="popWin('minimize')">–</button><button type="button" title="Maximize" onclick="popWin('toggleMaximize')">▢</button><button type="button" title="Close" onclick="popWin('close')">×</button></span>`);
+    }
+    try { document.documentElement.style.background = document.body.style.background = getComputedStyle(card).backgroundColor; } catch (e) {}
     return;
   }
   if (POPOUT === "notes") {
