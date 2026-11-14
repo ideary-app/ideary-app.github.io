@@ -432,3 +432,5 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 - **Estado efectivo (`effEstado`):** algo marcado "Idea" con pasos empezados (o un proyecto con capítulos empezados) cuenta como "In progress" en las listas y tarjetas de estado.
 - **Pop-out del chat (Develop idea / mentor):** también sin marco de Windows; el header del chat es la barra (se arrastra) con 📌 – ▢ × adentro. El botón de pop-out es el ícono sutil (sin recuadro).
 - **References → "Not quite what you need?":** cuando hay links de la IA aparece un campo para pedir algo puntual ("un tutorial de X"); llama `findResources(id, btn, hint)` y el pedido manda por sobre todo (búsquedas y elección).
+- **Listas de estado agrupadas (`groupStatus`):** si un proyecto y su capítulo están en el mismo estado, aparece una sola tarjeta (el proyecto) con los capítulos adentro ("↳ capítulo", clickeable). 
+- **"Searching…" compartido entre ventanas (`refBusy`, `setRefBusy`):** mientras busca links, el botón y el campo "Search this" quedan deshabilitados en la ventana principal y en los pop-outs (se avisa por BroadcastChannel, mensaje `busy`).

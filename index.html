@@ -4375,6 +4375,8 @@ SHIPPING CHANGES
   .card-proj-of { display: block !important; font-size: .8rem; color: var(--pen); margin-bottom: 2px; letter-spacing: .02em; }
 .has-sec-pop { padding-right: 30px; }
 .ref-refine { margin: 10px 0 6px; }
+.card-ch-row { font-size: .85rem; color: var(--slate); margin: 2px 0 2px 4px; cursor: pointer; }
+.card-ch-row:hover { color: var(--ink); text-decoration: underline; }
 .ref-refine-t { display: block; font-size: .8rem; color: var(--slate); margin-bottom: 4px; }
 .ref-refine-row { display: flex; gap: 6px; align-items: center; }
 .ref-refine-row .form-input { flex: 1; min-width: 0; margin: 0; padding: 8px 10px; }
@@ -7043,7 +7045,7 @@ function renderReferencesBlock(idea) {
   return `
     <div class="detail-block refs-block">
       <div class="block-title c-plan" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="white-space:nowrap;flex-shrink:0">References</span>
-        <span class="refs-head-btns"><button type="button" class="stuck-btn" style="margin:0" id="ref-suggest-${escapeAttr(idea.id)}" title="Ideas of what to search for, for what you're doing now" onclick="suggestSearches('${escapeAttr(idea.id)}')">💡 What should I research?</button><button type="button" class="stuck-btn" style="margin:0" title="The AI finds links for what you're doing now" onclick="findResources('${escapeAttr(idea.id)}', this)">🔎 Find links for me</button></span></div>
+        <span class="refs-head-btns"><button type="button" class="stuck-btn" style="margin:0" id="ref-suggest-${escapeAttr(idea.id)}" title="Ideas of what to search for, for what you're doing now" onclick="suggestSearches('${escapeAttr(idea.id)}')">💡 What should I research?</button><button type="button" class="stuck-btn" style="margin:0" title="The AI finds links for what you're doing now" onclick="findResources('${escapeAttr(idea.id)}', this)"${refBusy[idea.id] ? " disabled" : ""}>${refBusy[idea.id] ? "⏳ " + escapeHtml(refBusy[idea.id]) : "🔎 Find links for me"}</button></span></div>
       ${sug.length ? `<div class="ref-sugs-box"><div class="ref-sugs-head"><span>💡 Worth searching — tap one to open it</span><button type="button" onclick="clearSearches('${escapeAttr(idea.id)}')">Clear</button></div><div class="ref-sugs">${sug.map((b, k) => `<span class="ref-chip-wrap"><a class="ref-chip" href="${escapeAttr(searchUrl(b))}" target="_blank" rel="noopener">${b.donde === "youtube" ? "▶" : b.donde === "images" ? "🖼" : "🔎"} ${escapeHtml(b.q)}</a><button type="button" class="ref-chip-x" title="Remove" onclick="removeSearch('${escapeAttr(idea.id)}',${k})">&times;</button></span>`).join("")}</div></div>` : ""}
       <ul class="ref-list">${list.map((r, k) => {
         const yt = r.url && ytId(r.url), m = r.meta || {};
@@ -7067,7 +7069,7 @@ function renderReferencesBlock(idea) {
           <span class="ref-pill-tools"><button type="button" title="Add a note" onclick="renameReference('${escapeAttr(idea.id)}',${k})">✎</button><button type="button" title="Remove" onclick="removeReference('${escapeAttr(idea.id)}',${k})">&times;</button></span>
         </li>` : `<li class="ref-item"><span class="ref-ico">📝</span><div class="ref-body"><span>${escapeHtml(r.titulo)}</span><span class="ref-host"><button type="button" onclick="renameReference('${escapeAttr(idea.id)}',${k})">edit note</button></span></div><button type="button" class="resolve-delete-btn" title="Remove" onclick="removeReference('${escapeAttr(idea.id)}',${k})">&times;</button></li>`;
       }).join("")}</ul>
-      ${list.some(r => r.ai) ? `<form class="ref-refine" onsubmit="event.preventDefault();const v=this.q.value.trim();if(v)findResources('${escapeAttr(idea.id)}', this.querySelector('button'), v)"><span class="ref-refine-t">Not quite what you need?</span><div class="ref-refine-row"><input name="q" class="form-input" placeholder="e.g. a tutorial on rigging a tail" style="font-size:16px"><button type="submit" class="stuck-btn" style="margin:0;white-space:nowrap">🔎 Search this</button></div></form>` : ""}
+      ${list.some(r => r.ai) ? `<form class="ref-refine" onsubmit="event.preventDefault();const v=this.q.value.trim();if(v)findResources('${escapeAttr(idea.id)}', this.querySelector('button'), v)"><span class="ref-refine-t">Not quite what you need?</span><div class="ref-refine-row"><input name="q" class="form-input" placeholder="e.g. a tutorial on rigging a tail" style="font-size:16px"${refBusy[idea.id] ? " disabled" : ""}><button type="submit" class="stuck-btn" style="margin:0;white-space:nowrap"${refBusy[idea.id] ? " disabled" : ""}>${refBusy[idea.id] ? "⏳ Searching…" : "🔎 Search this"}</button></div></form>` : ""}
       <div class="ref-add-row">
         <textarea rows="1" class="note-quick-add ref-add" placeholder="+ Paste a link or write a note" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,160)+'px'" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addReference('${escapeAttr(idea.id)}',this);this.style.height=''}"></textarea>
         <label class="ref-add-file" title="Add an image, a PDF or any file">📎<input type="file" multiple style="display:none" onchange="addReferenceFiles('${escapeAttr(idea.id)}', this)"></label>
@@ -9715,7 +9717,15 @@ async function realSearch(queries) {
   return all.filter(x => x && x.url && !seen.has(x.url) && seen.add(x.url) && !PAID_SITES.test(x.url + " " + x.titulo + " " + x.fuente));
 }
 
+// "Searching…" is shared by every window showing this item (main + pop-outs), so none offers to search twice.
+let refBusy = {};
+function setRefBusy(id, label) { if (label) refBusy[id] = label; else delete refBusy[id]; try { if (syncChan) syncChan.postMessage({ t: "busy", busy: refBusy }); } catch (e) {} }
 async function findResources(id, btn, hint) {
+  if (refBusy[id]) return;
+  setRefBusy(id, "Searching…"); render();
+  try { return await findResourcesInner(id, null, hint); } finally { setRefBusy(id, ""); render(); }
+}
+async function findResourcesInner(id, btn, hint) {
   const item = IDEAS.find(i => i.id === id); if (!item) return;
   if (!geminiKey) { await showAlert("Add a free Gemini key in Settings → AI to search for resources.", { title: "AI needs a key" }); return; }
   if (btn) { btn.disabled = true; btn.textContent = "Searching…"; }
@@ -9744,7 +9754,7 @@ async function findResources(id, btn, hint) {
     queries = (todo.length ? todo : [item.titulo]).slice(0, 3).map(t => ({ q: String(t).replace(/.*→ /, "").replace(/\(in progress\)/, "") + " tutorial", donde: "youtube" }));
     queries.push({ q: item.titulo, donde: "web" });
   }
-  if (btn) btn.textContent = "Searching YouTube and forums…";
+  setRefBusy(id, "Searching YouTube and forums…"); render();
   // 2) real results from real sites
   const found = (await realSearch(queries)).filter(x => !have.includes(x.url));
   if (!found.length) {
@@ -9988,7 +9998,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-14 21:00 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-14 21:20 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -10537,6 +10547,12 @@ function hasStarted(i) {
   return isProject(i) && projectChapters(i).some(c => c.estado === "en-curso" || c.estado === "completada" || hasStarted(c));
 }
 function effEstado(i) { return i.estado === "idea" && !isNotebook(i) && hasStarted(i) ? "en-curso" : i.estado; }
+// A project and its chapters in the same status = ONE entry (the project), its chapters listed inside it.
+function groupStatus(items) {
+  const ids = new Set(items.map(i => i.id));
+  return items.filter(i => !(isChapter(i) && ids.has(i.proyectoId)));
+}
+function chaptersIn(proj, estado) { return isProject(proj) ? projectChapters(proj).filter(c => effEstado(c) === estado) : []; }
 function inStatusLists(i) { if (!i || i.estado === "eliminada" || isNotebook(i)) return false; if (!isChapter(i)) return true; const p = IDEAS.find(x => x.id === i.proyectoId); return !!p && p.estado !== "eliminada"; }
 function isProject(i) { return !!(i && i.tipo === "proyecto"); }
 function isNotebook(i) { return !!(i && i.tipo === "cuaderno"); }
@@ -10549,7 +10565,7 @@ function getCategorias() {
 
 function scopedIdeas() {
   if (view === "trash") return IDEAS.filter(i => i.estado === "eliminada" && !i._trashedWithProject);
-  if (view === "status") return IDEAS.filter(i => effEstado(i) === viewParam && inStatusLists(i));
+  if (view === "status") return groupStatus(IDEAS.filter(i => effEstado(i) === viewParam && inStatusLists(i)));
   if (view === "categoria") return IDEAS.filter(i => hasCat(i, viewParam) && i.estado !== "eliminada" && !isChapter(i) && !isNotebook(i));
   return IDEAS.filter(i => i.estado !== "eliminada" && !isChapter(i) && !isNotebook(i));
 }
@@ -12183,7 +12199,7 @@ function renderStatusCardsOnly() {
   // only the statuses that have something — five boxes in "0" read as an empty prototype
   const statusCards = Object.keys(ESTADOS).filter(k => k !== "eliminada").filter(key => IDEAS.some(i => effEstado(i) === key && inStatusLists(i) && passesHomeFilter(isChapter(i) ? IDEAS.find(x => x.id === i.proyectoId) : i))).map(key => {
     const cfg = ESTADOS[key];
-    const items = IDEAS.filter(i => effEstado(i) === key && inStatusLists(i) && passesHomeFilter(isChapter(i) ? IDEAS.find(x => x.id === i.proyectoId) : i));
+    const items = groupStatus(IDEAS.filter(i => effEstado(i) === key && inStatusLists(i) && passesHomeFilter(isChapter(i) ? IDEAS.find(x => x.id === i.proyectoId) : i)));
     const preview = items.slice().sort((a, b) => (new Date(b.actualizado || 0) - new Date(a.actualizado || 0)) || 0); // all of them, most recent first
     return `
       <div class="status-card" style="--c:${cfg.color}" onclick="goStatus('${key}')">
@@ -12580,6 +12596,7 @@ function renderIdeaCards(list, showActions) {
       <div class="idea-card-main">
         ${isChapter(idea) ? `<div class="card-proj-of">▤ ${escapeHtml((IDEAS.find(x => x.id === idea.proyectoId) || {}).titulo || "")}</div>` : ""}
         <div class="idea-card-title">${escapeHtml(idea.titulo)}</div>
+        ${view === "status" && isProject(idea) ? chaptersIn(idea, viewParam).map(c => `<div class="card-ch-row" onclick="event.stopPropagation();openDetail('${escapeAttr(c.id)}')">↳ ${escapeHtml(c.titulo)}</div>`).join("") : ""}
         <div class="idea-card-meta">
           <span class="tag" style="background:${cfg.soft};color:${cfg.color}">${cfg.label}</span>
           <span class="tag tag-cat">${escapeHtml(idea.categoria)}</span>
@@ -13366,7 +13383,8 @@ let syncMuted = false;
 function broadcastIdeas() { if (!syncChan || syncMuted) return; try { syncChan.postMessage({ t: "ideas", ideas: IDEAS, from: POPOUT || "main" }); } catch (e) {} }
 if (syncChan) syncChan.onmessage = ev => {
   const d = ev.data || {};
-  if (d.t === "hello" && !POPOUT) { broadcastIdeas(); return; }
+  if (d.t === "hello" && !POPOUT) { broadcastIdeas(); if (Object.keys(refBusy).length) syncChan.postMessage({ t: "busy", busy: refBusy }); return; }
+  if (d.t === "busy") { refBusy = Object.assign({}, d.busy || {}); render(); return; }
   if (d.t !== "ideas" || !Array.isArray(d.ideas)) return;
   if (JSON.stringify(d.ideas) === JSON.stringify(IDEAS)) return;
   IDEAS = d.ideas;
