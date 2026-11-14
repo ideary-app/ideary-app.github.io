@@ -4370,7 +4370,12 @@ SHIPPING CHANGES
   .tutor-plan button { background: var(--pen); color: #fff; border: none; border-radius: 999px; padding: 7px 14px; font-family: var(--hand); font-size: 1.02rem; cursor: pointer; }
   [data-theme="dark"] .tutor-plan button { color: #10131c; }
   .tutor-plan-h { font-size: .72rem; color: var(--slate); margin-top: 6px; }
-  .tutor-plan-link { display: block; margin: 10px auto 4px; background: none; border: none; color: var(--slate); text-decoration: underline; font-size: .78rem; cursor: pointer; }
+  .step-more { margin: 10px 0 4px; display: flex; flex-wrap: wrap; gap: 6px; }
+.step-more .step-chips { display: none; width: 100%; }
+.step-more.open .step-chips { display: flex; }
+.step-more-btn { background: none; border: 1px dashed var(--line-strong); border-radius: 14px; padding: 4px 10px; font: inherit; font-size: 0.8rem; color: var(--slate); cursor: pointer; }
+.ai-chip.used { opacity: .55; }
+.tutor-plan-link { display: block; margin: 10px auto 4px; background: none; border: none; color: var(--slate); text-decoration: underline; font-size: .78rem; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -9815,14 +9820,23 @@ function stepToMentor() {
   pcSend(`Update the plan with what I worked out with the tutor on the step "${stepTxt}".`,
     `CONVERSATION WITH THE TUTOR ABOUT THE STEP "${stepTxt}" (chapter/idea "${ref.idea.titulo}"):\n---\n${transcript}\n---\nTurn the conclusions of that conversation into changes to the project: rewrite, split, add, remove or reorder steps (including this one) and add notes/decisions/questions as needed. Use exact texts from the project context. Propose ALL the changes in the actions block.`);
 }
+const STEP_STARTERS = ["How do I start this?", "Explain it like I'm a beginner", "Give me an example for my project", "Help me write it"];
+async function stepClearChat() {
+  const ref = getStepRef(); if (!ref) return;
+  if (!(await showConfirm("This clears this conversation so you can start again. What you saved in \"Your work\" stays.", { title: "Start over?", confirmLabel: "Start over" }))) return;
+  ref.step.chat = []; saveIdeas(); renderStepChat();
+}
 function renderStepChat() {
   const ref = getStepRef();
   const log = document.getElementById("step-log");
   const chat = ref.step.chat || [];
+  const asked = new Set(chat.filter(m => m.role === "user").map(m => m.text));
+  const chips = STEP_STARTERS.map(t => `<button type="button" class="ai-chip${asked.has(t) ? " used" : ""}" onclick="stepSend(${JSON.stringify(t).replace(/"/g, "&quot;")})">${t}</button>`).join("");
   log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}${m.role === "model" ? " md" : ""}">${m.role === "model" ? mdLite(m.text) : escapeHtml(m.text)}${m.role === "model" ? tutorButtons(m, k) : ""}</div>`).join("")
       + (chat.some(m => m.role === "model") ? `<button type="button" class="tutor-plan-link" onclick="stepToMentor()">Want to change the plan anyway? Update it with this conversation →</button>` : "")
+      + `<div class="step-more"><button type="button" class="step-more-btn" onclick="this.parentNode.classList.toggle('open')">💡 Other questions</button><button type="button" class="step-more-btn" onclick="stepClearChat()">↺ Start over</button><div class="step-chips">${chips}</div></div>`
     : `<div class="step-empty">Ask anything about this step. For example:</div>
-       <div class="step-chips">${["How do I start this?", "Explain it like I'm a beginner", "Give me an example for my project", "Help me write it"].map(t => `<button type="button" class="ai-chip" onclick="stepSend(${JSON.stringify(t).replace(/"/g, "&quot;")})">${t}</button>`).join("")}</div>`;
+       <div class="step-chips">${chips}</div>`;
   log.scrollTop = log.scrollHeight;
 }
 /* What the person said in the OTHER chats of the same project (mentors of the project, its chapters,
@@ -9947,7 +9961,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-12 15:30 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-14 18:20 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
