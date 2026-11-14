@@ -4339,7 +4339,8 @@ SHIPPING CHANGES
   /* desktop app */
   .desk-only { display: none !important; }
   html.is-desktop .desk-only { display: inline-flex !important; }
-  .pop-chat-btn { background: none; border: 1px solid var(--line-strong); border-radius: 8px; width: 34px; height: 34px; align-items: center; justify-content: center; cursor: pointer; font-size: 1.05rem; color: var(--ink); margin-left: auto; margin-right: 6px; }
+  .pop-chat-btn { background: none; border: none; width: 30px; height: 30px; align-items: center; justify-content: center; cursor: pointer; color: inherit; opacity: .45; margin-left: auto; margin-right: 4px; padding: 0; }
+  .pop-chat-btn:hover { opacity: 1; }
   .pop-chat-btn.on { background: var(--pen); color: #fff; border-color: var(--pen); }
   .pop-row { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .pop-row .pop-label { font-size: .78rem; color: var(--slate); }
@@ -4384,6 +4385,7 @@ SHIPPING CHANGES
 .pop-ctl button:hover { opacity: 1; background: rgba(0,0,0,.07) !important; }
 .pop-ctl #pop-pin { filter: grayscale(1); opacity: .35; }
 .pop-ctl #pop-pin.on { filter: none; opacity: .9; }
+.pop-ctl.pop-ctl-chat { position: static; margin-left: auto; }
 .pop-sec-win .sec-pop { display: none !important; }
 .block-title .sec-pop.sec-pop { position: absolute !important; top: 10px !important; right: 10px !important; background: none !important; border: none !important; padding: 2px !important; font-size: 15px !important; line-height: 1 !important; cursor: pointer !important; color: inherit !important; opacity: .45 !important; }
 .block-title .sec-pop:hover { opacity: 1 !important; }
@@ -4863,7 +4865,7 @@ SHIPPING CHANGES
   <div class="modal-box step-ws-box" style="max-width:680px;display:flex;flex-direction:column;height:min(90vh,800px)">
     <div class="modal-head">
       <div class="modal-title" id="pc-title" style="font-size:1.4rem;line-height:1.2">Talk to your mentor</div>
-      <button type="button" class="pop-chat-btn desk-only" title="Pop out — a window that stays on top of other apps" onclick="POPOUT ? togglePopPin() : popOut('chat', pcProjId)">⧉</button>
+      <button type="button" class="pop-chat-btn desk-only" title="Pop out — a window that stays on top of other apps" onclick="POPOUT ? togglePopPin() : popOut('chat', pcProjId)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></button>
       <button class="modal-close" onclick="closeProjectChat()">&times;</button>
     </div>
     <div class="form-hint" style="margin-bottom:8px">Ask anything about the whole project. The mentor sees every chapter, your progress, key decisions and notes. If it suggests adding something, you choose.</div>
@@ -9979,7 +9981,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-14 20:15 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-14 20:30 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -10522,6 +10524,12 @@ let currentSearch = "";
 
 function isChapter(i) { return !!(i && i.proyectoId); }
 // Status lists (In progress, Paused…) also show chapters, so work inside a project isn't hidden.
+// "In progress" also catches things marked Idea whose plan was already started (or, for a project, a started chapter).
+function hasStarted(i) {
+  if ((i.fases || []).some(f => (f.pasos || []).some(st => st && typeof st === "object" && st.hecho > 0))) return true;
+  return isProject(i) && projectChapters(i).some(c => c.estado === "en-curso" || c.estado === "completada" || hasStarted(c));
+}
+function effEstado(i) { return i.estado === "idea" && !isNotebook(i) && hasStarted(i) ? "en-curso" : i.estado; }
 function inStatusLists(i) { if (!i || i.estado === "eliminada" || isNotebook(i)) return false; if (!isChapter(i)) return true; const p = IDEAS.find(x => x.id === i.proyectoId); return !!p && p.estado !== "eliminada"; }
 function isProject(i) { return !!(i && i.tipo === "proyecto"); }
 function isNotebook(i) { return !!(i && i.tipo === "cuaderno"); }
@@ -10534,7 +10542,7 @@ function getCategorias() {
 
 function scopedIdeas() {
   if (view === "trash") return IDEAS.filter(i => i.estado === "eliminada" && !i._trashedWithProject);
-  if (view === "status") return IDEAS.filter(i => i.estado === viewParam && inStatusLists(i));
+  if (view === "status") return IDEAS.filter(i => effEstado(i) === viewParam && inStatusLists(i));
   if (view === "categoria") return IDEAS.filter(i => hasCat(i, viewParam) && i.estado !== "eliminada" && !isChapter(i) && !isNotebook(i));
   return IDEAS.filter(i => i.estado !== "eliminada" && !isChapter(i) && !isNotebook(i));
 }
@@ -12166,9 +12174,9 @@ function homeFilterHtml() {
 }
 function renderStatusCardsOnly() {
   // only the statuses that have something — five boxes in "0" read as an empty prototype
-  const statusCards = Object.keys(ESTADOS).filter(k => k !== "eliminada").filter(key => IDEAS.some(i => i.estado === key && inStatusLists(i) && passesHomeFilter(isChapter(i) ? IDEAS.find(x => x.id === i.proyectoId) : i))).map(key => {
+  const statusCards = Object.keys(ESTADOS).filter(k => k !== "eliminada").filter(key => IDEAS.some(i => effEstado(i) === key && inStatusLists(i) && passesHomeFilter(isChapter(i) ? IDEAS.find(x => x.id === i.proyectoId) : i))).map(key => {
     const cfg = ESTADOS[key];
-    const items = IDEAS.filter(i => i.estado === key && inStatusLists(i) && passesHomeFilter(isChapter(i) ? IDEAS.find(x => x.id === i.proyectoId) : i));
+    const items = IDEAS.filter(i => effEstado(i) === key && inStatusLists(i) && passesHomeFilter(isChapter(i) ? IDEAS.find(x => x.id === i.proyectoId) : i));
     const preview = items.slice().sort((a, b) => (new Date(b.actualizado || 0) - new Date(a.actualizado || 0)) || 0); // all of them, most recent first
     return `
       <div class="status-card" style="--c:${cfg.color}" onclick="goStatus('${key}')">
@@ -12554,7 +12562,7 @@ function renderTrashView() {
 function renderIdeaCards(list, showActions) {
   if (!list.length) return `<div class="empty-state"><div class="big">No ideas here</div>Try another filter or search for something else.</div>`;
   return list.map(idea => {
-    const cfg = ESTADOS[idea.estado] || ESTADOS["idea"];
+    const cfg = ESTADOS[effEstado(idea)] || ESTADOS["idea"];
     const actions = showActions ? `
       <div class="idea-card-actions" onclick="event.stopPropagation()">
         <button class="tool-btn pencil" title="Edit" aria-label="Edit" onclick="openEditIdeaModal('${escapeAttr(idea.id)}')">${pencilSvg("Edit")}</button>
@@ -13320,7 +13328,7 @@ function popOut(kind, id, extra) {
   const it = IDEAS.find(i => i.id === id);
   const q = new URLSearchParams(Object.assign({ popout: kind, id: id || "" }, extra || {})).toString();
   const title = (kind === "sec" ? (extra && extra.sec) : { chat: "Mentor", img: "Image", notes: "Notes", steps: "Plan" }[kind]) + (it ? " · " + it.titulo : "");
-  tauri("popout", { label: (kind + "-" + (id || "") + "-" + ((extra && (extra.ref || extra.sec)) || "")).slice(0, 60), path: "?" + q, title, width: w, height: h, onTop: true, frameless: kind === "sec" }).catch(e => showAlert(String(e), { title: "Couldn't pop it out" }));
+  tauri("popout", { label: (kind + "-" + (id || "") + "-" + ((extra && (extra.ref || extra.sec)) || "")).slice(0, 60), path: "?" + q, title, width: w, height: h, onTop: true, frameless: kind === "sec" || kind === "chat" }).catch(e => showAlert(String(e), { title: "Couldn't pop it out" }));
   if (kind === "chat") { try { closeProjectChat(); } catch (e) {} }
   if (kind === "img") { try { closeImageViewer(); } catch (e) {} }
 }
@@ -13434,7 +13442,14 @@ function renderPopout() {
   }
 }
 if (POPOUT === "chat") {
-  setTimeout(() => { const b = document.querySelector(".pop-chat-btn"); if (b) { b.textContent = "📌"; b.title = "Keep on top of other apps (on)"; b.classList.add("on"); } }, 0);
+  setTimeout(() => {
+    // frameless window: the chat header is the title bar (drag it), with the window buttons inside
+    const head = document.querySelector("#pc-overlay .modal-head"); if (!head) return;
+    head.setAttribute("data-tauri-drag-region", ""); const ti = document.getElementById("pc-title"); if (ti) ti.setAttribute("data-tauri-drag-region", "");
+    const b = head.querySelector(".pop-chat-btn"); if (b) b.remove();
+    const x = head.querySelector(".modal-close"); if (x) x.style.display = "none";
+    head.insertAdjacentHTML("beforeend", `<span class="pop-ctl pop-ctl-chat"><button type="button" class="${popOnTop ? "on" : ""}" id="pop-pin" title="Keep on top of other apps" onclick="togglePopPin()">📌</button><button type="button" title="Minimize" onclick="popWin('minimize')">–</button><button type="button" title="Maximize" onclick="popWin('toggleMaximize')">▢</button><button type="button" title="Close" onclick="popWin('close')">×</button></span>`);
+  }, 0);
   // closing the chat in a pop-out closes the window
   const _close = closeProjectChat;
   closeProjectChat = function () { _close(); try { window.__TAURI__.webviewWindow.getCurrentWebviewWindow().close(); } catch (e) { window.close(); } };
