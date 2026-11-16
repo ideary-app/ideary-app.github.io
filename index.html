@@ -4382,6 +4382,19 @@ SHIPPING CHANGES
 .pc-change-why { font-size: .88rem; margin-top: 3px; color: var(--ink); opacity: .85; }
 .pc-change-why b { font-weight: 600; }
 .pc-preview-btn { color: var(--ink) !important; }
+.pc-side { display: none; }
+@media (min-width: 1000px) {
+  #pc-overlay.open { gap: 12px; }
+  #pc-overlay .pc-side:not(:empty) { display: flex; flex-direction: column; gap: 2px; width: 230px; flex-shrink: 0; height: min(90vh, 800px); overflow-y: auto; background: var(--paper, #fbf6e8); border: 1px solid var(--line-strong); border-radius: var(--sketch-radius, 10px); padding: 14px 10px; box-sizing: border-box; box-shadow: 0 10px 30px rgba(0,0,0,.18); }
+}
+.pcs-h { font-family: var(--hand); font-size: 1.15rem; color: var(--ink); margin: 0 4px 8px; }
+.pcs-row { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; background: none; border: none; border-radius: 8px; padding: 6px 8px; font: inherit; font-size: .86rem; color: var(--ink); cursor: pointer; line-height: 1.3; }
+.pcs-row:hover { background: rgba(0,0,0,.05); }
+.pcs-row.on { background: rgba(0,0,0,.08); font-weight: 600; }
+.pcs-main { font-weight: 600; margin-bottom: 6px; border-bottom: 1px dashed var(--line-strong); border-radius: 8px 8px 0 0; padding-bottom: 8px; }
+.pcs-n { margin-left: auto; font-size: .7rem; color: var(--slate); font-weight: normal; }
+.pcs-step { font-size: .8rem; color: var(--slate); padding-left: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.pcs-fold summary { font-size: .74rem; color: var(--slate); cursor: pointer; padding: 2px 8px 2px 14px; }
 .pc-closing { margin-top: 14px; padding-top: 8px; border-top: 1px dashed var(--line-strong); }
 .pc-full { margin: 6px 0; font-size: .9rem; }
 .pc-full summary { cursor: pointer; color: var(--slate); font-size: .82rem; text-decoration: underline; text-underline-offset: 2px; }
@@ -4896,6 +4909,7 @@ SHIPPING CHANGES
 
 <!-- MODAL: Step workspace (tutor) -->
 <div class="modal-overlay" id="pc-overlay">
+  <aside class="pc-side" id="pc-side" aria-label="Chats in this project"></aside>
   <div class="modal-box step-ws-box" style="max-width:680px;display:flex;flex-direction:column;height:min(90vh,800px)">
     <div class="modal-head">
       <div class="modal-title" id="pc-title" style="font-size:1.4rem;line-height:1.2">Talk to your mentor</div>
@@ -8934,9 +8948,35 @@ function openProjectChat(projId) {
   document.getElementById("pc-title").innerHTML = `Talk to your mentor<span class="pc-sub">${escapeHtml(proj.titulo)}</span>`;
   document.querySelector("#pc-overlay .form-hint").textContent = isNotebook(proj) ? "Ask anything about the whole notebook — the big story, continuity between projects, shared rules. It sees everything inside." : isProject(proj) ? "Ask anything about the whole project. The mentor sees every chapter, your progress, key decisions and notes. If it suggests adding something, you choose." : "Ask anything about this " + (isChapter(proj) ? "chapter" : "idea") + ". The mentor sees its plan, notes and things to figure out. If it suggests adding something, you choose.";
   document.getElementById("pc-overlay").classList.add("open");
-  renderPcChat(); watchJump("pc-log");
+  renderPcChat(); renderPcSide(); watchJump("pc-log");
   requestAnimationFrame(() => jumpBottom("pc-log", false));
   setTimeout(() => document.getElementById("pc-input").focus(), 50);
+}
+// Desktop (web + app): a list of this project's chats beside the mentor — main chat first, then chapters, their step tutors folded inside.
+let pcSideSteps = [];
+function renderPcSide() {
+  const side = document.getElementById("pc-side"); if (!side) return;
+  const cur = IDEAS.find(i => i.id === pcProjId);
+  if (!cur || POPOUT) { side.innerHTML = ""; return; }
+  const root = pendRoot(cur), chs = isProject(root) ? projectChapters(root).filter(c => c.estado !== "eliminada") : [];
+  pcSideSteps = [];
+  const stepsWithChat = it => { const L = []; (it.fases || []).forEach((f, fi) => (f.pasos || []).forEach((st, si) => { if (st && typeof st === "object" && (st.chat || []).length) L.push({ it, fi, si, t: st.texto }); })); return L; };
+  const stepRows = it => stepsWithChat(it).map(x => { pcSideSteps.push(x); return `<button type="button" class="pcs-row pcs-step" onclick="pcSideStep(${pcSideSteps.length - 1})" title="${escapeAttr(x.t)}">🎓 ${escapeHtml(x.t)}</button>`; }).join("");
+  const row = (it, label, main) => `<button type="button" class="pcs-row${main ? " pcs-main" : ""}${it.id === cur.id ? " on" : ""}" onclick="openProjectChat('${escapeAttr(it.id)}')">${label}${(it.chat || []).length ? `<span class="pcs-n">${it.chat.length}</span>` : ""}</button>`;
+  let h = `<div class="pcs-h">Chats</div>` + row(root, "💬 " + escapeHtml(root.titulo), true);
+  const rootSteps = stepRows(root); if (rootSteps) h += `<details class="pcs-fold"><summary>Step tutors</summary>${rootSteps}</details>`;
+  chs.forEach(c => {
+    const st = stepRows(c);
+    if (!(c.chat || []).length && !st && c.id !== cur.id) return; // only chats that exist
+    h += row(c, escapeHtml(c.titulo), false) + (st ? `<details class="pcs-fold"${stepsWithChat(c).length && c.id === cur.id ? " open" : ""}><summary>Step tutors</summary>${st}</details>` : "");
+  });
+  side.innerHTML = h;
+}
+function pcSideStep(n) {
+  const x = pcSideSteps[n]; if (!x) return;
+  closeProjectChat();
+  if (view !== "detalle" || viewParam !== x.it.id) openDetail(x.it.id);
+  openStepHelp(x.it.id, x.fi, x.si); stepTab("tutor");
 }
 function closeProjectChat() { document.getElementById("pc-overlay").classList.remove("open"); render(); }
 function pcClear() { const p = IDEAS.find(i => i.id === pcProjId); if (!p) return; p.chat = []; saveIdeas(); renderPcChat(); }
@@ -10180,7 +10220,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-16 19:55 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-16 20:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
