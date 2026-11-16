@@ -4375,6 +4375,8 @@ SHIPPING CHANGES
   .card-proj-of { display: block !important; font-size: .8rem; color: var(--pen); margin-bottom: 2px; letter-spacing: .02em; }
 .has-sec-pop { padding-right: 30px; }
 .ref-refine { margin: 10px 0 6px; }
+.ai-retry { display: block; background: none; border: none; padding: 2px 0; margin: 4px 0 0; font: inherit; font-size: .78rem; color: var(--slate); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; opacity: .8; }
+.ai-retry:hover { color: var(--ink); opacity: 1; }
 .st-group { margin: 0 0 26px; }
 .st-group-h { font-family: var(--hand); font-size: 1.35rem; color: var(--st-c, var(--slate)); margin: 0 0 8px 2px; cursor: pointer; display: flex; align-items: baseline; gap: 8px; border-bottom: 1px dashed var(--line-strong); padding-bottom: 4px; }
 .st-group-h span { font-family: var(--sans); font-size: .78rem; color: var(--slate); }
@@ -8960,10 +8962,13 @@ function splitActions(text) {
 function pcMsgBar(m, k) {
   const acts = m.actions || [], open = acts.filter(a => !a.done).length;
   const b = [];
-  if (m.role === "model" && !acts.length && MENTOR_PROPOSES.test(m.text || "")) return `<button type="button" class="pc-getacts" onclick="pcFetchActions(${k}, this)"><span>👉 Tap here to see the changes and add them</span><b>→</b></button>`;
+  const getActs = m.role === "model" && !acts.length && MENTOR_PROPOSES.test(m.text || "") ? `<button type="button" class="pc-getacts" onclick="pcFetchActions(${k}, this)"><span>👉 Tap here to see the changes and add them</span><b>→</b></button>` : "";
+  if (getActs) b.push(getActs);
   if (open >= 2) b.push(`<button type="button" class="sug-apply" onclick="pcAddAll(${k})">Add all ${open}</button>`);
   if (m.undo) b.push(`<button type="button" class="pc-undo" onclick="pcUndo(${k})">↶ Undo these changes</button>`);
-  return b.length ? `<div class="pc-msgbar">${b.join("")}</div>` : "";
+  const p = IDEAS.find(i => i.id === pcProjId), last = p && (p.chat || []).length - 1 === k;
+  const retry = m.role === "model" && last && !(p && pcPending[p.id]) ? `<button type="button" class="ai-retry" onclick="pcRetry(${k})" title="Ask the AI to answer this again">↻ Try again</button>` : "";
+  return (b.length ? `<div class="pc-msgbar">${b.join("")}</div>` : "") + retry;
 }
 function renderPcChat() {
   const _l = document.getElementById("pc-log"), _stick = !_l || !_l.childElementCount || _l.scrollHeight - _l.scrollTop - _l.clientHeight < 60, _top = _l ? _l.scrollTop : 0;
@@ -9206,6 +9211,19 @@ async function pcAct(k, j, yes, batch) {
   if (!batch) { saveIdeas(); renderPcChat(); }
 }
 // extra: hidden context sent to the AI with this message (kept with it for later turns, not shown).
+// Ask again: drop the last answer (changes already added stay) and send the same question again, with the app as it is now.
+function pcRetry(k) {
+  const p = IDEAS.find(i => i.id === pcProjId); if (!p || pcPending[p.id]) return;
+  let u = k; while (u >= 0 && p.chat[u].role !== "user") u--; if (u < 0) return;
+  const um = p.chat[u]; p.chat.splice(u); saveIdeas();
+  pcPendingAtts = (um.adj || []).slice(); renderPcAtts();
+  pcSend(um.text, um.ctx);
+}
+function stepRetry() {
+  const ref = getStepRef(); if (!ref) return; const chat = ref.step.chat || [];
+  let u = chat.length - 1; while (u >= 0 && chat[u].role !== "user") u--; if (u < 0) return;
+  const txt = chat[u].text; chat.splice(u); saveIdeas(); stepSend(txt);
+}
 async function pcSend(textOverride, extra) {
   if (micHold("pc-input", () => pcSend())) return;
   const proj = IDEAS.find(i => i.id === pcProjId);
@@ -9915,6 +9933,7 @@ function renderStepChat() {
   const chips = STEP_STARTERS.map(t => `<button type="button" class="ai-chip${asked.has(t) ? " used" : ""}" onclick="stepSend(${JSON.stringify(t).replace(/"/g, "&quot;")})">${t}</button>`).join("");
   log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}${m.role === "model" ? " md" : ""}">${m.role === "model" ? mdLite(m.text) : escapeHtml(m.text)}${m.role === "model" ? tutorButtons(m, k) : ""}</div>`).join("")
       + (chat.some(m => m.role === "model") ? `<button type="button" class="tutor-plan-link" onclick="stepToMentor()">Want to change the plan anyway? Update it with this conversation →</button>` : "")
+      + (chat.length && chat[chat.length - 1].role === "model" ? `<button type="button" class="ai-retry" onclick="stepRetry()" title="Ask the tutor to answer this again">↻ Try again</button>` : "")
       + `<div class="step-more"><button type="button" class="step-more-btn" onclick="this.parentNode.classList.toggle('open')">💡 Other questions</button><button type="button" class="step-more-btn" onclick="stepClearChat()">↺ Start over</button><div class="step-chips">${chips}</div></div>`
     : `<div class="step-empty">Ask anything about this step. For example:</div>
        <div class="step-chips">${chips}</div>`;
@@ -10042,7 +10061,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-16 17:30 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-16 17:45 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
