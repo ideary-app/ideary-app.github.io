@@ -5962,9 +5962,13 @@ const geminiBusy = {}; // model -> time until we avoid it (it answered "high dem
 // Remembered for 30 min, so once Gemini recovers we go back to the best model.
 function geminiGood(m) { try { localStorage.setItem("ideary_gemini_lastgood", m + "|" + Date.now()); } catch (e) {} }
 function geminiLastGood() { try { const [m, t] = (localStorage.getItem("ideary_gemini_lastgood") || "").split("|"); return m && Date.now() - +t < 18e5 ? m : ""; } catch (e) { return ""; } }
+// Models Google told us are retired for this key ("no longer available"): never try them again.
+let geminiRetired = []; try { geminiRetired = JSON.parse(localStorage.getItem("ideary_gem_retired") || "[]"); } catch (e) {}
+function retireGemini(m) { if (!geminiRetired.includes(m)) { geminiRetired.push(m); try { localStorage.setItem("ideary_gem_retired", JSON.stringify(geminiRetired)); } catch (e) {} } }
 function geminiCandidates() {
   const out = [];
   (geminiAvailable || []).forEach(n => {
+    if (geminiRetired.includes(n)) return;
     if (/image|tts|live|audio|embed|vision-only|robotics|computer-use|native|veo|imagen|aqa|learnlm/.test(n)) return;
     let m, rank;
     if ((m = n.match(/^gemini-(\d+(?:\.\d+)?)-flash$/))) rank = 100 + +m[1];
@@ -6379,10 +6383,15 @@ async function geminiCore(history, system, retried, modelOverride, think, onChun
       // The lighter model doesn't exist for this key — go back to the normal one.
       return geminiCore(history, system, retried, modelOverride.replace(/-lite$/, ""), think, onChunk);
     }
-    if (!retried && (res.status === 404 || /no longer available|not found|not supported/i.test(msg))) {
-      await geminiResolveModel(true);
-      return geminiCore(history, system, true, undefined, think, onChunk);
+    if (res.status === 404 || /no longer available|not found|not supported|deprecated|retired/i.test(msg)) {
+      // this model is gone for this key: remember it and move to the next one (whatever try we're on)
+      retireGemini(model); geminiBusy[model] = Date.now() + 86400000;
+      const alt = geminiAltModel();
+      if (alt && alt !== model && (history._retiredHops = (history._retiredHops || 0) + 1) < 6) return geminiCore(history, system, retried || 1, alt, think, onChunk);
+      if (!retried) { await geminiResolveModel(true); return geminiCore(history, system, true, undefined, think, onChunk); }
+      if (history._firstErr) throw new Error(history._firstErr);
     }
+    if (!history._firstErr && (res.status === 429 || res.status === 503 || /high demand|overloaded/i.test(msg))) history._firstErr = res.status === 429 ? "You've used up your free Gemini quota for now (on every model I tried). It refills on its own — try again later (usually within the hour, or tomorrow for the daily limit)." : `Gemini is very busy right now — Google answered “${String(msg).slice(0, 120)}”. It's not your key or your limit; try again in a minute.`;
     // Web search (grounding) has its own, much smaller free quota. If it's used up or not allowed,
     // retry the same request WITHOUT search — and don't mark the model as out of quota for normal chats.
     if (history._tools && (res.status === 429 || res.status === 403 || (res.status === 400 && /search|tool|ground/i.test(msg)))) {
@@ -6535,14 +6544,15 @@ async function groqGenerate(history, system, onChunk) {
   try {
     let r = null;
     for (const budget of [6500, 3800]) {
-      const fitted = groqFit(messages[0].content, messages.slice(1), budget);
+      const fitted = groqFit(messages[0].content, messages.slice(1).filter(m => (typeof m.content === "string" ? m.content : (m.content[0] || {}).text || "").trim()), budget);
       r = await fetch("https://api.groq.com/openai/v1/chat/completions", { method: "POST", signal: ctrl.signal, headers: { Authorization: "Bearer " + groqKey, "Content-Type": "application/json" }, body: JSON.stringify({ model, messages: fitted, temperature: 0.7, max_tokens: 3000 }) });
       if (r.ok) break;
+      if (r.status === 400) continue; // try the smaller size once (often "too long" comes as 400)
       if (r.status !== 413 && r.status !== 429) break;
       const peek = await r.clone().json().catch(() => ({}));
       if (!/too large|tokens per minute|TPM|reduce/i.test((peek.error && peek.error.message) || "")) break;
     }
-    if (!r.ok) { let m = "Groq error " + r.status; try { m = (await r.json()).error.message || m; } catch (e) {} console.warn("Groq:", m); throw new Error(r.status === 429 || r.status === 413 ? "it's also busy or out of its free limit right now" : "it gave an error (" + r.status + ")"); }
+    if (!r.ok) { let m = "Groq error " + r.status; try { m = (await r.json()).error.message || m; } catch (e) {} console.warn("Groq:", m); throw new Error(r.status === 429 || r.status === 413 ? "it's also busy or out of its free limit right now" : "it gave an error (" + r.status + ": " + String(m).slice(0, 120) + ")"); }
     const j = await r.json(); const out = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || "";
     if (!out) throw new Error("The backup AI returned an empty reply.");
     countAiUse(j.usage && j.usage.total_tokens); aiLastProvider = "Groq · " + model;
@@ -10101,7 +10111,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-16 19:15 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-16 19:30 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
