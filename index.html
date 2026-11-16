@@ -4377,6 +4377,7 @@ SHIPPING CHANGES
 .ref-refine { margin: 10px 0 6px; }
 .ai-retry { display: block; background: none; border: none; padding: 2px 0; margin: 4px 0 0; font: inherit; font-size: .78rem; color: var(--slate); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; opacity: .8; }
 .ai-retry:hover { color: var(--ink); opacity: 1; }
+.pc-why { display: block; font-size: .78rem; color: var(--slate); margin-top: 3px; font-weight: normal; }
 .choice-list { display: flex; flex-direction: column; gap: 6px; }
 .choice-btn { text-align: left; background: none; border: 1px solid var(--line-strong); border-radius: 10px; padding: 9px 12px; font: inherit; cursor: pointer; color: var(--ink); }
 .choice-btn:hover { border-color: var(--ink); }
@@ -6865,8 +6866,16 @@ async function openShare(id) {
   const html = shareDoc(idea);
   const choice = await showShareSheet();
   if (choice === "pdf") {
-    const w = window.open("", "_blank");
-    if (!w) { await showAlert("Your browser blocked the new window. Allow pop-ups for Ideary and try again.", { title: "Couldn't open" }); return; }
+    const w = IS_DESKTOP ? null : window.open("", "_blank");
+    if (!w) {
+      // desktop app (or pop-ups blocked): print from a hidden frame inside this window → "Save as PDF"
+      const f = document.createElement("iframe");
+      f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
+      document.body.appendChild(f);
+      f.contentDocument.open(); f.contentDocument.write(html); f.contentDocument.close();
+      setTimeout(() => { try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) { showAlert("Couldn't open the print window here. Try \"Download as a page\" instead.", { title: "Couldn't print" }); } setTimeout(() => f.remove(), 60000); }, 800);
+      return;
+    }
     w.document.write(html); w.document.close();
     setTimeout(() => { try { w.focus(); w.print(); } catch (e) {} }, 700);
   } else if (choice === "page") {
@@ -8760,7 +8769,8 @@ const HONEST_RULES = `
 - MEMORY ACROSS CHATS: the context may include "FROM YOUR OTHER CONVERSATIONS IN THIS PROJECT". Treat it like a teacher who remembers what you told them last week. If something said there matters here and isn't in the project yet — or contradicts what's here — bring it up ("In the chat about X you said Y — keep it?") and offer to add or fix it.
 FREE FIRST, ALWAYS: whenever you recommend resources, tutorials, tools or links, recommend only FREE ones (YouTube, official free docs, free blogs, forums, free software like Blender). Never push paid courses or subscriptions. Only if the person explicitly asks you for a paid course, help them find one, and say it is paid.
 WHOLE-PLAN CHANGES: when you add, move or remove a chapter or step, re-check the WHOLE plan in the same reply, not just the new piece. Look for existing steps that now overlap, are in the wrong order, or belong in the new chapter, and propose the fixes with actions too (editar_paso, mover_paso, borrar_paso, mover_capitulo, editar on notes). Say plainly in your text what changes and why, e.g. "Your sketch step also had the character sheet — I moved that to the new Character sheets chapter, because it is better done after the final design." Never just append chapters and leave duplicates or contradictions behind. If the person asks whether the workflow should be rethought, do it completely, in that same reply, with the actions.
-NEVER LOSE THE PERSON'S WORK: before deleting or merging a chapter, move what is in it (steps with mover_paso, notes/things to figure out/decisions/references with mover) to where each piece belongs in the new structure, OR give borrar_capitulo a "destino" so everything left goes there. When you are not sure where something goes, do not guess silently: say "I would put X in Y because…, and Z in W…" and ask; if you really don't know, ask where it should go. Never delete a chapter that still has work in it without saying where that work goes. Order: first all the moves, last the borrar_capitulo.`;
+NEVER LOSE THE PERSON'S WORK: before deleting or merging a chapter, move what is in it (steps with mover_paso, notes/things to figure out/decisions/references with mover) to where each piece belongs in the new structure, OR give borrar_capitulo a "destino" so everything left goes there. When you are not sure where something goes, do not guess silently: say "I would put X in Y because…, and Z in W…" and ask; if you really don't know, ask where it should go. Never delete a chapter that still has work in it without saying where that work goes. Order: first all the moves, last the borrar_capitulo.
+EXPLAIN BEFORE THE BUTTONS: when you propose reorganizing, first say in plain words what you noticed and the new order you suggest, e.g. "I noticed the animatic should come before modeling, so I'm moving Modeling after Animatic so you know what each shot needs." Then the actions, each with its own "porque". When moving chapters, say exactly where each goes (right before which chapter), never vaguely "to the end".`;
 const PROJECT_MENTOR_RULES = `You are a veteran professional in the field of this project (a film director for a short film, a master carpenter for furniture, a head chef for a recipe…) acting as the person's mentor for the WHOLE project. You can see every chapter, its plan and progress, the key decisions, notes and open questions.
 - Answer like a good teacher: clear, concrete, applied to THIS project, short paragraphs. Guide and give options with their trade-offs; don't make the person's creative decisions for them.
 - Respect the key decisions as fixed rules. If one seems wrong, say so and explain why instead of ignoring it.
@@ -8768,8 +8778,9 @@ const PROJECT_MENTOR_RULES = `You are a veteran professional in the field of thi
 - Use the lessons from past finished projects when relevant.
 - Answer in the language the person writes in.
 - If (and only if) your answer suggests concrete additions to the project, end with a block exactly like this (no other text after it):
+EVERY action also gets "porque": one short line, in the person's language, saying WHY (e.g. "the animatic has to be done before modeling, so you know what each shot needs"). Never leave it out.
 \`\`\`actions
-[{"tipo":"archivar","archivo":"exact attached file name","paso":"Exact text of the step it belongs to"},{"tipo":"resuelto","pregunta":"Exact text of the thing to figure out","texto":"Topic: the choice made"},{"tipo":"capitulo","titulo":"New chapter name","antesDe":"Existing chapter name or null"},{"tipo":"decision","texto":"Topic: choice"},{"tipo":"resolver","texto":"Open question to figure out"},{"tipo":"nota","texto":"Short note","capitulo":"Exact chapter name or null","paso":"Exact step text or null"},{"tipo":"renombrar","objetivo":"Exact current title of the project/idea/chapter","texto":"New title"},{"tipo":"descripcion","objetivo":"Exact current title","texto":"New description"},{"tipo":"agregar_paso","capitulo":"Exact chapter/idea title","texto":"New step"},{"tipo":"estado_paso","paso":"Exact step text","estado":"done | in progress | to do"},{"tipo":"fecha","objetivo":"Exact current title","fecha":"YYYY-MM-DD or null to remove"},{"tipo":"pendiente","texto":"Thing to do later"},{"tipo":"pendiente_hecho","texto":"Exact text of the pending item"},{"tipo":"mover_capitulo","titulo":"Exact chapter name","antesDe":"Exact chapter name or null for the end"},{"tipo":"borrar_capitulo","titulo":"Exact chapter name","destino":"Exact chapter name that receives EVERYTHING still in it (steps, notes, references, images, things to figure out, decisions), or null"},{"tipo":"mover","objeto":"nota | resolver | decision | referencia","viejo":"Exact current text or title","capitulo":"Exact destination chapter name (or the project title)"},{"tipo":"editar_paso","paso":"Exact current step text","texto":"New step text"},{"tipo":"borrar_paso","paso":"Exact step text"},{"tipo":"mover_paso","paso":"Exact step text","capitulo":"Exact destination chapter name","antesDe":"Exact step text in that chapter or null for the end"},{"tipo":"editar","objeto":"nota | decision | resolver | pendiente","viejo":"Exact current text","texto":"New text"},{"tipo":"borrar","objeto":"nota | decision | resolver | pendiente","viejo":"Exact current text"}]
+[{"tipo":"archivar","archivo":"exact attached file name","paso":"Exact text of the step it belongs to"},{"tipo":"resuelto","pregunta":"Exact text of the thing to figure out","texto":"Topic: the choice made"},{"tipo":"capitulo","titulo":"New chapter name","antesDe":"Existing chapter name or null"},{"tipo":"decision","texto":"Topic: choice"},{"tipo":"resolver","texto":"Open question to figure out"},{"tipo":"nota","texto":"Short note","capitulo":"Exact chapter name or null","paso":"Exact step text or null"},{"tipo":"renombrar","objetivo":"Exact current title of the project/idea/chapter","texto":"New title"},{"tipo":"descripcion","objetivo":"Exact current title","texto":"New description"},{"tipo":"agregar_paso","capitulo":"Exact chapter/idea title","texto":"New step"},{"tipo":"estado_paso","paso":"Exact step text","estado":"done | in progress | to do"},{"tipo":"fecha","objetivo":"Exact current title","fecha":"YYYY-MM-DD or null to remove"},{"tipo":"pendiente","texto":"Thing to do later"},{"tipo":"pendiente_hecho","texto":"Exact text of the pending item"},{"tipo":"mover_capitulo","titulo":"Exact chapter name","antesDe":"Exact chapter name it goes right BEFORE (null ONLY if it really must be the last chapter)"},{"tipo":"borrar_capitulo","titulo":"Exact chapter name","destino":"Exact chapter name that receives EVERYTHING still in it (steps, notes, references, images, things to figure out, decisions), or null"},{"tipo":"mover","objeto":"nota | resolver | decision | referencia","viejo":"Exact current text or title","capitulo":"Exact destination chapter name (or the project title)"},{"tipo":"editar_paso","paso":"Exact current step text","texto":"New step text"},{"tipo":"borrar_paso","paso":"Exact step text"},{"tipo":"mover_paso","paso":"Exact step text","capitulo":"Exact destination chapter name","antesDe":"Exact step text in that chapter or null for the end"},{"tipo":"editar","objeto":"nota | decision | resolver | pendiente","viejo":"Exact current text","texto":"New text"},{"tipo":"borrar","objeto":"nota | decision | resolver | pendiente","viejo":"Exact current text"}]
 \`\`\`
 Only include actions the person would clearly want offered; they will accept or skip each one.
 - THE BUTTONS ONLY EXIST IF YOU WRITE THE ACTIONS BLOCK. Whenever your text proposes a change or mentions adding/Add/Agregar/saving something, the block is MANDATORY — never tell the person to tap Add without it. Put it at the very end. When you propose many changes, keep the prose shorter so the block always fits.
@@ -8929,7 +8940,7 @@ function salvageActions(raw) {
 const MENTOR_PROPOSES = /(tap|toc[aá]|press|apret[aá]|dale|hac[eé] clic|click|clic)[^.\n]{0,40}(add|agreg|añad|aplic|confirm)|\b(add|agregar|aplicar)\b[^.\n]{0,15}(below|abajo)|botones|buttons|te propongo|propuesta|reorganiz|restructur|reestructur|volcamos|asentad|lo (agrego|sumo|guardo|anoto)|queda (guardado|anotado)/i;
 const ACTIONS_FORMAT = (PROJECT_MENTOR_RULES.match(/```actions\n(\[[\s\S]*?\])\n```/) || [])[1] || "";
 async function mentorExtractActions(hist, reply) {
-  const sys = `You turn a mentor's reply into project changes. Output ONLY a JSON array (no prose, no code fences) of actions, using exactly these shapes:\n${ACTIONS_FORMAT}\nInclude EVERY concrete change the reply proposes or says it will add/save/move/rename/delete, using exact texts from the project context. If it proposes nothing concrete, output [].`;
+  const sys = `You turn a mentor's reply into project changes. Output ONLY a JSON array (no prose, no code fences) of actions, using exactly these shapes:\n${ACTIONS_FORMAT}\nInclude EVERY concrete change the reply proposes or says it will add/save/move/rename/delete, using exact texts from the project context. Give every action a "porque": one short line, in the person's language, with the reason the reply gives. If it proposes nothing concrete, output [].`;
   const txt = await geminiGenerate(hist.concat([{ role: "model", text: reply }, { role: "user", text: "Now output the JSON array of actions for every change you proposed in your last reply." }]), sys, false, undefined, "minimal");
   let a = []; try { a = parseJsonLenient(txt); } catch (e) {}
   if (!Array.isArray(a) || !a.length) a = salvageActions(txt);
@@ -8979,7 +8990,8 @@ function renderPcChat() {
   const proj = IDEAS.find(i => i.id === pcProjId);
   const log = document.getElementById("pc-log");
   const chat = (proj && proj.chat) || [];
-  const label = a => a.tipo === "mover_capitulo" ? `Move chapter <em>${escapeHtml(a.titulo || "")}</em> ${a.antesDe ? "before <strong>" + escapeHtml(a.antesDe) + "</strong>" : "<strong>to the end</strong>"}`
+  const label = a => labelCore(a) + (a.porque ? `<small class="pc-why">${escapeHtml(a.porque)}</small>` : "");
+  const labelCore = a => a.tipo === "mover_capitulo" ? `Move chapter <em>${escapeHtml(a.titulo || "")}</em> ${a.antesDe ? "right before <strong>" + escapeHtml(a.antesDe) + "</strong>" : "<strong>to the end</strong> (last chapter)"}`
     : a.tipo === "borrar_capitulo" ? `Remove chapter <strong>${escapeHtml(a.titulo || "")}</strong> — ${a.destino ? `everything in it moves to <strong>${escapeHtml(a.destino)}</strong>` : "I'll ask you where what's in it goes first"}`
     : a.tipo === "mover" ? `Move ${escapeHtml(a.objeto || "note")} <em>${escapeHtml(a.viejo || "")}</em> to <strong>${escapeHtml(a.capitulo || "")}</strong>`
     : a.tipo === "editar_paso" ? `Rewrite step <em>${escapeHtml(a.paso || "")}</em> → <strong>${escapeHtml(a.texto || "")}</strong>`
@@ -10076,7 +10088,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-16 18:05 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-16 18:25 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
