@@ -4381,6 +4381,13 @@ SHIPPING CHANGES
 .pc-change-what { font-weight: 700; font-size: .95rem; }
 .pc-change-why { font-size: .88rem; margin-top: 3px; color: var(--ink); opacity: .85; }
 .pc-change-why b { font-weight: 600; }
+.ai-by { font-size: .74rem; color: var(--slate); margin-top: 6px; font-style: italic; }
+.plan-prev { max-height: 60vh; overflow-y: auto; text-align: left; font-size: .9rem; }
+.pp-ch { margin: 0 0 10px; }
+.pp-ch ul { margin: 4px 0 0 18px; padding: 0; }
+.pp-ch li { margin: 2px 0; }
+.pp-tag { font-size: .7rem; background: #e6f2dc; color: #3d6b2a; border-radius: 6px; padding: 0 5px; }
+.pp-gone { margin-top: 10px; color: var(--rust); font-size: .85rem; }
 .pc-why { display: block; font-size: .78rem; color: var(--slate); margin-top: 3px; font-weight: normal; }
 .choice-list { display: flex; flex-direction: column; gap: 6px; }
 .choice-btn { text-align: left; background: none; border: 1px solid var(--line-strong); border-radius: 10px; padding: 9px 12px; font: inherit; cursor: pointer; color: var(--ink); }
@@ -5654,6 +5661,7 @@ function showSaveChip(state) {
   if (state === "saved") { clearTimeout(el._t); el._t = setTimeout(() => el.classList.add("gone"), 1600); }
 }
 function saveIdeas() {
+  if (window.PREVIEWING) return;
   if (typeof POPOUT !== "undefined" && POPOUT) { broadcastIdeas(); return; } // the main window stores it
   setTimeout(() => { try { broadcastIdeas(); } catch (e) {} }, 0);
   stampWorkedOn();
@@ -5960,7 +5968,8 @@ const geminiBusy = {}; // model -> time until we avoid it (it answered "high dem
 // much larger free quotas, so they're the safety net when every Gemini model is busy.
 // The model that last answered: next time start there instead of the busy "best" one.
 // Remembered for 30 min, so once Gemini recovers we go back to the best model.
-function geminiGood(m) { try { localStorage.setItem("ideary_gemini_lastgood", m + "|" + Date.now()); } catch (e) {} }
+let geminiLastUsed = "";
+function geminiGood(m) { geminiLastUsed = arguments[0] || geminiLastUsed; try { localStorage.setItem("ideary_gemini_lastgood", m + "|" + Date.now()); } catch (e) {} }
 function geminiLastGood() { try { const [m, t] = (localStorage.getItem("ideary_gemini_lastgood") || "").split("|"); return m && Date.now() - +t < 18e5 ? m : ""; } catch (e) { return ""; } }
 // Models Google told us are retired for this key ("no longer available"): never try them again.
 let geminiRetired = []; try { geminiRetired = JSON.parse(localStorage.getItem("ideary_gem_retired") || "[]"); } catch (e) {}
@@ -6620,7 +6629,7 @@ async function geminiGenerate(history, system, retried, modelOverride, think, on
   };
   // Every Gemini model already marked busy/broken and a backup is set: go straight to it.
   if (backups.length && !modelOverride && geminiAvailable && geminiAltModel() === null) { const out = await tryBackups(null); if (out != null) return out; }
-  try { const out = await geminiCore(history, system, retried, modelOverride, think, onChunk); aiLastProvider = "Gemini"; return out; }
+  try { const out = await geminiCore(history, system, retried, modelOverride, think, onChunk); aiLastProvider = "Gemini · " + (geminiLastUsed || ""); return out; }
   catch (e) {
     if (!backups.length || /Cancelled|API key isn't valid/.test(e.message)) throw e;
     console.warn("Gemini failed, using backup:", e.message);
@@ -9000,11 +9009,14 @@ function pcMsgBar(m, k) {
   const b = [];
   const getActs = m.role === "model" && !acts.length && MENTOR_PROPOSES.test(m.text || "") ? `<button type="button" class="pc-getacts" onclick="pcFetchActions(${k}, this)"><span>👉 Tap here to see the changes and add them</span><b>→</b></button>` : "";
   if (getActs) b.push(getActs);
+  if (open >= 2 && acts.some(a => /capitulo|paso/.test(a.tipo))) b.push(`<button type="button" class="sug-edit" onclick="pcPreview(${k})">👀 See the full plan with these changes</button>`);
   if (open >= 2) b.push(`<button type="button" class="sug-apply" onclick="pcAddAll(${k})">Add all ${open}</button>`);
   if (m.undo) b.push(`<button type="button" class="pc-undo" onclick="pcUndo(${k})">↶ Undo these changes</button>`);
   const p = IDEAS.find(i => i.id === pcProjId), last = p && (p.chat || []).length - 1 === k;
   const retry = m.role === "model" && last && !(p && pcPending[p.id]) ? `<button type="button" class="ai-retry" onclick="pcRetry(${k})" title="Ask the AI to answer this again">↻ Try again</button>` : "";
-  return (b.length ? `<div class="pc-msgbar">${b.join("")}</div>` : "") + retry;
+  const weak = m.role === "model" && m.by && (!/^Gemini/.test(m.by) || /lite|gemma/.test(m.by));
+  const note = weak ? `<div class="ai-by">Answered by a lighter backup AI (${escapeHtml(m.by.replace(/^Gemini · /, ""))}) because the main one was busy or out of quota — it can be less thorough. For a big plan review, try again later.</div>` : "";
+  return (b.length ? `<div class="pc-msgbar">${b.join("")}</div>` : "") + note + retry;
 }
 function renderPcChat() {
   const _l = document.getElementById("pc-log"), _stick = !_l || !_l.childElementCount || _l.scrollHeight - _l.scrollTop - _l.clientHeight < 60, _top = _l ? _l.scrollTop : 0;
@@ -9099,6 +9111,30 @@ async function pcUndo(k) {
   logChanges(IDEAS.find(i => i.id === snap.root), "You", ["Undid the mentor's changes"]);
   saveIdeas(); renderPcChat(); render();
 }
+// "How would the plan look?": apply the open changes on a throwaway copy, read the outline, put everything back.
+function planOutline(root) {
+  const chs = isProject(root) ? projectChapters(root).filter(c => c.estado !== "eliminada") : [root];
+  return chs.map(c => ({ t: c.titulo, steps: (c.fases || []).flatMap(f => (f.pasos || []).map(st => typeof st === "string" ? st : st.texto)) }));
+}
+async function pcPreview(k) {
+  const proj = IDEAS.find(i => i.id === pcProjId), m = proj && proj.chat[k]; if (!m) return;
+  const root = pendRoot(proj), before = planOutline(root);
+  const backup = JSON.stringify(IDEAS), keepCur = pcProjId;
+  let after = null;
+  window.PREVIEWING = true;
+  try {
+    const order = (m.actions || []).map((a, j) => j).sort((x, y) => (m.actions[x].tipo === "borrar_capitulo") - (m.actions[y].tipo === "borrar_capitulo"));
+    for (const j of order) if (!m.actions[j].done) { try { await pcAct(k, j, true, true); } catch (e) {} }
+    after = planOutline(IDEAS.find(i => i.id === root.id) || root);
+  } finally { IDEAS = JSON.parse(backup); window.PREVIEWING = false; pcProjId = keepCur; }
+  const oldCh = new Set(before.map(c => c.t)), oldSt = new Set(before.flatMap(c => c.steps));
+  const gone = before.filter(c => !after.some(x => x.t === c.t)).map(c => c.t);
+  const html = `<div class="plan-prev">${after.map((c, n) => `<div class="pp-ch${oldCh.has(c.t) ? "" : " new"}"><b>${n + 1}. ${escapeHtml(c.t)}</b>${oldCh.has(c.t) ? "" : ' <span class="pp-tag">new</span>'}${c.steps.length ? `<ul>${c.steps.map(st => `<li${oldSt.has(st) ? "" : ' class="new"'}>${escapeHtml(st)}${oldSt.has(st) ? "" : ' <span class="pp-tag">new</span>'}</li>`).join("")}</ul>` : ""}</div>`).join("")}${gone.length ? `<div class="pp-gone">Removed (to the Trash): ${gone.map(escapeHtml).join(", ")}</div>` : ""}</div>`;
+  renderPcChat(); render();
+  const pr = showAlert("", { title: "Your plan would look like this" });
+  document.getElementById("dialog-message").innerHTML = html;
+  await pr;
+}
 async function pcAddAll(k) {
   const proj = IDEAS.find(i => i.id === pcProjId), m = proj && proj.chat[k];
   if (!m) return;
@@ -9110,7 +9146,7 @@ async function pcAct(k, j, yes, batch) {
   const proj = IDEAS.find(i => i.id === pcProjId);
   const a = proj && proj.chat && proj.chat[k] && proj.chat[k].actions && proj.chat[k].actions[j];
   if (!a || a.done) return;
-  if (yes && a.tipo === "borrar_capitulo" && !a.destino) {
+  if (yes && a.tipo === "borrar_capitulo" && !a.destino && !window.PREVIEWING) {
     // First reorganize, then remove: never drop a chapter that still has work without deciding where it goes.
     const root = pendRoot(proj), chs = isProject(root) ? projectChapters(root) : [];
     const n = x => String(x || "").trim().toLowerCase();
@@ -9317,7 +9353,7 @@ async function pcSend(textOverride, extra) {
       const w2 = document.querySelector(`#pc-log [data-t0='${t0}']`); if (w2) w2.insertAdjacentHTML("beforeend", '<div class="note-date" style="margin-top:6px">Preparing the buttons…</div>');
       try { acts = await mentorExtractActions(hist, reply); } catch (e) {}
     }
-    proj.chat.push({ role: "model", text: reply, actions: acts, t: Date.now() });
+    proj.chat.push({ role: "model", text: reply, actions: acts, t: Date.now(), by: aiLastProvider });
     proj.chat = proj.chat.slice(-30);
     saveIdeas();
   } catch (e) {
@@ -10111,7 +10147,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-16 19:30 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-16 19:50 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
