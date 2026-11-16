@@ -8774,7 +8774,12 @@ const HONEST_RULES = `
 FREE FIRST, ALWAYS: whenever you recommend resources, tutorials, tools or links, recommend only FREE ones (YouTube, official free docs, free blogs, forums, free software like Blender). Never push paid courses or subscriptions. Only if the person explicitly asks you for a paid course, help them find one, and say it is paid.
 WHOLE-PLAN CHANGES: when you add, move or remove a chapter or step, re-check the WHOLE plan in the same reply, not just the new piece. Look for existing steps that now overlap, are in the wrong order, or belong in the new chapter, and propose the fixes with actions too (editar_paso, mover_paso, borrar_paso, mover_capitulo, editar on notes). Say plainly in your text what changes and why, e.g. "Your sketch step also had the character sheet — I moved that to the new Character sheets chapter, because it is better done after the final design." Never just append chapters and leave duplicates or contradictions behind. If the person asks whether the workflow should be rethought, do it completely, in that same reply, with the actions.
 NEVER LOSE THE PERSON'S WORK: before deleting or merging a chapter, move what is in it (steps with mover_paso, notes/things to figure out/decisions/references with mover) to where each piece belongs in the new structure, OR give borrar_capitulo a "destino" so everything left goes there. When you are not sure where something goes, do not guess silently: say "I would put X in Y because…, and Z in W…" and ask; if you really don't know, ask where it should go. Never delete a chapter that still has work in it without saying where that work goes. Order: first all the moves, last the borrar_capitulo.
-EXPLAIN BEFORE THE BUTTONS: when you propose reorganizing, first say in plain words what you noticed and the new order you suggest, e.g. "I noticed the animatic should come before modeling, so I'm moving Modeling after Animatic so you know what each shot needs." Then the actions, each with its own "porque". When moving chapters, say exactly where each goes (right before which chapter), never vaguely "to the end".`;
+EXPLAIN BEFORE THE BUTTONS: when you propose reorganizing, first say in plain words what you noticed and the new order you suggest, e.g. "I noticed the animatic should come before modeling, so I'm moving Modeling after Animatic so you know what each shot needs." Then the actions, each with its own "porque". When moving chapters, say exactly where each goes (right before which chapter), never vaguely "to the end".
+THE WHOLE POINT OF THIS APP: the person often does NOT know how this is done professionally. They should never have to tell you a standard stage is missing — you must catch it. So whenever you create, review or reorganize a plan:
+1. First, silently lay out the real professional pipeline for this kind of project, stage by stage, the way a studio/pro actually does it. Examples: 3D animated short → story/script → visual development & character design → model sheets/turnarounds → storyboard → animatic (with music/temp sound) → LAYOUT/PREVIS: blocking of sets and CAMERA (staging, framing, lenses, timing per shot) → asset modeling (sets/props/characters, only what the shots need) → texturing/shading → rigging → character animation (blocking → spline → polish) → FX → lighting → rendering → compositing → edit, sound & music mix → delivery. Game → concept → core loop prototype (greybox) → playtest → vertical slice → production → polish → release. Song → idea → demo → arrangement → recording → editing → mix → master. Illustration → thumbnails → sketch → values → color → render → polish. Use your own expertise for any other field.
+2. Compare it with the person's plan: what is MISSING, what is in the WRONG ORDER, what is DUPLICATED, what is too early (e.g. modeling final assets before the animatic/layout tells you what each shot needs).
+3. Propose those fixes yourself, in the same reply, explaining each one simply (what it is, why it goes there, what goes wrong if skipped). Keep it beginner-friendly: name the stage, one line on what it is.
+4. Scale it to the project: a small personal project doesn't need every studio stage, but never drop one whose absence will cause rework later — say which ones are optional and why.`;
 const PROJECT_MENTOR_RULES = `You are a veteran professional in the field of this project (a film director for a short film, a master carpenter for furniture, a head chef for a recipe…) acting as the person's mentor for the WHOLE project. You can see every chapter, its plan and progress, the key decisions, notes and open questions.
 - Answer like a good teacher: clear, concrete, applied to THIS project, short paragraphs. Guide and give options with their trade-offs; don't make the person's creative decisions for them.
 - Respect the key decisions as fixed rules. If one seems wrong, say so and explain why instead of ignoring it.
@@ -9257,6 +9262,8 @@ function stepRetry() {
   let u = chat.length - 1; while (u >= 0 && chat[u].role !== "user") u--; if (u < 0) return;
   const txt = chat[u].text; chat.splice(u); saveIdeas(); stepSend(txt);
 }
+// Questions about the plan/structure get the AI's deeper thinking (slower, but it catches missing stages).
+const PLAN_TALK = /plan|cap[ií]tul|chapter|paso|step|workflow|flujo|orden|order|falta|missing|reorganiz|reestructur|restructur|pipeline|etapa|stage|revis|review|chequ|check|antes|before|despu[eé]s|after/i;
 async function pcSend(textOverride, extra) {
   if (micHold("pc-input", () => pcSend())) return;
   const proj = IDEAS.find(i => i.id === pcProjId);
@@ -9287,7 +9294,7 @@ async function pcSend(textOverride, extra) {
       last.text += attsText(sentAtts) + `\n(I attached: ${sentAtts.map(a => a.nombre).join(", ")}. If it clearly belongs to a step, offer to file it there.)\nSTEPS YOU CAN FILE THINGS INTO: ${allStepsOf(proj).map(x => x.texto).slice(0, 80).join(" | ")}`;
       last.images = await attsImages(sentAtts);
     }
-    const { text: reply, actions } = splitActions((await withThinking(wait, "pc-input", () => geminiGenerate(hist, PROJECT_MENTOR_RULES, false, undefined, "minimal", txt => {
+    const { text: reply, actions } = splitActions((await withThinking(wait, "pc-input", () => geminiGenerate(hist, PROJECT_MENTOR_RULES, false, undefined, PLAN_TALK.test(text) ? "high" : "low", txt => {
       const b = document.querySelector(`#pc-log [data-t0='${t0}']`); if (!b) return;
       // Follow the text only while you're at the bottom; scroll up to read and it stays put (↓ brings you back).
       const l = document.getElementById("pc-log"), stick = l && l.scrollHeight - l.scrollTop - l.clientHeight < 60;
@@ -10094,7 +10101,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-16 19:00 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-16 19:15 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -11194,7 +11201,7 @@ async function ncSend(textOverride) {
   const t0 = Date.now(); ncBusy = t0; renderNewChat(); jumpBottom("nc-log", false);
   const wait = document.querySelector("#nc-log .ai-wait");
   try {
-    const raw = await withThinking(wait, "nc-input", () => geminiGenerate(ncHist(), ncRules(), false, undefined, "minimal", txt => {
+    const raw = await withThinking(wait, "nc-input", () => geminiGenerate(ncHist(), ncRules(), false, undefined, "low", txt => {
       const b = document.querySelector(`#nc-log [data-t0='${t0}']`); if (!b) return;
       const l = document.getElementById("nc-log"), stick = l.scrollHeight - l.scrollTop - l.clientHeight < 60;
       b.classList.remove("ai-wait"); b.classList.add("md"); b.innerHTML = mdLite(txt.replace(/```crear[\s\S]*$/, "").trim());
@@ -11215,7 +11222,7 @@ async function ncSend(textOverride) {
 async function ncAskPlan(btn) {
   if (btn) { btn.disabled = true; btn.innerHTML = "<span>Putting it together…</span>"; }
   try {
-    const raw = await geminiGenerate(ncHist().concat([{ role: "user", text: "Show me the proposal now: output ONLY the ```crear block with everything we talked about." }]), ncRules(), false, undefined, "minimal");
+    const raw = await geminiGenerate(ncHist().concat([{ role: "user", text: "Show me the proposal now: output ONLY the ```crear block with everything we talked about." }]), ncRules(), false, undefined, "high");
     const { plan } = ncSplit(String(raw || ""));
     if (plan) { ncChat[ncChat.length - 1].plan = plan; ncSave(); }
     else await showAlert("It couldn't put it together yet — tell it a bit more about what you want to make.", { title: "Not yet" });
