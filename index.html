@@ -6413,7 +6413,7 @@ async function geminiCore(history, system, retried, modelOverride, think, onChun
   if (onChunk && res.body) {
     // Server-sent events: each "data:" line is a partial GenerateContentResponse.
     const reader = res.body.getReader(), dec = new TextDecoder();
-    let buf = "", out = "", tokens = 0;
+    let buf = "", out = "", tokens = 0, finish = "";
     const stall = () => setTimeout(() => ctrl.abort("timeout"), 90000);
     let st = stall();
     try {
@@ -6430,6 +6430,7 @@ async function geminiCore(history, system, retried, modelOverride, think, onChun
             const j = JSON.parse(line.slice(5));
             const ps = j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts;
             if (ps) { out += ps.filter(p => !p.thought).map(p => p.text || "").join(""); onChunk(out); }
+            if (j.candidates && j.candidates[0] && j.candidates[0].finishReason) finish = j.candidates[0].finishReason;
             if (j.usageMetadata && j.usageMetadata.totalTokenCount) tokens = j.usageMetadata.totalTokenCount;
           } catch (e) {}
         }
@@ -6440,6 +6441,7 @@ async function geminiCore(history, system, retried, modelOverride, think, onChun
     } finally { clearTimeout(st); }
     countAiUse(tokens); geminiGood(model);
     if (!out) throw new Error("Gemini returned an empty reply. Try again.");
+    if (finish !== "STOP") out = await continueCut(out, finish, history, system, modelOverride, think, onChunk);
     return out;
   }
   const j = await res.json();
@@ -6447,7 +6449,20 @@ async function geminiCore(history, system, retried, modelOverride, think, onChun
   geminiLastGrounding = (j.candidates && j.candidates[0] && j.candidates[0].groundingMetadata) || null;
   const parts = j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts;
   if (!parts) throw new Error("Gemini returned an empty reply. Try again.");
-  return parts.map(p => p.text || "").join("");
+  const txt = parts.filter(p => !p.thought).map(p => p.text || "").join("");
+  const fin = (j.candidates[0].finishReason) || "";
+  return fin === "MAX_TOKENS" ? continueCut(txt, fin, history, system, modelOverride, think, null) : txt;
+}
+// A reply that stopped mid-sentence (connection dropped or ran out of length): ask for the rest, up to twice.
+let cutDepth = 0;
+async function continueCut(out, finish, history, system, modelOverride, think, onChunk) {
+  if (cutDepth >= 2 || /SAFETY|RECITATION|PROHIBITED/.test(finish || "")) return out;
+  cutDepth++;
+  try {
+    const more = await geminiCore(history.concat([{ role: "model", text: out }, { role: "user", text: "(Your reply was cut off. Continue EXACTLY where it stopped, mid-sentence if needed. Do not repeat anything and do not add a preamble. Include any action block you were going to include.)" }]), system, 6, modelOverride, think, onChunk ? c => onChunk(out + c) : null);
+    return out + more;
+  } catch (e) { console.warn("continue failed:", e.message); const tail = out + "\n\n_(My reply got cut off here — ask me to continue.)_"; if (onChunk) onChunk(tail); return tail; }
+  finally { cutDepth--; }
 }
 
 /* ---- Optional backup provider (Groq) ----
@@ -6510,7 +6525,7 @@ async function groqGenerate(history, system, onChunk) {
     let r = null;
     for (const budget of [6500, 3800]) {
       const fitted = groqFit(messages[0].content, messages.slice(1), budget);
-      r = await fetch("https://api.groq.com/openai/v1/chat/completions", { method: "POST", signal: ctrl.signal, headers: { Authorization: "Bearer " + groqKey, "Content-Type": "application/json" }, body: JSON.stringify({ model, messages: fitted, temperature: 0.7, max_tokens: 1500 }) });
+      r = await fetch("https://api.groq.com/openai/v1/chat/completions", { method: "POST", signal: ctrl.signal, headers: { Authorization: "Bearer " + groqKey, "Content-Type": "application/json" }, body: JSON.stringify({ model, messages: fitted, temperature: 0.7, max_tokens: 3000 }) });
       if (r.ok) break;
       if (r.status !== 413 && r.status !== 429) break;
       const peek = await r.clone().json().catch(() => ({}));
@@ -6558,7 +6573,7 @@ async function openrouterGenerate(history, system, onChunk) {
   for (const model of orModels.slice(0, 3)) {
     const ctrl = new AbortController(); aiCtrlUser = ctrl; const t = setTimeout(() => ctrl.abort("timeout"), 60000);
     try {
-      const r = await fetch("https://openrouter.ai/api/v1/chat/completions", { method: "POST", signal: ctrl.signal, headers: { Authorization: "Bearer " + xKeys.openrouter, "Content-Type": "application/json", "HTTP-Referer": "https://ideary-app.github.io", "X-Title": "Ideary" }, body: JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 2000 }) });
+      const r = await fetch("https://openrouter.ai/api/v1/chat/completions", { method: "POST", signal: ctrl.signal, headers: { Authorization: "Bearer " + xKeys.openrouter, "Content-Type": "application/json", "HTTP-Referer": "https://ideary-app.github.io", "X-Title": "Ideary" }, body: JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 3000 }) });
       if (!r.ok) { lastErr = "error " + r.status; continue; }
       const j = await r.json(); const out = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || "";
       if (!out) { lastErr = "empty reply"; continue; }
@@ -7010,7 +7025,7 @@ async function suggestSearches(ideaId) {
     return;
   }
   const btn = document.getElementById("ref-suggest-" + ideaId);
-  if (btn) { btn.disabled = true; btn.textContent = "Thinking…"; }
+  if (btn) { lockBtn(btn); btn.disabled = true; btn.textContent = "Thinking…"; }
   try {
     let raw = await geminiGenerate([{ role: "user", text: prompt }], rules, false, undefined, "minimal"), data = null;
     try { data = parseJsonLenient(stripJsonFences(raw)); } catch (e) {}
@@ -7050,7 +7065,7 @@ function renderReferencesBlock(idea) {
   return `
     <div class="detail-block refs-block">
       <div class="block-title c-plan" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="white-space:nowrap;flex-shrink:0">References</span>
-        <span class="refs-head-btns"><button type="button" class="stuck-btn" style="margin:0" id="ref-suggest-${escapeAttr(idea.id)}" title="Ideas of what to search for, for what you're doing now" onclick="suggestSearches('${escapeAttr(idea.id)}')">💡 What should I research?</button><button type="button" class="stuck-btn" style="margin:0" title="The AI finds links for what you're doing now" onclick="findResources('${escapeAttr(idea.id)}', this)"${refBusy[idea.id] ? " disabled" : ""}>${refBusy[idea.id] ? "⏳ " + escapeHtml(refBusy[idea.id]) : "🔎 Find links for me"}</button></span></div>
+        <span class="refs-head-btns"><button type="button" class="stuck-btn" style="margin:0" id="ref-suggest-${escapeAttr(idea.id)}" title="Ideas of what to search for, for what you're doing now" onclick="suggestSearches('${escapeAttr(idea.id)}')">💡 What should I research?</button><button type="button" class="stuck-btn" style="margin:0" title="The AI finds links for what you're doing now" onclick="findResources('${escapeAttr(idea.id)}', this)"${refBusy[idea.id] ? " disabled" : ""}>${refBusy[idea.id] ? "⏳ Find links for me" : "🔎 Find links for me"}</button></span></div>
       ${sug.length ? `<div class="ref-sugs-box"><div class="ref-sugs-head"><span>💡 Worth searching — tap one to open it</span><button type="button" onclick="clearSearches('${escapeAttr(idea.id)}')">Clear</button></div><div class="ref-sugs">${sug.map((b, k) => `<span class="ref-chip-wrap"><a class="ref-chip" href="${escapeAttr(searchUrl(b))}" target="_blank" rel="noopener">${b.donde === "youtube" ? "▶" : b.donde === "images" ? "🖼" : "🔎"} ${escapeHtml(b.q)}</a><button type="button" class="ref-chip-x" title="Remove" onclick="removeSearch('${escapeAttr(idea.id)}',${k})">&times;</button></span>`).join("")}</div></div>` : ""}
       <ul class="ref-list">${list.map((r, k) => {
         const yt = r.url && ytId(r.url), m = r.meta || {};
@@ -7074,7 +7089,7 @@ function renderReferencesBlock(idea) {
           <span class="ref-pill-tools"><button type="button" title="Add a note" onclick="renameReference('${escapeAttr(idea.id)}',${k})">✎</button><button type="button" title="Remove" onclick="removeReference('${escapeAttr(idea.id)}',${k})">&times;</button></span>
         </li>` : `<li class="ref-item"><span class="ref-ico">📝</span><div class="ref-body"><span>${escapeHtml(r.titulo)}</span><span class="ref-host"><button type="button" onclick="renameReference('${escapeAttr(idea.id)}',${k})">edit note</button></span></div><button type="button" class="resolve-delete-btn" title="Remove" onclick="removeReference('${escapeAttr(idea.id)}',${k})">&times;</button></li>`;
       }).join("")}</ul>
-      ${list.some(r => r.ai) ? `<form class="ref-refine" onsubmit="event.preventDefault();const v=this.q.value.trim();if(v)findResources('${escapeAttr(idea.id)}', this.querySelector('button'), v)"><span class="ref-refine-t">Not quite what you need?</span><div class="ref-refine-row"><input name="q" class="form-input" placeholder="e.g. a tutorial on rigging a tail" style="font-size:16px"${refBusy[idea.id] ? " disabled" : ""}><button type="submit" class="stuck-btn" style="margin:0;white-space:nowrap"${refBusy[idea.id] ? " disabled" : ""}>${refBusy[idea.id] ? "⏳ Searching…" : "🔎 Search this"}</button></div></form>` : ""}
+      ${list.some(r => r.ai) ? `<form class="ref-refine" onsubmit="event.preventDefault();const v=this.q.value.trim();if(v)findResources('${escapeAttr(idea.id)}', this.querySelector('button'), v)"><span class="ref-refine-t">Not quite what you need?</span><div class="ref-refine-row"><input name="q" class="form-input" placeholder="e.g. a tutorial on rigging a tail" style="font-size:16px"${refBusy[idea.id] ? " disabled" : ""}><button type="submit" class="stuck-btn" style="margin:0;white-space:nowrap"${refBusy[idea.id] ? " disabled" : ""}>${refBusy[idea.id] ? "⏳ Search this" : "🔎 Search this"}</button></div></form>` : ""}
       <div class="ref-add-row">
         <textarea rows="1" class="note-quick-add ref-add" placeholder="+ Paste a link or write a note" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,160)+'px'" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addReference('${escapeAttr(idea.id)}',this);this.style.height=''}"></textarea>
         <label class="ref-add-file" title="Add an image, a PDF or any file">📎<input type="file" multiple style="display:none" onchange="addReferenceFiles('${escapeAttr(idea.id)}', this)"></label>
@@ -7265,7 +7280,7 @@ async function getOriginalBlob(o) {
   return getImageBlob(o);
 }
 async function downloadOriginal(o, btn) {
-  if (btn) { btn.disabled = true; btn.dataset.l = btn.textContent; btn.textContent = "Downloading…"; }
+  if (btn) { lockBtn(btn); btn.disabled = true; btn.dataset.l = btn.textContent; btn.textContent = "Downloading…"; }
   try {
     const b = await getOriginalBlob(o);
     if (!b) throw new Error(o.origDriveId && !accessToken ? "Reconnect Google Drive to get the original." : "The original isn't available on this device.");
@@ -7772,7 +7787,7 @@ async function explainStage(ideaId) {
     return;
   }
   const btn = document.getElementById("explain-stage-btn");
-  if (btn) { btn.disabled = true; btn.textContent = "Thinking…"; }
+  if (btn) { lockBtn(btn); btn.disabled = true; btn.textContent = "Thinking…"; }
   try {
     const text = (await geminiGenerate([{ role: "user", text: prompt }], MENTOR_STAGE_RULES)).trim();
     idea.descripcion = text;
@@ -8737,7 +8752,8 @@ function ideaImages(idea) {
 const HONEST_RULES = `
 - BE AN HONEST MENTOR, NOT A YES-MAN. Your job is to help the person actually pull this off, not to please them. When they want to do things in an order or a way a professional wouldn't (for example sculpting the final character before the story and the design are defined), say so clearly: what you'd do first and why, and what it will cost them (rework, wasted time). If they still want to do it their way, respect it — it's their project — but say plainly that it's not how it's normally done. Don't drop your opinion just because they insist; change it only if they give you a good reason. Same with weak ideas or unrealistic plans: say what's weak and how to make it work. Be warm, but never agree just to agree.
 - MEMORY ACROSS CHATS: the context may include "FROM YOUR OTHER CONVERSATIONS IN THIS PROJECT". Treat it like a teacher who remembers what you told them last week. If something said there matters here and isn't in the project yet — or contradicts what's here — bring it up ("In the chat about X you said Y — keep it?") and offer to add or fix it.
-FREE FIRST, ALWAYS: whenever you recommend resources, tutorials, tools or links, recommend only FREE ones (YouTube, official free docs, free blogs, forums, free software like Blender). Never push paid courses or subscriptions. Only if the person explicitly asks you for a paid course, help them find one, and say it is paid.`;
+FREE FIRST, ALWAYS: whenever you recommend resources, tutorials, tools or links, recommend only FREE ones (YouTube, official free docs, free blogs, forums, free software like Blender). Never push paid courses or subscriptions. Only if the person explicitly asks you for a paid course, help them find one, and say it is paid.
+WHOLE-PLAN CHANGES: when you add, move or remove a chapter or step, re-check the WHOLE plan in the same reply, not just the new piece. Look for existing steps that now overlap, are in the wrong order, or belong in the new chapter, and propose the fixes with actions too (editar_paso, mover_paso, borrar_paso, mover_capitulo, editar on notes). Say plainly in your text what changes and why, e.g. "Your sketch step also had the character sheet — I moved that to the new Character sheets chapter, because it is better done after the final design." Never just append chapters and leave duplicates or contradictions behind. If the person asks whether the workflow should be rethought, do it completely, in that same reply, with the actions.`;
 const PROJECT_MENTOR_RULES = `You are a veteran professional in the field of this project (a film director for a short film, a master carpenter for furniture, a head chef for a recipe…) acting as the person's mentor for the WHOLE project. You can see every chapter, its plan and progress, the key decisions, notes and open questions.
 - Answer like a good teacher: clear, concrete, applied to THIS project, short paragraphs. Guide and give options with their trade-offs; don't make the person's creative decisions for them.
 - Respect the key decisions as fixed rules. If one seems wrong, say so and explain why instead of ignoring it.
@@ -9722,6 +9738,8 @@ async function realSearch(queries) {
   return all.filter(x => x && x.url && !seen.has(x.url) && seen.add(x.url) && !PAID_SITES.test(x.url + " " + x.titulo + " " + x.fuente));
 }
 
+// A button that shows "Thinking…" etc. keeps its size, so nothing around it jumps.
+function lockBtn(b) { if (b && !b.style.minWidth) { const r = b.getBoundingClientRect(); if (r.width) { b.style.minWidth = r.width + "px"; b.style.maxWidth = r.width + "px"; b.style.overflow = "hidden"; b.style.textOverflow = "ellipsis"; b.style.whiteSpace = "nowrap"; } } }
 // "Searching…" is shared by every window showing this item (main + pop-outs), so none offers to search twice.
 let refBusy = {};
 function setRefBusy(id, label) { if (label) refBusy[id] = label; else delete refBusy[id]; try { if (syncChan) syncChan.postMessage({ t: "busy", busy: refBusy }); } catch (e) {} }
@@ -10003,7 +10021,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-14 21:50 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-16 17:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {

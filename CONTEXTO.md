@@ -436,3 +436,6 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 - **"Searching…" compartido entre ventanas (`refBusy`, `setRefBusy`):** mientras busca links, el botón y el campo "Search this" quedan deshabilitados en la ventana principal y en los pop-outs (se avisa por BroadcastChannel, mensaje `busy`).
 - **Links en la app de escritorio (0.3.4):** comando Rust `open_url` (solo http/https) + en la web, si `IS_DESKTOP`, los clicks en links externos y `window.open` van al navegador predeterminado.
 - **Página de estado por secciones (`renderStatusSections`):** una sección por proyecto ("▤ Proyecto", con el proyecto y sus capítulos en ese estado) y al final "Other ideas" con las ideas sueltas.
+- **Mentor replantea el plan entero:** regla "WHOLE-PLAN CHANGES" en `HONEST_RULES`: al agregar/mover/borrar capítulos o pasos revisa todo el plan y propone las correcciones (editar_paso, mover_paso, borrar_paso…) en la misma respuesta.
+- **Respuestas cortadas (`continueCut`):** si el stream de Gemini termina sin `finishReason: STOP` (o MAX_TOKENS), pide la continuación sola (hasta 2 veces) y la pega; si no puede, avisa "se cortó". Groq/OpenRouter `max_tokens` 3000.
+- **Botones que no saltan:** `lockBtn` fija el ancho antes de poner "Thinking…"/"Downloading…"; en References, mientras busca solo cambia el ícono (⏳).
