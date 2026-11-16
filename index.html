@@ -4383,7 +4383,14 @@ SHIPPING CHANGES
 .pc-change-why b { font-weight: 600; }
 .pc-preview-btn { color: var(--ink) !important; }
 .pc-side { display: none; }
+/* Chats use the width on desktop: wider boxes, a bit taller */
+@media (min-width: 900px) {
+  #pc-overlay .modal-box, #step-overlay .modal-box { max-width: min(980px, calc(100vw - 64px)) !important; width: 100%; height: min(92vh, 900px) !important; }
+  #pc-overlay .step-msg, #step-overlay .step-msg { max-width: min(90%, 780px); }
+}
 @media (min-width: 1000px) {
+  #pc-overlay .modal-box { max-width: min(980px, calc(100vw - 230px - 76px)) !important; }
+  #pc-overlay .pc-side:not(:empty) { height: min(92vh, 900px) !important; }
   #pc-overlay.open { gap: 12px; }
   #pc-overlay .pc-side:not(:empty) { display: flex; flex-direction: column; gap: 2px; width: 230px; flex-shrink: 0; height: min(90vh, 800px); overflow-y: auto; background: var(--paper, #fbf6e8); border: 1px solid var(--line-strong); border-radius: var(--sketch-radius, 10px); padding: 14px 10px; box-sizing: border-box; box-shadow: 0 10px 30px rgba(0,0,0,.18); }
 }
@@ -10220,7 +10227,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-16 20:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-16 20:55 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
