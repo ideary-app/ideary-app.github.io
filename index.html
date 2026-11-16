@@ -4381,6 +4381,11 @@ SHIPPING CHANGES
 .pc-change-what { font-weight: 700; font-size: .95rem; }
 .pc-change-why { font-size: .88rem; margin-top: 3px; color: var(--ink); opacity: .85; }
 .pc-change-why b { font-weight: 600; }
+.pc-preview-btn { color: var(--ink) !important; }
+.pc-closing { margin-top: 14px; padding-top: 8px; border-top: 1px dashed var(--line-strong); }
+.pc-full { margin: 6px 0; font-size: .9rem; }
+.pc-full summary { cursor: pointer; color: var(--slate); font-size: .82rem; text-decoration: underline; text-underline-offset: 2px; }
+.pc-full[open] summary { margin-bottom: 6px; }
 .ai-by { font-size: .74rem; color: var(--slate); margin-top: 6px; font-style: italic; }
 .plan-prev { max-height: 60vh; overflow-y: auto; text-align: left; font-size: .9rem; }
 .pp-ch { margin: 0 0 10px; }
@@ -9003,13 +9008,27 @@ function splitActions(text) {
 }
 // Under a reply's suggestions: "Add all" while several are pending, "Undo" once something was applied.
 // A new change starts at the first action, or when the change title differs from the previous one; actions without a change title each get their own block.
+// With changes explained one by one below, show only the intro of a long reply (the rest folds away, to avoid reading it twice).
+function pcTextHtml(m) {
+  const acts = m.actions || [], explained = acts.length >= 2 && acts.every(a => a.cambio);
+  const t = String(m.text || "");
+  if (!explained || t.length < 500) return mdLite(t);
+  const paras = t.split(/\n\s*\n/), intro = paras[0].length > 600 ? paras[0].slice(0, 600) + "…" : paras[0];
+  return mdLite(intro) + `<details class="pc-full"><summary>Read the mentor's full message</summary>${mdLite(t)}</details>`;
+}
+function pcClosingQ(m) { // the mentor's closing question goes after the changes
+  const acts = m.actions || [], t = String(m.text || "");
+  if (!(acts.length >= 2 && acts.every(a => a.cambio)) || t.length < 500) return "";
+  const paras = t.split(/\n\s*\n/), last = paras.length > 2 && /\?\s*$/.test(paras[paras.length - 1]) ? paras[paras.length - 1] : "";
+  return last ? `<div class="pc-closing">${mdLite(last)}</div>` : "";
+}
 function actGroupStart(acts, j) { const a = acts[j], b = acts[j - 1]; return j === 0 || !a.cambio || !b || b.cambio !== a.cambio; }
 function pcMsgBar(m, k) {
   const acts = m.actions || [], open = acts.filter(a => !a.done).length;
   const b = [];
   const getActs = m.role === "model" && !acts.length && MENTOR_PROPOSES.test(m.text || "") ? `<button type="button" class="pc-getacts" onclick="pcFetchActions(${k}, this)"><span>👉 Tap here to see the changes and add them</span><b>→</b></button>` : "";
   if (getActs) b.push(getActs);
-  if (open >= 2 && acts.some(a => /capitulo|paso/.test(a.tipo))) b.push(`<button type="button" class="sug-edit" onclick="pcPreview(${k})">👀 See the full plan with these changes</button>`);
+  if (open >= 2 && acts.some(a => /capitulo|paso/.test(a.tipo))) b.push(`<button type="button" class="sug-ignore pc-preview-btn" onclick="pcPreview(${k})">👀 See the full plan</button>`);
   if (open >= 2) b.push(`<button type="button" class="sug-apply" onclick="pcAddAll(${k})">Add all ${open}</button>`);
   if (m.undo) b.push(`<button type="button" class="pc-undo" onclick="pcUndo(${k})">↶ Undo these changes</button>`);
   const p = IDEAS.find(i => i.id === pcProjId), last = p && (p.chat || []).length - 1 === k;
@@ -9040,7 +9059,7 @@ function renderPcChat() {
     : a.tipo === "estado_paso" ? `Mark <em>${escapeHtml(a.paso || "")}</em> as <strong>${escapeHtml(a.estado || "done")}</strong>`
     : a.tipo === "fecha" ? (a.fecha ? `Set target date of <em>${escapeHtml(a.objetivo || "")}</em> to <strong>${escapeHtml(a.fecha)}</strong>` : `Remove the target date of <em>${escapeHtml(a.objetivo || "")}</em>`)
     : a.tipo === "archivar" ? `File <strong>${escapeHtml(a.archivo || "the attachment")}</strong> in step <em>${escapeHtml(a.paso || "")}</em>` : a.tipo === "resuelto" ? `Settle <em>${escapeHtml(a.pregunta || "")}</em> → <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "capitulo" ? `Add chapter <strong>${escapeHtml(a.titulo)}</strong>${a.antesDe ? " before <em>" + escapeHtml(a.antesDe) + "</em>" : ""}` : a.tipo === "decision" ? `Add key decision <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "resolver" ? `Add to figure out: <strong>${escapeHtml(a.texto)}</strong>` : a.paso ? `Add to step <em>${escapeHtml(a.paso)}</em>: <strong>${escapeHtml(a.texto)}</strong>` : a.capitulo ? `Add note to <em>${escapeHtml(a.capitulo)}</em>: <strong>${escapeHtml(a.texto)}</strong>` : `Add note: <strong>${escapeHtml(a.texto)}</strong>`;
-  log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}${m.role === "model" ? " md" : ""}">${m.role === "model" ? mdLite(m.text) : escapeHtml(m.text)}${(m.adj || []).length ? `<div class="att-list in-msg">${m.adj.map((a, j) => attChipHtml(a, "", `viewAttachment(IDEAS.find(i=>i.id==='${escapeAttr(pcProjId)}').chat[${k}].adj[${j}])`)).join("")}</div>` : ""}${(m.actions || []).map((a, j) => (actGroupStart(m.actions, j) ? `<div class="pc-change"><div class="pc-change-what">${a.cambio ? escapeHtml(a.cambio) : labelCore(a)}</div>${a.porque ? `<div class="pc-change-why"><b>Why:</b> ${escapeHtml(a.porque)}</div>` : ""}</div>` : "") + `<div class="pc-act ${a.done ? "done" : ""} ${["borrar_capitulo", "borrar_paso", "borrar"].includes(a.tipo) ? "danger" : ""}${pcEdit === k + "," + j ? " editing" : ""}" data-kj="${k},${j}"><span>${label(a)}</span>${a.done ? `<span class="pc-done-row"><span class="note-date">${a.done === "yes" ? "✓ Added" : a.done === "undone" ? "↶ Undone" : "Skipped"}</span>${a.done === "yes" && a.snap ? `<button type="button" class="pc-undo-one" onclick="pcUndoOne(${k},${j})" title="Undo just this">↶ Undo</button>` : ""}</span>` : (pcEdit === k + "," + j ? `<span><button type="button" class="sug-apply" onclick="pcSaveEdit(${k},${j},true)">Save & add</button><button type="button" class="sug-ignore" onclick="pcEdit=null;renderPcChat()">Cancel</button></span>` : `<span><button type="button" class="sug-apply" onclick="pcAct(${k},${j},true)">Add</button>${a.tipo !== "archivar" ? `<button type="button" class="sug-edit" onclick="pcEdit='${k},${j}';renderPcChat()">Edit</button>` : ""}<button type="button" class="sug-ignore" onclick="pcAct(${k},${j},false)">Skip</button></span>`)}</div>`).join("")}${pcMsgBar(m, k)}</div>`).join("")
+  log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}${m.role === "model" ? " md" : ""}">${m.role === "model" ? pcTextHtml(m) : escapeHtml(m.text)}${(m.adj || []).length ? `<div class="att-list in-msg">${m.adj.map((a, j) => attChipHtml(a, "", `viewAttachment(IDEAS.find(i=>i.id==='${escapeAttr(pcProjId)}').chat[${k}].adj[${j}])`)).join("")}</div>` : ""}${(m.actions || []).map((a, j) => (actGroupStart(m.actions, j) ? `<div class="pc-change"><div class="pc-change-what">${a.cambio ? escapeHtml(a.cambio) : labelCore(a)}</div>${a.porque ? `<div class="pc-change-why"><b>Why:</b> ${escapeHtml(a.porque)}</div>` : ""}</div>` : "") + `<div class="pc-act ${a.done ? "done" : ""} ${["borrar_capitulo", "borrar_paso", "borrar"].includes(a.tipo) ? "danger" : ""}${pcEdit === k + "," + j ? " editing" : ""}" data-kj="${k},${j}"><span>${label(a)}</span>${a.done ? `<span class="pc-done-row"><span class="note-date">${a.done === "yes" ? "✓ Added" : a.done === "undone" ? "↶ Undone" : "Skipped"}</span>${a.done === "yes" && a.snap ? `<button type="button" class="pc-undo-one" onclick="pcUndoOne(${k},${j})" title="Undo just this">↶ Undo</button>` : ""}</span>` : (pcEdit === k + "," + j ? `<span><button type="button" class="sug-apply" onclick="pcSaveEdit(${k},${j},true)">Save & add</button><button type="button" class="sug-ignore" onclick="pcEdit=null;renderPcChat()">Cancel</button></span>` : `<span><button type="button" class="sug-apply" onclick="pcAct(${k},${j},true)">Add</button>${a.tipo !== "archivar" ? `<button type="button" class="sug-edit" onclick="pcEdit='${k},${j}';renderPcChat()">Edit</button>` : ""}<button type="button" class="sug-ignore" onclick="pcAct(${k},${j},false)">Skip</button></span>`)}</div>`).join("")}${pcClosingQ(m)}${pcMsgBar(m, k)}</div>`).join("")
     : `<div class="step-empty">Ask anything about the project. For example:</div>
        <div class="step-chips">${((proj && !isProject(proj) && !isNotebook(proj) && !(proj.fases || []).some(f => (f.pasos || []).length)) ? ["Build the full plan from scratch", "Interview me to refine the idea first", "Find what I still need to figure out", "Find me tutorials and references for this"] : ["What should I focus on this week?", "What's still pending?", "Is anything missing from my plan?", "Am I being realistic with the timing?", "Explain how a pro would approach this project"]).map(t => `<button type="button" class="ai-chip" onclick="pcSend(${JSON.stringify(t).replace(/"/g, "&quot;")})">${t}</button>`).join("")}</div>`;
   if (pcPending[pcProjId]) {
@@ -9310,6 +9329,15 @@ function stepRetry() {
 }
 // Questions about the plan/structure get the AI's deeper thinking (slower, but it catches missing stages).
 const PLAN_TALK = /plan|cap[ií]tul|chapter|paso|step|workflow|flujo|orden|order|falta|missing|reorganiz|reestructur|restructur|pipeline|etapa|stage|revis|review|chequ|check|antes|before|despu[eé]s|after/i;
+async function mentorExplainActions(reply, acts) {
+  const sys = `You label a mentor's proposed plan changes so a beginner understands them. You get the mentor's reply and its actions (JSON). Group the actions into CHANGES (one change can be several actions and touch several chapters; keep the actions' order, actions of one change must be next to each other). For every action return {"i": its index, "cambio": short title of WHAT changes (same text for all actions of that change), "porque": WHY, 1–3 plain sentences taken from the reply's reasoning (same text for the whole change)}. Write in the language of the reply. Output ONLY a JSON array.`;
+  const raw = await geminiGenerate([{ role: "user", text: `MENTOR REPLY:\n${String(reply).slice(0, 9000)}\n\nACTIONS:\n${JSON.stringify(acts.map((a, i) => Object.assign({ i }, a, { snap: undefined }))).slice(0, 9000)}` }], sys, false, undefined, "minimal");
+  let arr = null; try { arr = parseJsonLenient(stripJsonFences(raw)); } catch (e) {}
+  if (!Array.isArray(arr)) return acts;
+  const out = acts.map(a => Object.assign({}, a));
+  arr.forEach(x => { const a = x && out[+x.i]; if (a) { if (x.cambio) a.cambio = String(x.cambio).slice(0, 200); if (x.porque) a.porque = String(x.porque).slice(0, 600); } });
+  return out;
+}
 async function pcSend(textOverride, extra) {
   if (micHold("pc-input", () => pcSend())) return;
   const proj = IDEAS.find(i => i.id === pcProjId);
@@ -9352,6 +9380,11 @@ async function pcSend(textOverride, extra) {
       // It talked about changes but the buttons didn't come through: ask for just the actions.
       const w2 = document.querySelector(`#pc-log [data-t0='${t0}']`); if (w2) w2.insertAdjacentHTML("beforeend", '<div class="note-date" style="margin-top:6px">Preparing the buttons…</div>');
       try { acts = await mentorExtractActions(hist, reply); } catch (e) {}
+    }
+    if (acts.length && acts.some(a => !a.cambio || !a.porque)) {
+      // The AI listed changes without explaining each one: ask it (quickly) to label every change with what + why.
+      const w3 = document.querySelector(`#pc-log [data-t0='${t0}']`); if (w3) w3.insertAdjacentHTML("beforeend", '<div class="note-date" style="margin-top:6px">Explaining each change…</div>');
+      try { acts = await mentorExplainActions(reply, acts); } catch (e) { console.warn("explain failed:", e.message); }
     }
     proj.chat.push({ role: "model", text: reply, actions: acts, t: Date.now(), by: aiLastProvider });
     proj.chat = proj.chat.slice(-30);
@@ -10147,7 +10180,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-16 19:50 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-16 19:55 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
