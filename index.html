@@ -8824,7 +8824,8 @@ THE WHOLE POINT OF THIS APP: the person often does NOT know how this is done pro
 1. First, silently lay out the real professional pipeline for this kind of project, stage by stage, the way a studio/pro actually does it. Examples: 3D animated short → story/script → visual development & character design → model sheets/turnarounds → storyboard → animatic (with music/temp sound) → LAYOUT/PREVIS: blocking of sets and CAMERA (staging, framing, lenses, timing per shot) → asset modeling (sets/props/characters, only what the shots need) → texturing/shading → rigging → character animation (blocking → spline → polish) → FX → lighting → rendering → compositing → edit, sound & music mix → delivery. Game → concept → core loop prototype (greybox) → playtest → vertical slice → production → polish → release. Song → idea → demo → arrangement → recording → editing → mix → master. Illustration → thumbnails → sketch → values → color → render → polish. Use your own expertise for any other field.
 2. Compare it with the person's plan: what is MISSING, what is in the WRONG ORDER, what is DUPLICATED, what is too early (e.g. modeling final assets before the animatic/layout tells you what each shot needs).
 3. Propose those fixes yourself, in the same reply, explaining each one simply (what it is, why it goes there, what goes wrong if skipped). Keep it beginner-friendly: name the stage, one line on what it is.
-4. Scale it to the project: a small personal project doesn't need every studio stage, but never drop one whose absence will cause rework later — say which ones are optional and why.`;
+4. Scale it to the project: a small personal project doesn't need every studio stage, but never drop one whose absence will cause rework later — say which ones are optional and why.
+NO DUPLICATES: before adding a step or chapter, check the plan: if it already exists (even with other wording, or in another chapter), do NOT add it again — move it (mover_paso) or rewrite it (editar_paso). Never propose the same step twice in one reply.`;
 const PROJECT_MENTOR_RULES = `You are a veteran professional in the field of this project (a film director for a short film, a master carpenter for furniture, a head chef for a recipe…) acting as the person's mentor for the WHOLE project. You can see every chapter, its plan and progress, the key decisions, notes and open questions.
 - Answer like a good teacher: clear, concrete, applied to THIS project, short paragraphs. Guide and give options with their trade-offs; don't make the person's creative decisions for them.
 - Respect the key decisions as fixed rules. If one seems wrong, say so and explain why instead of ignoring it.
@@ -8859,6 +8860,33 @@ function renderPcAtts() {
   box.innerHTML = pcPendingAtts.map((a, k) => attChipHtml(a, `pcPendingAtts.splice(${k},1);renderPcAtts()`, `viewAttachment(pcPendingAtts[${k}])`)).join("");
 }
 // all steps of an idea or project, for filing attachments
+// Same step = same words, ignoring case, accents, punctuation and tiny wording changes.
+function stepKey(t) { return String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9ñ ]+/g, " ").replace(/\s+/g, " ").trim(); }
+function sameStep(a, b) {
+  const x = stepKey(a), y = stepKey(b); if (!x || !y) return false; if (x === y) return true;
+  const A = new Set(x.split(" ").filter(w => w.length > 2)), B = new Set(y.split(" ").filter(w => w.length > 2));
+  if (A.size < 3 || B.size < 3) return false;
+  let both = 0; A.forEach(w => { if (B.has(w)) both++; });
+  return both / Math.max(A.size, B.size) >= 0.85;
+}
+function findSameStep(root, texto) { return allStepsOf(root).find(x => sameStep(x.texto, texto)) || null; }
+// Clean up exact repeats inside a chapter (keeps the one with work in it; never touches steps that have work/chat).
+function dedupeSteps(item) {
+  let removed = 0;
+  (isProject(item) ? projectChapters(item) : [item]).forEach(c => (c.fases || []).forEach(f => {
+    const seen = new Map(), keep = [];
+    (f.pasos || []).forEach(st => {
+      const k = stepKey(typeof st === "string" ? st : st.texto), busy = typeof st === "object" && (st.hecho || (st.chat || []).length || st.trabajo || (st.archivos || []).length);
+      if (!k || !seen.has(k)) { seen.set(k, keep.length); keep.push(st); return; }
+      const j = seen.get(k), prev = keep[j], prevBusy = typeof prev === "object" && (prev.hecho || (prev.chat || []).length || prev.trabajo || (prev.archivos || []).length);
+      if (!busy) { removed++; return; }
+      if (!prevBusy) { keep[j] = st; removed++; return; }
+      keep.push(st); // both have work: keep both, the person decides
+    });
+    f.pasos = keep;
+  }));
+  return removed;
+}
 function allStepsOf(item) {
   const ideas = isProject(item) ? projectChapters(item) : [item];
   const out = [];
@@ -8955,6 +8983,7 @@ function openProjectChat(projId) {
   document.getElementById("pc-title").innerHTML = `Talk to your mentor<span class="pc-sub">${escapeHtml(proj.titulo)}</span>`;
   document.querySelector("#pc-overlay .form-hint").textContent = isNotebook(proj) ? "Ask anything about the whole notebook — the big story, continuity between projects, shared rules. It sees everything inside." : isProject(proj) ? "Ask anything about the whole project. The mentor sees every chapter, your progress, key decisions and notes. If it suggests adding something, you choose." : "Ask anything about this " + (isChapter(proj) ? "chapter" : "idea") + ". The mentor sees its plan, notes and things to figure out. If it suggests adding something, you choose.";
   document.getElementById("pc-overlay").classList.add("open");
+  { const gone = dedupeSteps(pendRoot(proj)); if (gone) { saveIdeas(); render(); setTimeout(() => showAlert(`I found ${gone} repeated step${gone > 1 ? "s" : ""} in this project and removed the extra cop${gone > 1 ? "ies" : "y"}. Steps with work, chats or progress were kept.`, { title: "Cleaned up repeats" }), 200); } }
   renderPcChat(); renderPcSide(); watchJump("pc-log");
   requestAnimationFrame(() => jumpBottom("pc-log", false));
   setTimeout(() => document.getElementById("pc-input").focus(), 50);
@@ -9206,6 +9235,7 @@ async function pcAddAll(k) {
   if (!m) return;
   const order = (m.actions || []).map((a, j) => j).sort((x, y) => (m.actions[x].tipo === "borrar_capitulo") - (m.actions[y].tipo === "borrar_capitulo"));
   for (const j of order) if (!m.actions[j].done) await pcAct(k, j, true, true); // reorganize first, remove chapters last
+  dedupeSteps(pendRoot(proj));
   saveIdeas(); renderPcChat(); render();
 }
 async function pcAct(k, j, yes, batch) {
@@ -9325,8 +9355,17 @@ async function pcAct(k, j, yes, batch) {
         if (isProject(tgt)) { await showAlert("Steps go inside a chapter — tell the mentor which chapter.", { title: "Pick a chapter" }); return; }
         tgt.fases = tgt.fases && tgt.fases.length ? tgt.fases : [{ nombre: "Plan", pasos: [] }];
         const fase = tgt.fases.find(f => (f.pasos || []).some(st => !((typeof st === "object" && st.hecho) === 2))) || tgt.fases[tgt.fases.length - 1];
-        fase.pasos = (fase.pasos || []).concat([{ texto: a.texto }]);
-        logChanges(tgt, "Mentor", [`Added step "${a.texto}"`]);
+        // Never duplicate a step: same step already here → skip; already in another chapter → move it here (keeps its work).
+        const root = pendRoot(tgt), dup = findSameStep(root, a.texto);
+        if (dup && dup.idea.id === tgt.id) { logChanges(tgt, "Mentor", [`Step "${a.texto}" was already there — not added twice`]); }
+        else if (dup) {
+          const [st] = dup.idea.fases[dup.f].pasos.splice(dup.s, 1);
+          fase.pasos = (fase.pasos || []).concat([st]);
+          logChanges(tgt, "Mentor", [`Moved step "${dup.texto}" here from "${dup.idea.titulo}" (instead of adding it twice)`]);
+        } else {
+          fase.pasos = (fase.pasos || []).concat([{ texto: a.texto }]);
+          logChanges(tgt, "Mentor", [`Added step "${a.texto}"`]);
+        }
       }
     } else if (a.tipo === "estado_paso") {
       const norm = x => String(x || "").trim().toLowerCase();
@@ -9338,7 +9377,11 @@ async function pcAct(k, j, yes, batch) {
         if (!st.hecho) delete st.hecho;
         logChanges(hit.idea, "Mentor", [`Step "${hit.texto}" → ${["to do", "in progress", "done"][st.hecho || 0]}`]);
       }
-    } else if (a.tipo === "capitulo") { addChapter(proj.id, a.titulo, a.antesDe); logChanges(proj, "Mentor", [`Added chapter "${a.titulo}"`]); }
+    } else if (a.tipo === "capitulo") {
+      const r0 = pendRoot(proj), same = isProject(r0) && projectChapters(r0).find(c => c.estado !== "eliminada" && sameStep(c.titulo, a.titulo));
+      if (same) logChanges(r0, "Mentor", [`Chapter "${a.titulo}" already exists — not added twice`]);
+      else { addChapter(proj.id, a.titulo, a.antesDe); logChanges(proj, "Mentor", [`Added chapter "${a.titulo}"`]); }
+    }
     else if (a.tipo === "decision") { if (decTarget) decTarget.decisiones = decisionsOf(decTarget).concat([{ texto: a.texto }]); else proj.notas = (proj.notas || []).concat([{ texto: "Decided: " + a.texto, fecha: new Date().toISOString() }]); logChanges(proj, "Mentor", [`Added key decision "${a.texto}"`]); }
     else if (a.tipo === "resolver") { proj.cosasAResolver = (proj.cosasAResolver || []).concat([{ texto: a.texto, resuelto: false }]); logChanges(proj, "Mentor", [`Added thing to figure out "${a.texto}"`]); }
     else {
@@ -10227,7 +10270,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-16 20:55 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-17 02:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
