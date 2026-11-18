@@ -6075,6 +6075,7 @@ async function driveLoadSettings() {
         if (s && s.caseStyle) applyCase(s.caseStyle);
         if (s && s.tours) { try { localStorage.setItem(TOUR_KEY, JSON.stringify(Object.assign(toursSeen(), s.tours))); } catch (e) {} }
         if (s && typeof s.bgIntensity === "number") setBgIntensity(s.bgIntensity, true);
+        if (s && s.claudeOn != null) { try { localStorage.setItem("ideary_claude_on", s.claudeOn ? "1" : "0"); } catch (e) {} }
         if (s && s.xKeys && typeof s.xKeys === "object") { xKeys = Object.assign({}, s.xKeys); try { localStorage.setItem(XKEYS_STORAGE, JSON.stringify(xKeys)); } catch (e) {} }
         if (s && typeof s.groqKey === "string" && s.groqKey !== groqKey) { groqKey = s.groqKey; groqModels = null; try { groqKey ? localStorage.setItem(GROQ_KEY_STORAGE, groqKey) : localStorage.removeItem(GROQ_KEY_STORAGE); } catch (e) {} }
         if (s && s.geminiKey) {
@@ -6093,7 +6094,7 @@ async function driveLoadSettings() {
 
 async function driveSaveSettings() {
   if (!driveReady && !accessToken) return;
-  const payload = JSON.stringify({ geminiKey, groqKey, xKeys, coverColor, caseStyle, caseColor, tours: toursSeen(), bgIntensity });
+  const payload = JSON.stringify({ geminiKey, groqKey, xKeys, claudeOn: (typeof cbEnabled === "function" && cbEnabled()) ? 1 : 0, coverColor, caseStyle, caseColor, tours: toursSeen(), bgIntensity });
   if (driveSettingsFileId) {
     await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveSettingsFileId}?uploadType=media`, {
       method: "PATCH", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: payload });
@@ -9399,8 +9400,15 @@ async function cbEnsureFolder() {
   cbFolder = await driveFindFolder("for-claude", root) || await driveMakeFolder("for-claude", root);
   return cbFolder;
 }
-async function cbUpsert(name, text, mime) {
+async function cbFindInFolder(name, folder) {
+  const q = encodeURIComponent(`name='${name}' and '${folder}' in parents and trashed=false`);
+  const r = await cbDrive(`/drive/v3/files?q=${q}&fields=files(id)&orderBy=createdTime`); if (!r.ok) return null;
+  const d = await r.json(); return d.files && d.files[0] ? d.files[0].id : null;
+}
+async function cbUpsert(name, text, mime, keepIfExists) {
   const folder = await cbEnsureFolder(); let id = cbFiles[name];
+  // another device (or a cleared browser) may have made it already: reuse that file, never a second copy
+  if (!id) { id = await cbFindInFolder(name, folder); if (id) { cbFiles[name] = id; cbSaveState(); if (keepIfExists) return id; } }
   if (id) {
     const r = await cbDrive(`/upload/drive/v3/files/${id}?uploadType=media`, { method: "PATCH", headers: { "Content-Type": mime || "text/markdown" }, body: text });
     if (r.ok) return id; if (r.status !== 404) throw new Error("Drive " + r.status); id = null;
@@ -9464,7 +9472,7 @@ async function cbExport() {
     if (cbLastHash.__index !== it) { await cbUpsert("ideary-projects.md", it); cbLastHash.__index = it; }
     const rd = CB_README();
     if (cbLastHash.__readme !== rd.length) { await cbUpsert("ideary-for-claude-README.md", rd); cbLastHash.__readme = rd.length; }
-    for (let n = 1; n <= CB_SLOTS; n++) if (!cbFiles[`ideary-inbox-${n}.txt`]) await cbUpsert(`ideary-inbox-${n}.txt`, "Ideary inbox: Claude writes proposals in this file's description.", "text/plain");
+    for (let n = 1; n <= CB_SLOTS; n++) if (!cbFiles[`ideary-inbox-${n}.txt`]) await cbUpsert(`ideary-inbox-${n}.txt`, "Ideary inbox: Claude writes proposals in this file's description.", "text/plain", true);
     cbSaveState();
     await cbImport();
   } catch (e) { console.warn("Claude bridge:", e.message); }
@@ -9509,12 +9517,23 @@ async function cbImport() {
   }
   if (imported) { saveIdeas(); render(); }
 }
+// Check Claude's mailbox on its own: shortly after opening, when coming back to the app, and every 2 minutes while it's open.
+async function cbCheckSoon() {
+  if (!cbEnabled() || !driveReady || !accessToken || cbBusy || POPOUT || document.visibilityState !== "visible") return;
+  cbBusy = true;
+  try { if (Object.keys(cbFiles).filter(k => /inbox/.test(k)).length < CB_SLOTS) { cbBusy = false; return cbExport(); } await cbImport(); }
+  catch (e) { console.warn("Claude inbox:", e.message); } finally { cbBusy = false; }
+}
+setInterval(cbCheckSoon, 120000);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") setTimeout(cbCheckSoon, 2500); });
+setTimeout(function waitDrive() { if (driveReady) cbCheckSoon(); else setTimeout(waitDrive, 3000); }, 4000);
 function norm2(x) { return String(x || "").trim().toLowerCase(); }
 function cbNotice(proj) {
   setTimeout(() => showConfirm(`Claude sent you a proposal for "${proj.titulo}". Open the mentor to review it?`, { title: "📨 From Claude", confirmLabel: "Open" }).then(ok => { if (ok) openProjectChat(proj.id); }), 300);
 }
 function cbToggle(on) {
   try { localStorage.setItem("ideary_claude_on", on ? "1" : "0"); } catch (e) {}
+  try { driveSaveSettings(); } catch (e) {}
   if (on) { if (!driveReady) { showAlert("Connect Google Drive first (Settings → Sync), then turn this on.", { title: "Needs Google Drive" }); return; } cbLastHash = {}; cbExport().then(() => showAlert("Done: your projects are in your Drive folder Ideary/for-claude. Now set up Claude (steps below).", { title: "Ready for Claude" })); }
   renderCbSettings();
 }
@@ -10624,7 +10643,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-18 16:20 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-18 22:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
