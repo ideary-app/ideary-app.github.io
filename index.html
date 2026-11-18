@@ -4417,6 +4417,15 @@ SHIPPING CHANGES
 .plan-prev.reorg { max-height: none; margin-top: 8px; }
 .pp-gone { margin-top: 10px; color: var(--rust); font-size: .85rem; }
 .pc-why { display: block; font-size: .78rem; color: var(--slate); margin-top: 3px; font-weight: normal; }
+.cb-hdr { position: relative; }
+.cb-badge { position: absolute; top: -3px; right: -3px; min-width: 16px; height: 16px; border-radius: 8px; background: var(--rust, #b5532a); color: #fff; font-size: 10px; line-height: 16px; text-align: center; padding: 0 4px; font-weight: 700; display: none; }
+.cb-item { border: 1px solid var(--line-strong); border-radius: 12px; padding: 12px 14px; margin: 0 0 14px; background: rgba(255,255,255,.35); }
+.cb-item-h { font-family: var(--hand); font-size: 1.25rem; color: var(--ink); }
+.cb-item-intro { font-size: .9rem; margin: 2px 0 6px; }
+.cb-kind { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--slate); margin: 6px 0; }
+.cb-acts { list-style: none; margin: 0; padding: 0; }
+.cb-acts li { padding: 8px 0; border-top: 1px dashed var(--line-strong); font-size: .9rem; }
+.cb-act-btns { display: flex; gap: 6px; margin-top: 6px; }
 .choice-list { display: flex; flex-direction: column; gap: 6px; }
 .choice-btn { text-align: left; background: none; border: 1px solid var(--line-strong); border-radius: 10px; padding: 9px 12px; font: inherit; cursor: pointer; color: var(--ink); }
 .choice-btn:hover { border-color: var(--ink); }
@@ -4482,6 +4491,7 @@ SHIPPING CHANGES
     </button>
     <div class="hdr-tools">
       <button type="button" class="hdr-tool" onclick="openChatsHere()" title="Conversations here" aria-label="Conversations"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.7 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></button>
+      <button type="button" class="hdr-tool cb-hdr" id="cb-hdr" onclick="openClaudeInbox()" title="Updates from Claude" aria-label="Updates from Claude" style="display:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H5.2L4 17.2z"/><path d="M8 9h8M8 12h5"/></svg><span class="cb-badge" id="cb-badge"></span></button>
       <button type="button" class="hdr-tool" onclick="replayTour()" title="Show me around" aria-label="Help">?</button>
       <button type="button" class="hdr-tool" onclick="openSettings()" title="Settings" aria-label="Settings"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     <button type="button" class="hdr-update desk-only" id="hdr-update" onclick="deskHeaderUpdate()" title="Check for updates">⟳ Check for updates</button>
@@ -4923,6 +4933,12 @@ SHIPPING CHANGES
 
 
 <!-- MODAL: Step workspace (tutor) -->
+<div class="modal-overlay" id="cb-overlay" onclick="if(event.target===this)closeClaudeInbox()">
+  <div class="modal-box" style="max-width:760px;height:min(90vh,860px);display:flex;flex-direction:column">
+    <div class="modal-head" style="display:flex;align-items:flex-start;gap:8px"><div style="flex:1"><div class="modal-title">Updates from Claude</div><div class="form-hint" style="margin:2px 0 0">What you agreed with Claude, ready to add to your projects. Nothing changes until you tap Apply.</div></div><button type="button" class="stuck-btn" style="margin:0" onclick="cbRefreshInbox(this)">↻ Check now</button><button class="modal-close" onclick="closeClaudeInbox()" aria-label="Close">×</button></div>
+    <div id="cb-list" style="overflow-y:auto;flex:1;padding:4px 2px 12px"></div>
+  </div>
+</div>
 <div class="modal-overlay" id="pc-overlay">
   <aside class="pc-side" id="pc-side" aria-label="Chats in this project"></aside>
   <div class="modal-box step-ws-box" style="max-width:680px;display:flex;flex-direction:column;height:min(90vh,800px)">
@@ -9410,11 +9426,11 @@ async function cbUpsert(name, text, mime, keepIfExists) {
   // another device (or a cleared browser) may have made it already: reuse that file, never a second copy
   if (!id) { id = await cbFindInFolder(name, folder); if (id) { cbFiles[name] = id; cbSaveState(); if (keepIfExists) return id; } }
   if (id) {
-    const r = await cbDrive(`/upload/drive/v3/files/${id}?uploadType=media`, { method: "PATCH", headers: { "Content-Type": mime || "text/markdown" }, body: text });
+    const r = await cbDrive(`/upload/drive/v3/files/${id}?uploadType=media`, { method: "PATCH", headers: { "Content-Type": (mime || "text/markdown") + "; charset=UTF-8" }, body: text });
     if (r.ok) return id; if (r.status !== 404) throw new Error("Drive " + r.status); id = null;
   }
   const b = "ideary-cb", meta = { name, mimeType: mime || "text/markdown", parents: [folder] };
-  const body = `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${b}\r\nContent-Type: ${mime || "text/markdown"}\r\n\r\n${text}\r\n--${b}--`;
+  const body = `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${b}\r\nContent-Type: ${mime || "text/markdown"}; charset=UTF-8\r\n\r\n${text}\r\n--${b}--`;
   const r = await cbDrive("/upload/drive/v3/files?uploadType=multipart&fields=id", { method: "POST", headers: { "Content-Type": `multipart/related; boundary=${b}` }, body });
   if (!r.ok) throw new Error("Couldn't create " + name + " (" + r.status + ")");
   cbFiles[name] = (await r.json()).id; cbSaveState(); return cbFiles[name];
@@ -9518,8 +9534,10 @@ async function cbImport() {
   if (imported) { saveIdeas(); render(); }
 }
 // Check Claude's mailbox on its own: shortly after opening, when coming back to the app, and every 2 minutes while it's open.
-async function cbCheckSoon() {
-  if (!cbEnabled() || !driveReady || !accessToken || cbBusy || POPOUT || document.visibilityState !== "visible") return;
+async function cbCheckSoon(force) {
+  cbUpdateBadge();
+  if (!cbEnabled() || !driveReady || !accessToken || POPOUT || (!force && document.visibilityState !== "visible")) return;
+  if (cbBusy) { if (!force) return; for (let i = 0; i < 40 && cbBusy; i++) await new Promise(r => setTimeout(r, 250)); }
   cbBusy = true;
   try { if (Object.keys(cbFiles).filter(k => /inbox/.test(k)).length < CB_SLOTS) { cbBusy = false; return cbExport(); } await cbImport(); }
   catch (e) { console.warn("Claude inbox:", e.message); } finally { cbBusy = false; }
@@ -9529,13 +9547,15 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setTimeout(function waitDrive() { if (driveReady) cbCheckSoon(); else setTimeout(waitDrive, 3000); }, 4000);
 function norm2(x) { return String(x || "").trim().toLowerCase(); }
 function cbNotice(proj) {
-  setTimeout(() => showConfirm(`Claude sent you a proposal for "${proj.titulo}". Open the mentor to review it?`, { title: "📨 From Claude", confirmLabel: "Open" }).then(ok => { if (ok) openProjectChat(proj.id); }), 300);
+  cbUpdateBadge();
+  if (document.getElementById("cb-overlay").classList.contains("open")) { renderClaudeInbox(); return; }
+  setTimeout(() => showConfirm(`Claude sent you updates for "${proj.titulo}". Review them now?`, { title: "From Claude", confirmLabel: "Review" }).then(ok => { if (ok) openClaudeInbox(); }), 300);
 }
 function cbToggle(on) {
   try { localStorage.setItem("ideary_claude_on", on ? "1" : "0"); } catch (e) {}
   try { driveSaveSettings(); } catch (e) {}
   if (on) { if (!driveReady) { showAlert("Connect Google Drive first (Settings → Sync), then turn this on.", { title: "Needs Google Drive" }); return; } cbLastHash = {}; cbExport().then(() => showAlert("Done: your projects are in your Drive folder Ideary/for-claude. Now set up Claude (steps below).", { title: "Ready for Claude" })); }
-  renderCbSettings();
+  renderCbSettings(); cbUpdateBadge();
 }
 const CB_PROJECT_INSTRUCTIONS = `You help me with my projects in my app Ideary. At the start of every conversation, use Google Drive to search for the file "ideary-for-claude-README.md" (folder Ideary/for-claude) and follow it exactly: read ideary-projects.md and the file of the project I mention, without asking me to paste anything. When I want changes, send them to Ideary as the README explains (description of an empty ideary-inbox file). Answer in my language.`;
 function renderCbSettings() {
@@ -9552,6 +9572,61 @@ function renderCbSettings() {
   </ol>
   <div class="form-hint">Each person uses their own Claude account and their own Drive: nothing is shared. Claude never changes your data by itself; everything arrives as a proposal.</div>
   ${on ? `<button type="button" class="stuck-btn" onclick="cbLastHash={};cbExport().then(()=>showAlert('Updated and checked for proposals.',{title:'Claude'}))">↻ Update now & check for Claude's proposals</button>` : ""}`;
+}
+
+
+/* ---- "Updates from Claude": a header button + one panel to apply what Claude sent, without going to the mentor ---- */
+function cbPending() {
+  const out = [];
+  IDEAS.forEach(p => (p.chat || []).forEach((m, k) => {
+    if (!m.fromClaude) return;
+    const open = m.reorg ? !(m.reorgDone || m.reorgSkip) : (m.actions || []).some(a => !a.done);
+    if (open) out.push({ p, m, k });
+  }));
+  return out;
+}
+function cbUpdateBadge() {
+  const b = document.getElementById("cb-hdr"), n = cbPending().length; if (!b) return;
+  b.style.display = cbEnabled() ? "" : "none";
+  const g = document.getElementById("cb-badge"); if (g) { g.textContent = n ? String(n) : ""; g.style.display = n ? "" : "none"; }
+  b.classList.toggle("has", n > 0);
+}
+function openClaudeInbox() { renderClaudeInbox(); document.getElementById("cb-overlay").classList.add("open"); cbRefreshInbox(); }
+function closeClaudeInbox() { document.getElementById("cb-overlay").classList.remove("open"); }
+async function cbRefreshInbox(btn) { if (btn) { lockBtn(btn); btn.disabled = true; btn.textContent = "Checking…"; } try { await cbCheckSoon(true); } finally { if (btn) { btn.disabled = false; btn.textContent = "↻ Check now"; } renderClaudeInbox(); } }
+function renderClaudeInbox() {
+  const el = document.getElementById("cb-list"); if (!el) return;
+  const list = cbPending();
+  if (!list.length) { el.innerHTML = `<div class="step-empty" style="margin:30px 10px;text-align:center">Nothing new from Claude.<br><span class="form-hint">When you agree on changes with Claude, ask it to "send them to Ideary". They'll show up here.</span></div>`; cbUpdateBadge(); return; }
+  el.innerHTML = list.map(({ p, m, k }) => {
+    const pid = escapeAttr(p.id), head = `<div class="cb-item-h">▤ ${escapeHtml(p.titulo)}</div><div class="cb-item-intro">${mdLite(m.text || "")}</div>`;
+    if (m.reorg) {
+      const prev = reorgHtml(m, k).replace(/<div class="pc-msgbar">[\s\S]*$/, "");
+      return `<div class="cb-item">${head}<div class="cb-kind">Whole plan, reorganized</div>${prev}<div class="pc-msgbar"><button type="button" class="sug-apply" onclick="cbDo('${pid}',${k},'plan')">Apply this plan</button><button type="button" class="sug-ignore" onclick="cbDo('${pid}',${k},'skip')">Skip</button></div></div>`;
+    }
+    const acts = (m.actions || []).map((a, j) => ({ a, j })).filter(x => !x.a.done);
+    return `<div class="cb-item">${head}<div class="cb-kind">${acts.length} change${acts.length > 1 ? "s" : ""}</div><ul class="cb-acts">${acts.map(({ a, j }) => `<li><span>${escapeHtml(cbActLabel(a))}</span>${a.porque ? `<div class="pc-why">${escapeHtml(a.porque)}</div>` : ""}<span class="cb-act-btns"><button type="button" class="sug-apply" onclick="cbDo('${pid}',${k},'one',${j})">Add</button><button type="button" class="sug-ignore" onclick="cbDo('${pid}',${k},'no',${j})">Skip</button></span></li>`).join("")}</ul><div class="pc-msgbar"><button type="button" class="sug-apply" onclick="cbDo('${pid}',${k},'all')">Add all ${acts.length}</button><button type="button" class="sug-ignore" onclick="cbDo('${pid}',${k},'skip')">Skip all</button></div></div>`;
+  }).join("");
+  cbUpdateBadge();
+}
+function cbActLabel(a) {
+  const T = { agregar_paso: "Add step", editar_paso: "Reword step", mover_paso: "Move step", borrar_paso: "Remove step", capitulo: "New chapter", mover_capitulo: "Move chapter", borrar_capitulo: "Remove chapter", nota: "Note", resolver: "To figure out", decision: "Decision", mover: "Move" };
+  const what = a.texto || a.titulo || a.paso || "";
+  const where = a.capitulo ? ` → ${a.capitulo}` : "";
+  return `${T[a.tipo] || a.tipo}: ${a.tipo === "editar_paso" ? `"${a.paso}" → "${a.texto}"` : what}${a.tipo === "editar_paso" ? "" : where}`;
+}
+async function cbDo(pid, k, what, j) {
+  const prevId = pcProjId; pcProjId = pid;
+  const p = IDEAS.find(i => i.id === pid), m = p && p.chat[k]; if (!m) { pcProjId = prevId; return; }
+  try {
+    if (what === "plan") await applyReorg(k);
+    else if (what === "skip") { if (m.reorg) m.reorgSkip = true; else (m.actions || []).forEach(a => { if (!a.done) a.done = "no"; }); }
+    else if (what === "all") await pcAddAll(k);
+    else if (what === "one") await pcAct(k, j, true);
+    else if (what === "no") { m.actions[j].done = "no"; }
+    saveIdeas(); render();
+  } catch (e) { showAlert(e.message, { title: "Couldn't apply" }); }
+  finally { pcProjId = prevId; renderClaudeInbox(); }
 }
 
 // "How would the plan look?": apply the open changes on a throwaway copy, read the outline, put everything back.
@@ -10643,7 +10718,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-18 22:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-18 23:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
