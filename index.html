@@ -4697,6 +4697,11 @@ SHIPPING CHANGES
       </button>
       <div id="sync-status" style="font-size:0.7rem;color:var(--slate);padding:4px 4px 0;line-height:1.4"></div>
     </div>
+    <div class="settings-section" id="settings-claude">
+      <div class="settings-h">Work with Claude (your own account)</div>
+      <div class="form-hint" style="margin-bottom:6px">Use Claude (free or paid plan) as your mentor: it reads your projects from your Drive and sends its proposals back to Ideary. No API key, no extra cost.</div>
+      <div id="cb-settings"></div>
+    </div>
     <div class="settings-section" id="settings-ai">
       <div class="settings-h">AI (Gemini)</div>
       <div class="form-hint" style="margin-bottom:8px">Add your own free Gemini key so the AI works right inside Ideary. How to get one (2 minutes):</div>
@@ -5415,6 +5420,7 @@ function driveSyncNow(opts) {
     }
     writeDriveCache(false);
     if (typeof driveImageGC === "function") setTimeout(() => driveImageGC(), 5000);
+    if (typeof cbExport === "function") setTimeout(() => cbExport(), 3000);
     if (JSON.stringify(IDEAS) !== before && editingIdeaId == null && !document.querySelector(".open[id$='-overlay']")) render();
   });
   return driveSyncChain.catch(e => { console.error("Drive sync failed:", e); throw e; });
@@ -6221,6 +6227,7 @@ function openSettings(section) {
   setTimeout(() => { const el = document.getElementById("ai-usage"); if (el) el.innerHTML = aiUsageHtml(); }, 0);
   document.getElementById("ai-key-input").value = geminiKey;
   try { deskRenderSettings(); } catch (e) {}
+  try { renderCbSettings(); } catch (e) {}
   { const y = document.getElementById("yt-setup"); if (y) y.style.display = (xKeys.youtube || ytFailed) ? "" : "none"; }
   ["openrouter", "youtube"].forEach(n => { const i = document.getElementById("xk-" + n), st = document.getElementById("xk-" + n + "-st"); if (i) i.value = xKeys[n] || ""; if (st) st.textContent = xKeys[n] ? "✓ Ready" : ""; });
   { const g = document.getElementById("groq-key-input"); if (g) g.value = groqKey; const gs = document.getElementById("groq-key-status"); if (gs) gs.textContent = groqKey ? "✓ Backup AI ready" : ""; }
@@ -9364,6 +9371,169 @@ async function applyReorg(k) {
   saveIdeas(); renderPcChat(); renderPcSide(); render();
 }
 
+/* ---------- Claude bridge (no API, uses the person's own Claude account) ----------
+   Ideary keeps small, readable files in the person's Drive folder "Ideary/for-claude":
+   - ideary-for-claude-README.md : how Claude should read and answer (Claude reads it first)
+   - ideary-projects.md          : index of projects
+   - ideary-project-<name>.md    : one per project (plan with ids, notes, decisions…)
+   - ideary-inbox-1..8.txt       : empty files whose DESCRIPTION is where Claude writes its proposals
+     (Claude's Google Drive connector can edit a file's description; Ideary can read it because it
+     created those files). Ideary imports them into the project's mentor chat, then clears them.
+   Everything Claude sends is a proposal: it shows up with Add / Skip / Apply, never changes data alone. */
+const CB_SLOTS = 8, CB_STATE = "ideary_claude_bridge_v1";
+let cbFolder = null, cbFiles = {}, cbLastHash = {}, cbBusy = false;
+try { const st = JSON.parse(localStorage.getItem(CB_STATE) || "{}"); cbFiles = st.files || {}; cbLastHash = st.hash || {}; } catch (e) {}
+function cbSaveState() { try { localStorage.setItem(CB_STATE, JSON.stringify({ files: cbFiles, hash: cbLastHash, seen: cbSeen() })); } catch (e) {} }
+function cbSeen() { try { return (JSON.parse(localStorage.getItem(CB_STATE) || "{}").seen || []); } catch (e) { return []; } }
+function cbMarkSeen(id) { const s = cbSeen().concat([id]).slice(-200); try { const st = JSON.parse(localStorage.getItem(CB_STATE) || "{}"); st.seen = s; localStorage.setItem(CB_STATE, JSON.stringify(st)); } catch (e) {} }
+function cbEnabled() { try { return localStorage.getItem("ideary_claude_on") === "1"; } catch (e) { return false; } }
+function cbSlug(t) { return String(t || "project").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "project"; }
+async function cbDrive(path, opts) {
+  const r = await fetch("https://www.googleapis.com" + path, Object.assign({}, opts, { headers: Object.assign({ Authorization: `Bearer ${accessToken}` }, (opts && opts.headers) || {}) }));
+  if (r.status === 401) { handleDriveAuthExpired(); throw new Error("Session expired"); }
+  return r;
+}
+async function cbEnsureFolder() {
+  if (cbFolder) return cbFolder;
+  const root = driveFolderId || await driveFindFolder("Ideary") || await driveMakeFolder("Ideary");
+  cbFolder = await driveFindFolder("for-claude", root) || await driveMakeFolder("for-claude", root);
+  return cbFolder;
+}
+async function cbUpsert(name, text, mime) {
+  const folder = await cbEnsureFolder(); let id = cbFiles[name];
+  if (id) {
+    const r = await cbDrive(`/upload/drive/v3/files/${id}?uploadType=media`, { method: "PATCH", headers: { "Content-Type": mime || "text/markdown" }, body: text });
+    if (r.ok) return id; if (r.status !== 404) throw new Error("Drive " + r.status); id = null;
+  }
+  const b = "ideary-cb", meta = { name, mimeType: mime || "text/markdown", parents: [folder] };
+  const body = `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${b}\r\nContent-Type: ${mime || "text/markdown"}\r\n\r\n${text}\r\n--${b}--`;
+  const r = await cbDrive("/upload/drive/v3/files?uploadType=multipart&fields=id", { method: "POST", headers: { "Content-Type": `multipart/related; boundary=${b}` }, body });
+  if (!r.ok) throw new Error("Couldn't create " + name + " (" + r.status + ")");
+  cbFiles[name] = (await r.json()).id; cbSaveState(); return cbFiles[name];
+}
+function cbProjectText(p) {
+  const idx = planIndex(p), L = [];
+  L.push(`# ${p.titulo}`, `Ideary project id: ${p.id}`, `Status: ${(ESTADOS[p.estado] || {}).label || p.estado}`, "");
+  if (p.descripcion) L.push("## About", String(p.descripcion), "");
+  L.push("## Plan (ids are for your answers: C = chapter, S = step)", idx.text || "(no plan yet)", "");
+  const sec = (title, it, key, fmt) => { const a = it[key] || []; if (a.length) { L.push(`### ${title} — ${it.titulo}`); a.forEach(x => L.push("- " + fmt(x))); L.push(""); } };
+  const txt = x => typeof x === "string" ? x : (x.texto || x.titulo || x.nota || "");
+  [p].concat(isProject(p) ? projectChapters(p).filter(c => c.estado !== "eliminada") : []).forEach(it => {
+    if (it !== p && it.descripcion) L.push(`### About chapter — ${it.titulo}`, String(it.descripcion).slice(0, 1500), "");
+    sec("Notes", it, "notas", txt); sec("Things to figure out", it, "cosasAResolver", txt); sec("Decisions", it, "decisiones", txt);
+    sec("References", it, "referencias", x => `${x.titulo || x.url || ""}${x.url ? " (" + x.url + ")" : ""}`);
+  });
+  const talk = (p.chat || []).filter(m => m.role === "user").slice(-15).map(m => "- " + String(m.text).replace(/\s+/g, " ").slice(0, 300));
+  if (talk.length) L.push("## Recent things the person told the in-app mentor", ...talk, "");
+  return L.join("\n");
+}
+const CB_README = () => `# Ideary ↔ Claude
+You are helping the person with their projects in **Ideary** (a planner for creative projects). These files are in the person's Google Drive, folder "Ideary/for-claude". Ideary updates them automatically.
+
+## How to read
+1. Read **ideary-projects.md** to see the projects and which file has each one.
+2. When the person talks about a project, read its file (ideary-project-….md) before answering. Don't ask them to paste anything.
+3. The plan lists chapters (C1, C2…) and steps (C1.S1…). "(done)", "(in progress)", "(has work)" mean real work exists: never drop those.
+
+## How to be useful
+Act as a senior professional mentor in the project's field: honest, specific, beginner-friendly. When reviewing a plan, compare it with the real professional pipeline for that kind of project and catch what's missing, duplicated or out of order (for a 3D animated short that includes layout/previs — sets and camera blocking — before modeling). Free resources only, unless they ask for paid ones. Explain each change: what and why.
+
+## How to send changes to Ideary (only when the person wants them)
+Ideary can't read your chat. To send a proposal, write it into the **description** of one of the empty files **ideary-inbox-1.txt … ideary-inbox-${CB_SLOTS}.txt** (use the Google Drive tool that updates a file's metadata: set "description"; do NOT create new files and do NOT change file contents). Use a slot whose description is empty. Keep each description under 4000 characters; if your proposal is longer, split the JSON text across several slots with the same "id" and "part"/"of".
+Each description is JSON:
+{"ideary":1,"id":"unique-id-like-2026-11-18-1","part":1,"of":1,"proyecto":"<Ideary project id from the project file>","texto":"short intro for the person","tipo":"cambios" or "plan", ...}
+- **tipo "cambios"**: small edits. Add "actions": a list like the in-app mentor uses. Every action has "cambio" (short title of what changes) and "porque" (why). Types:
+  {"tipo":"agregar_paso","capitulo":"exact chapter title","texto":"step"}, {"tipo":"editar_paso","paso":"exact current step text","texto":"new text"}, {"tipo":"mover_paso","paso":"exact step text","capitulo":"destination chapter","antesDe":"step it goes before or null"}, {"tipo":"borrar_paso","paso":"exact step text","capitulo":"chapter of that copy"}, {"tipo":"capitulo","titulo":"new chapter","antesDe":"chapter it goes before or null"}, {"tipo":"mover_capitulo","titulo":"chapter","antesDe":"chapter or null"}, {"tipo":"nota","texto":"note"}, {"tipo":"resolver","texto":"thing to figure out"}, {"tipo":"decision","texto":"decision"}
+- **tipo "plan"**: a full reorganization. Add "plan": {"intro":"…","capitulos":[{"id":"C1" or null,"titulo":"…","porque":"…","pasos":[{"id":"C1.S2" or null,"texto":"step text (always include it)","porque":"why, for new/moved steps"}]}],"quitar":[{"id":"C3.S1","porque":"why (only steps with no work)"}]}. Reuse ids; each id once; keep steps with work.
+If the JSON is split in parts, put the parts' raw text in a field "chunk" instead (part 1 starts the JSON, the last part ends it).
+After writing, tell the person: "Listo, abrí Ideary y vas a ver la propuesta en el mentor de <proyecto>." Ideary shows it with Add/Skip and Undo; nothing changes until they accept.
+`;
+async function cbExport() {
+  if (!cbEnabled() || !driveReady || !accessToken || cbBusy || POPOUT) return;
+  cbBusy = true;
+  try {
+    const roots = IDEAS.filter(i => i.estado !== "eliminada" && !isChapter(i) && !isNotebook(i));
+    const index = ["# Ideary projects", "Read the file of the project the person mentions.", ""];
+    for (const p of roots) {
+      const name = `ideary-project-${cbSlug(p.titulo)}-${p.id.slice(-4)}.md`;
+      index.push(`- **${p.titulo}** (${(ESTADOS[p.estado] || {}).label || p.estado}) → ${name} — id ${p.id}`);
+      const t = cbProjectText(p), h = String(t.length) + ":" + t.slice(-80) + t.slice(0, 80);
+      if (cbLastHash[name] !== h) { await cbUpsert(name, t); cbLastHash[name] = h; }
+    }
+    const it = index.join("\n");
+    if (cbLastHash.__index !== it) { await cbUpsert("ideary-projects.md", it); cbLastHash.__index = it; }
+    const rd = CB_README();
+    if (cbLastHash.__readme !== rd.length) { await cbUpsert("ideary-for-claude-README.md", rd); cbLastHash.__readme = rd.length; }
+    for (let n = 1; n <= CB_SLOTS; n++) if (!cbFiles[`ideary-inbox-${n}.txt`]) await cbUpsert(`ideary-inbox-${n}.txt`, "Ideary inbox: Claude writes proposals in this file's description.", "text/plain");
+    cbSaveState();
+    await cbImport();
+  } catch (e) { console.warn("Claude bridge:", e.message); }
+  finally { cbBusy = false; }
+}
+async function cbImport() {
+  const parts = [];
+  for (let n = 1; n <= CB_SLOTS; n++) {
+    const id = cbFiles[`ideary-inbox-${n}.txt`]; if (!id) continue;
+    const r = await cbDrive(`/drive/v3/files/${id}?fields=description`); if (!r.ok) continue;
+    const d = String((await r.json()).description || "").trim(); if (!d) continue;
+    let j = null; try { j = JSON.parse(d); } catch (e) { try { j = parseJsonLenient(d); } catch (e2) {} }
+    parts.push({ slot: id, j, raw: d });
+  }
+  if (!parts.length) return;
+  const groups = {};
+  parts.forEach(p => { const key = (p.j && p.j.id) || "raw-" + p.slot; (groups[key] = groups[key] || []).push(p); });
+  let imported = 0;
+  for (const [key, ps] of Object.entries(groups)) {
+    let msg = ps[0].j;
+    if (ps.some(p => p.j && p.j.chunk != null)) {
+      const of = Math.max(...ps.map(p => +(p.j && p.j.of) || 1)); if (ps.length < of) continue; // wait for all parts
+      try { msg = parseJsonLenient(ps.sort((a, b) => (+a.j.part || 0) - (+b.j.part || 0)).map(p => p.j.chunk).join("")); } catch (e) { msg = null; }
+    }
+    const clear = async () => { for (const p of ps) await cbDrive(`/drive/v3/files/${p.slot}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ description: "" }) }); };
+    if (!msg || cbSeen().includes(key)) { await clear(); continue; }
+    const proj = IDEAS.find(i => i.id === msg.proyecto) || IDEAS.find(i => !isChapter(i) && norm2(i.titulo) === norm2(msg.proyecto));
+    if (!proj) { await clear(); cbMarkSeen(key); continue; }
+    const m = { role: "model", text: String(msg.texto || (msg.plan && msg.plan.intro) || "Proposal from Claude"), t: Date.now(), by: "Claude (your account)", fromClaude: true, actions: [] };
+    if (msg.tipo === "plan" && msg.plan && Array.isArray(msg.plan.capitulos)) {
+      const root = pendRoot(proj), idx = planIndex(root);
+      // ids may be from an older export: if the text doesn't match, find the step by its text
+      msg.plan.capitulos.forEach(c => (c.pasos || []).forEach(p => {
+        if (p.id && idx.steps[p.id] && p.texto && !sameStep(stepText(idx.steps[p.id].st), p.texto)) { const hit = Object.entries(idx.steps).find(([, r]) => sameStep(stepText(r.st), p.texto)); p.id = hit ? hit[0] : null; }
+      }));
+      m.reorg = checkReorg(root, idx, msg.plan);
+    } else m.actions = (msg.actions || []).filter(a => a && a.tipo);
+    proj.chat = (proj.chat || []).concat([{ role: "user", text: "📨 (sent from Claude)", t: Date.now() - 1 }, m]).slice(-30);
+    cbMarkSeen(key); await clear(); imported++;
+    logChanges(proj, "Claude", ["Received a proposal from Claude"]);
+    cbNotice(proj);
+  }
+  if (imported) { saveIdeas(); render(); }
+}
+function norm2(x) { return String(x || "").trim().toLowerCase(); }
+function cbNotice(proj) {
+  setTimeout(() => showConfirm(`Claude sent you a proposal for "${proj.titulo}". Open the mentor to review it?`, { title: "📨 From Claude", confirmLabel: "Open" }).then(ok => { if (ok) openProjectChat(proj.id); }), 300);
+}
+function cbToggle(on) {
+  try { localStorage.setItem("ideary_claude_on", on ? "1" : "0"); } catch (e) {}
+  if (on) { if (!driveReady) { showAlert("Connect Google Drive first (Settings → Sync), then turn this on.", { title: "Needs Google Drive" }); return; } cbLastHash = {}; cbExport().then(() => showAlert("Done: your projects are in your Drive folder Ideary/for-claude. Now set up Claude (steps below).", { title: "Ready for Claude" })); }
+  renderCbSettings();
+}
+const CB_PROJECT_INSTRUCTIONS = `You help me with my projects in my app Ideary. At the start of every conversation, use Google Drive to search for the file "ideary-for-claude-README.md" (folder Ideary/for-claude) and follow it exactly: read ideary-projects.md and the file of the project I mention, without asking me to paste anything. When I want changes, send them to Ideary as the README explains (description of an empty ideary-inbox file). Answer in my language.`;
+function renderCbSettings() {
+  const el = document.getElementById("cb-settings"); if (!el) return;
+  const on = cbEnabled();
+  el.innerHTML = `<label style="display:flex;gap:8px;align-items:center;font-weight:600;margin:6px 0 10px"><input type="checkbox" ${on ? "checked" : ""} onchange="cbToggle(this.checked)"> Keep my projects readable for Claude</label>
+  <ol class="key-guide">
+    <li>Turn on the switch above (needs Google Drive connected in Ideary). Ideary keeps a small copy of your projects in your Drive folder <strong>Ideary/for-claude</strong>, updated on its own.</li>
+    <li>On <a href="https://claude.ai" target="_blank" rel="noopener">claude.ai</a>, create a <strong>Project</strong> (e.g. "Ideary").</li>
+    <li>In that Project, turn on the <strong>Google Drive</strong> connector (Settings → Connectors) with the same Google account.</li>
+    <li>Paste this into the Project's <strong>instructions</strong>: <button type="button" class="stuck-btn" style="margin:4px 0" onclick="navigator.clipboard.writeText(CB_PROJECT_INSTRUCTIONS).then(()=>showAlert('Copied. Paste it in your Claude Project instructions.',{title:'Copied'}))">📋 Copy the instructions</button></li>
+    <li>Chat with Claude in that Project about any project ("check the plan of Speck & Frac"). When you agree on changes, ask it to send them to Ideary. They show up here in the mentor, to Add/Skip, with Undo.</li>
+  </ol>
+  <div class="form-hint">Each person uses their own Claude account and their own Drive: nothing is shared. Claude never changes your data by itself; everything arrives as a proposal.</div>
+  ${on ? `<button type="button" class="stuck-btn" onclick="cbLastHash={};cbExport().then(()=>showAlert('Updated and checked for proposals.',{title:'Claude'}))">↻ Update now & check for Claude's proposals</button>` : ""}`;
+}
+
 // "How would the plan look?": apply the open changes on a throwaway copy, read the outline, put everything back.
 function planOutline(root) {
   const chs = isProject(root) ? projectChapters(root).filter(c => c.estado !== "eliminada") : [root];
@@ -10453,7 +10623,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-18 02:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-18 16:00 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
