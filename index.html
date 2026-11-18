@@ -4412,6 +4412,9 @@ SHIPPING CHANGES
 .pp-ch ul { margin: 4px 0 0 18px; padding: 0; }
 .pp-ch li { margin: 2px 0; }
 .pp-tag { font-size: .7rem; background: #e6f2dc; color: #3d6b2a; border-radius: 6px; padding: 0 5px; }
+.pp-tag.mv { background: #e3ecf7; color: #2d5180; }
+.pp-tag.warn { background: #f7ecd5; color: #7a5a18; }
+.plan-prev.reorg { max-height: none; margin-top: 8px; }
 .pp-gone { margin-top: 10px; color: var(--rust); font-size: .85rem; }
 .pc-why { display: block; font-size: .78rem; color: var(--slate); margin-top: 3px; font-weight: normal; }
 .choice-list { display: flex; flex-direction: column; gap: 6px; }
@@ -9000,6 +9003,7 @@ function openProjectChat(projId) {
   document.getElementById("pc-overlay").classList.add("open");
   { const gone = dedupeSteps(pendRoot(proj)); if (gone) { saveIdeas(); render(); setTimeout(() => showAlert(`I found ${gone} repeated step${gone > 1 ? "s" : ""} in this project and removed the extra cop${gone > 1 ? "ies" : "y"}. Steps with work, chats or progress were kept.`, { title: "Cleaned up repeats" }), 200); } }
   renderPcChat(); renderPcSide(); watchJump("pc-log");
+  { const hint = document.querySelector("#pc-overlay .form-hint"), rt = pendRoot(proj); if (hint && isProject(rt) && !POPOUT) hint.insertAdjacentHTML("beforeend", ` <button type="button" class="ai-retry" style="display:inline;margin:0 0 0 4px" onclick="pcSend('Review and reorganize the whole plan: check the professional order, what is missing, what is repeated or out of place.')">🧭 Review & reorganize the whole plan</button>`); }
   { const rep = repeatsText(proj); const hint = document.querySelector("#pc-overlay .form-hint"); if (rep && hint) hint.insertAdjacentHTML("beforeend", ` <button type="button" class="ai-retry" style="display:inline;margin:0 0 0 4px" onclick="pcFixRepeats()">🧹 This project has repeated steps — ask the mentor to fix them</button>`); }
   requestAnimationFrame(() => jumpBottom("pc-log", false));
   setTimeout(() => document.getElementById("pc-input").focus(), 50);
@@ -9152,7 +9156,7 @@ function renderPcChat() {
     : a.tipo === "estado_paso" ? `Mark <em>${escapeHtml(a.paso || "")}</em> as <strong>${escapeHtml(a.estado || "done")}</strong>`
     : a.tipo === "fecha" ? (a.fecha ? `Set target date of <em>${escapeHtml(a.objetivo || "")}</em> to <strong>${escapeHtml(a.fecha)}</strong>` : `Remove the target date of <em>${escapeHtml(a.objetivo || "")}</em>`)
     : a.tipo === "archivar" ? `File <strong>${escapeHtml(a.archivo || "the attachment")}</strong> in step <em>${escapeHtml(a.paso || "")}</em>` : a.tipo === "resuelto" ? `Settle <em>${escapeHtml(a.pregunta || "")}</em> → <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "capitulo" ? `Add chapter <strong>${escapeHtml(a.titulo)}</strong>${a.antesDe ? " before <em>" + escapeHtml(a.antesDe) + "</em>" : ""}` : a.tipo === "decision" ? `Add key decision <strong>${escapeHtml(a.texto)}</strong>` : a.tipo === "resolver" ? `Add to figure out: <strong>${escapeHtml(a.texto)}</strong>` : a.paso ? `Add to step <em>${escapeHtml(a.paso)}</em>: <strong>${escapeHtml(a.texto)}</strong>` : a.capitulo ? `Add note to <em>${escapeHtml(a.capitulo)}</em>: <strong>${escapeHtml(a.texto)}</strong>` : `Add note: <strong>${escapeHtml(a.texto)}</strong>`;
-  log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}${m.role === "model" ? " md" : ""}">${m.role === "model" ? pcTextHtml(m) : escapeHtml(m.text)}${(m.adj || []).length ? `<div class="att-list in-msg">${m.adj.map((a, j) => attChipHtml(a, "", `viewAttachment(IDEAS.find(i=>i.id==='${escapeAttr(pcProjId)}').chat[${k}].adj[${j}])`)).join("")}</div>` : ""}${(m.actions || []).map((a, j) => (actGroupStart(m.actions, j) ? `<div class="pc-change"><div class="pc-change-what">${a.cambio ? escapeHtml(a.cambio) : labelCore(a)}</div>${a.porque ? `<div class="pc-change-why"><b>Why:</b> ${escapeHtml(a.porque)}</div>` : ""}</div>` : "") + `<div class="pc-act ${a.done ? "done" : ""} ${["borrar_capitulo", "borrar_paso", "borrar"].includes(a.tipo) ? "danger" : ""}${pcEdit === k + "," + j ? " editing" : ""}" data-kj="${k},${j}"><span>${label(a)}</span>${a.done ? `<span class="pc-done-row"><span class="note-date">${a.done === "yes" ? "✓ Added" : a.done === "undone" ? "↶ Undone" : "Skipped"}</span>${a.done === "yes" && a.snap ? `<button type="button" class="pc-undo-one" onclick="pcUndoOne(${k},${j})" title="Undo just this">↶ Undo</button>` : ""}</span>` : (pcEdit === k + "," + j ? `<span><button type="button" class="sug-apply" onclick="pcSaveEdit(${k},${j},true)">Save & add</button><button type="button" class="sug-ignore" onclick="pcEdit=null;renderPcChat()">Cancel</button></span>` : `<span><button type="button" class="sug-apply" onclick="pcAct(${k},${j},true)">Add</button>${a.tipo !== "archivar" ? `<button type="button" class="sug-edit" onclick="pcEdit='${k},${j}';renderPcChat()">Edit</button>` : ""}<button type="button" class="sug-ignore" onclick="pcAct(${k},${j},false)">Skip</button></span>`)}</div>`).join("")}${pcClosingQ(m)}${pcMsgBar(m, k)}</div>`).join("")
+  log.innerHTML = chat.length ? chat.map((m, k) => `<div class="step-msg ${m.role}${m.role === "model" ? " md" : ""}">${m.role === "model" ? pcTextHtml(m) : escapeHtml(m.text)}${(m.adj || []).length ? `<div class="att-list in-msg">${m.adj.map((a, j) => attChipHtml(a, "", `viewAttachment(IDEAS.find(i=>i.id==='${escapeAttr(pcProjId)}').chat[${k}].adj[${j}])`)).join("")}</div>` : ""}${(m.actions || []).map((a, j) => (actGroupStart(m.actions, j) ? `<div class="pc-change"><div class="pc-change-what">${a.cambio ? escapeHtml(a.cambio) : labelCore(a)}</div>${a.porque ? `<div class="pc-change-why"><b>Why:</b> ${escapeHtml(a.porque)}</div>` : ""}</div>` : "") + `<div class="pc-act ${a.done ? "done" : ""} ${["borrar_capitulo", "borrar_paso", "borrar"].includes(a.tipo) ? "danger" : ""}${pcEdit === k + "," + j ? " editing" : ""}" data-kj="${k},${j}"><span>${label(a)}</span>${a.done ? `<span class="pc-done-row"><span class="note-date">${a.done === "yes" ? "✓ Added" : a.done === "undone" ? "↶ Undone" : "Skipped"}</span>${a.done === "yes" && a.snap ? `<button type="button" class="pc-undo-one" onclick="pcUndoOne(${k},${j})" title="Undo just this">↶ Undo</button>` : ""}</span>` : (pcEdit === k + "," + j ? `<span><button type="button" class="sug-apply" onclick="pcSaveEdit(${k},${j},true)">Save & add</button><button type="button" class="sug-ignore" onclick="pcEdit=null;renderPcChat()">Cancel</button></span>` : `<span><button type="button" class="sug-apply" onclick="pcAct(${k},${j},true)">Add</button>${a.tipo !== "archivar" ? `<button type="button" class="sug-edit" onclick="pcEdit='${k},${j}';renderPcChat()">Edit</button>` : ""}<button type="button" class="sug-ignore" onclick="pcAct(${k},${j},false)">Skip</button></span>`)}</div>`).join("")}${m.reorg ? reorgHtml(m, k) : ""}${pcClosingQ(m)}${pcMsgBar(m, k)}</div>`).join("")
     : `<div class="step-empty">Ask anything about the project. For example:</div>
        <div class="step-chips">${((proj && !isProject(proj) && !isNotebook(proj) && !(proj.fases || []).some(f => (f.pasos || []).length)) ? ["Build the full plan from scratch", "Interview me to refine the idea first", "Find what I still need to figure out", "Find me tutorials and references for this"] : ["What should I focus on this week?", "What's still pending?", "Is anything missing from my plan?", "Am I being realistic with the timing?", "Explain how a pro would approach this project"]).map(t => `<button type="button" class="ai-chip" onclick="pcSend(${JSON.stringify(t).replace(/"/g, "&quot;")})">${t}</button>`).join("")}</div>`;
   if (pcPending[pcProjId]) {
@@ -9223,6 +9227,143 @@ async function pcUndo(k) {
   logChanges(IDEAS.find(i => i.id === snap.root), "You", ["Undid the mentor's changes"]);
   saveIdeas(); renderPcChat(); render();
 }
+
+/* ---------- Whole-plan reorganization (robust) ----------
+   Instead of many small edits (which free AIs get wrong: duplicates, wrong order), the AI returns the
+   COMPLETE new plan, pointing to existing steps by id. The app checks it (no step twice, nothing with
+   work lost, no duplicates), shows the full result with what's new/moved/removed and why, and applies
+   it in one go — with Undo. */
+const REORG_TALK = /reorganiz|reordena|replante|reestructur|restructur|orden(ar)? (el|del|los|de)|order|falta|faltan|missing|revis[aá] (el|todo)|review (the|my) plan|plan completo|whole plan|full plan|duplicad|repetid|duplicate/i;
+function planIndex(root) {
+  const chs = isProject(root) ? projectChapters(root).filter(c => c.estado !== "eliminada") : [root];
+  const steps = {}, lines = [];
+  chs.forEach((c, ci) => {
+    lines.push(`C${ci + 1} [chapter id C${ci + 1}] ${c.titulo}${c.estado === "completada" ? " (DONE)" : ""}`);
+    let n = 0;
+    (c.fases || []).forEach((f, fi) => (f.pasos || []).forEach((st, si) => {
+      n++; const id = `C${ci + 1}.S${n}`, o = typeof st === "string" ? { texto: st } : st;
+      const work = o.hecho === 2 ? "done" : o.hecho === 1 ? "in progress" : (o.trabajo || (o.chat || []).length || (o.archivos || []).length) ? "has work" : "";
+      steps[id] = { ch: c, fi, si, st, fase: f.nombre || "", work };
+      lines.push(`  ${id} ${o.texto}${work ? " (" + work + ")" : ""}`);
+    }));
+  });
+  return { chs, steps, text: lines.join("\n") };
+}
+const REORG_RULES = `You are a senior professional in this project's field, reorganizing a beginner's plan so it follows the real professional order and nothing is missing, duplicated or out of place.
+First, silently write down the real pipeline for this kind of project (for a 3D animated short: story/script → visual development & character design → model sheets/turnarounds → storyboard → animatic with temp sound → LAYOUT/PREVIS: sets & camera blocking per shot → asset modeling (only what the shots need) → texturing/shading → rigging → character animation (blocking → spline → polish) → FX → lighting → rendering → compositing → edit, sound & music mix → delivery; use your own expertise for other fields). Then rebuild the person's plan on top of it.
+HARD RULES:
+- Reuse existing steps by their id (e.g. "C2.S3"). Each id at most ONCE in the whole plan. Never write an existing step again as new text.
+- Steps marked (done), (in progress) or (has work) must be kept (reuse their id). You may move them.
+- Add new steps only for things truly missing; check they aren't already there with other words.
+- Keep chapters that are DONE where they are, at the start.
+- Each chapter = one stage of the pipeline, in pipeline order; each step inside it in the order it's actually done.
+- Write titles and texts in the person's language (the language of the plan).
+Output ONLY raw JSON:
+{"intro":"2–3 sentences: what you found and the overall idea","capitulos":[{"id":"C1" or null for a new chapter,"titulo":"chapter title","porque":"why this chapter is here / what changed, 1 sentence (empty if unchanged)","pasos":[{"id":"C1.S2" or null for a new step,"texto":"step text (for existing ids you may improve the wording slightly, or repeat it)","porque":"only for new or moved steps: why, 1 sentence"}]}],"quitar":[{"id":"C3.S1","porque":"why it can go (only steps WITHOUT work)"}]}`;
+async function mentorReorganize(proj, userText) {
+  const root = pendRoot(proj), idx = planIndex(root);
+  const ask = `PROJECT: ${root.titulo}\n${String(projAbout ? projAbout(root) : root.descripcion || "").slice(0, 1500)}\n\nCURRENT PLAN (ids in brackets/at the start of each line):\n${idx.text}\n\nTHE PERSON SAID: ${userText}`;
+  let data = null, raw = "";
+  for (let tries = 0; tries < 2 && !data; tries++) {
+    raw = await geminiGenerate([{ role: "user", text: tries ? ask + "\n\nYour previous answer wasn't valid JSON. Output ONLY the JSON object." : ask }], REORG_RULES, false, undefined, "high");
+    try { const d = parseJsonLenient(stripJsonFences(raw)); if (d && Array.isArray(d.capitulos) && d.capitulos.length) data = d; } catch (e) {}
+  }
+  if (!data) throw new Error("The AI couldn't put together a clean plan this time. Try again in a moment.");
+  return checkReorg(root, idx, data);
+}
+// Make the AI's plan safe: no id twice, no duplicate texts, nothing with work lost, unknown ids dropped.
+function checkReorg(root, idx, data) {
+  const used = new Set(), notes = [], chapters = [];
+  const allTexts = [];
+  data.capitulos.forEach(c => {
+    const exCh = c.id && /^C\d+$/.test(c.id) ? idx.chs[+c.id.slice(1) - 1] : null;
+    const ch = { exId: exCh ? exCh.id : null, titulo: String(c.titulo || (exCh && exCh.titulo) || "Chapter").slice(0, 140), porque: c.porque || "", oldTitle: exCh ? exCh.titulo : null, pasos: [] };
+    (c.pasos || []).forEach(p => {
+      if (p.id && idx.steps[p.id]) {
+        if (used.has(p.id)) { notes.push(`Skipped "${idx.steps[p.id].st.texto || ""}" — the AI listed it twice.`); return; }
+        used.add(p.id); const ref = idx.steps[p.id], txt = String(p.texto || stepText(ref.st)).slice(0, 300);
+        ch.pasos.push({ ref: p.id, texto: txt, oldTexto: stepText(ref.st), from: ref.ch.titulo, porque: p.porque || "" }); allTexts.push(txt);
+      } else if (p.texto) {
+        const t = String(p.texto).slice(0, 300);
+        const dupOld = Object.entries(idx.steps).find(([id, r]) => sameStep(stepText(r.st), t));
+        if (dupOld) {
+          if (used.has(dupOld[0])) { notes.push(`Skipped new step "${t}" — it's already in the plan.`); return; }
+          used.add(dupOld[0]); ch.pasos.push({ ref: dupOld[0], texto: stepText(dupOld[1].st), oldTexto: stepText(dupOld[1].st), from: dupOld[1].ch.titulo, porque: p.porque || "" }); return;
+        }
+        if (allTexts.some(x => sameStep(x, t))) { notes.push(`Skipped "${t}" — it was proposed twice.`); return; }
+        allTexts.push(t); ch.pasos.push({ ref: null, texto: t, porque: p.porque || "" });
+      }
+    });
+    chapters.push(ch);
+  });
+  // steps the AI left out: removable only if they have no work and the AI said why; otherwise kept
+  const quitar = new Map((data.quitar || []).filter(q => q && q.id).map(q => [q.id, q.porque || ""]));
+  const removed = [], rescued = [];
+  Object.entries(idx.steps).forEach(([id, r]) => {
+    if (used.has(id)) return;
+    if (!r.work && quitar.has(id)) { removed.push({ texto: stepText(r.st), from: r.ch.titulo, porque: quitar.get(id) }); return; }
+    // keep it: back in its old chapter if that chapter survives, else the first chapter of the same name, else a "To place" chapter
+    let target = chapters.find(c => c.exId === r.ch.id) || null;
+    if (!target) { target = chapters.find(c => c.titulo === "To place (check these)"); if (!target) { target = { exId: null, titulo: "To place (check these)", porque: "Steps the reorganization didn't place — nothing gets lost; move them where they belong.", pasos: [] }; chapters.push(target); } }
+    target.pasos.push({ ref: id, texto: stepText(r.st), oldTexto: stepText(r.st), from: r.ch.titulo, porque: "", rescued: true }); used.add(id); rescued.push(stepText(r.st));
+  });
+  if (rescued.length) notes.push(`${rescued.length} step${rescued.length > 1 ? "s" : ""} the AI left out (or that have work) were kept.`);
+  // old chapters that disappear
+  const goneChs = idx.chs.filter(c => !chapters.some(x => x.exId === c.id)).map(c => c.titulo);
+  return { root: root.id, intro: String(data.intro || ""), chapters, removed, goneChs, notes, built: Date.now() };
+}
+function reorgHtml(m, k) {
+  const r = m.reorg; if (!r) return "";
+  const tag = (t, cls) => `<span class="pp-tag${cls ? " " + cls : ""}">${t}</span>`;
+  const body = r.chapters.map((c, n) => {
+    const chTag = !c.exId ? tag("new") : c.oldTitle && c.oldTitle !== c.titulo ? tag("renamed") : "";
+    return `<div class="pp-ch"><b>${n + 1}. ${escapeHtml(c.titulo)}</b> ${chTag}${c.porque ? `<div class="pc-change-why">${escapeHtml(c.porque)}</div>` : ""}<ul>${c.pasos.map(p => {
+      const t = !p.ref ? tag("new") : p.rescued ? tag("kept", "warn") : p.from !== (c.oldTitle || c.titulo) ? tag("moved from " + escapeHtml(p.from), "mv") : p.texto !== p.oldTexto ? tag("reworded") : "";
+      return `<li>${escapeHtml(p.texto)} ${t}${p.porque ? `<div class="pc-why">${escapeHtml(p.porque)}</div>` : ""}</li>`;
+    }).join("")}</ul></div>`;
+  }).join("");
+  const gone = (r.removed.length ? `<div class="pp-gone"><b>Removed steps</b> (had no work): ${r.removed.map(x => `${escapeHtml(x.texto)}${x.porque ? ` — <i>${escapeHtml(x.porque)}</i>` : ""}`).join("; ")}</div>` : "")
+    + (r.goneChs.length ? `<div class="pp-gone"><b>Chapters that go away</b> (their content was placed above; they go to the Trash): ${r.goneChs.map(escapeHtml).join(", ")}</div>` : "")
+    + (r.notes.length ? `<div class="pc-why" style="margin-top:6px">✔ Checked: ${r.notes.map(escapeHtml).join(" ")}</div>` : "");
+  const btns = m.reorgDone ? `<div class="pc-msgbar"><span class="sug-done">✓ Applied</span>${m.undo ? `<button type="button" class="pc-undo" onclick="pcUndo(${k})">↶ Undo this</button>` : ""}</div>`
+    : m.reorgSkip ? `<div class="pc-msgbar"><span class="sug-done">Skipped</span></div>`
+    : `<div class="pc-msgbar"><button type="button" class="sug-apply" onclick="applyReorg(${k})">Apply this plan</button><button type="button" class="sug-ignore" onclick="skipReorg(${k})">Skip</button></div>`;
+  return `<div class="plan-prev reorg">${body}${gone}</div>${btns}`;
+}
+function skipReorg(k) { const p = IDEAS.find(i => i.id === pcProjId); if (!p) return; p.chat[k].reorgSkip = true; saveIdeas(); renderPcChat(); }
+async function applyReorg(k) {
+  const proj = IDEAS.find(i => i.id === pcProjId), m = proj && proj.chat[k], r = m && m.reorg; if (!r || m.reorgDone) return;
+  const root = IDEAS.find(i => i.id === r.root); if (!root) return;
+  const idx = planIndex(root);
+  m.undo = mentorSnapshot(root);
+  const stepObj = id => { const s = idx.steps[id]; if (!s) return null; return typeof s.st === "string" ? { texto: s.st } : s.st; };
+  const newChs = [];
+  for (const c of r.chapters) {
+    let ch = c.exId && IDEAS.find(i => i.id === c.exId);
+    if (!ch) { ch = addChapter(root.id, c.titulo); if (!ch) continue; }
+    else ch.titulo = c.titulo;
+    // keep phase names where steps came from; new steps join the phase of the step before them
+    const fases = [], faseOf = name => { let f = fases.find(x => x.nombre === name); if (!f) { f = { nombre: name || "Plan", pasos: [] }; fases.push(f); } return f; };
+    let lastPhase = ((ch.fases || [])[0] || {}).nombre || "Plan";
+    c.pasos.forEach(p => {
+      const o = p.ref ? stepObj(p.ref) : { texto: p.texto };
+      if (!o) return;
+      if (p.ref && p.texto && p.texto !== o.texto) o.texto = p.texto;
+      if (p.ref && idx.steps[p.ref].ch.id === ch.id) lastPhase = idx.steps[p.ref].fase || lastPhase; // moved-in steps join the chapter's current phase
+      faseOf(lastPhase).pasos.push(o);
+    });
+    ch.fases = fases;
+    newChs.push(ch);
+  }
+  // chapters not in the new plan: their steps were placed already; send them to the Trash (restorable)
+  idx.chs.forEach(c => { if (!newChs.includes(c) && c !== root) { if (chapterHasWork(Object.assign({}, c, { fases: [] }))) { const keep = newChs[0]; if (keep) moveAllContent(Object.assign(c, { fases: [] }), keep); } c.fases = []; c._prevEstado = c.estado; c.estado = "eliminada"; c._deletedAt = Date.now(); } });
+  newChs.forEach((c, n) => c.orden = n + 1);
+  dedupeSteps(root);
+  m.reorgDone = true;
+  logChanges(root, "Mentor", ["Reorganized the whole plan"]);
+  saveIdeas(); renderPcChat(); renderPcSide(); render();
+}
+
 // "How would the plan look?": apply the open changes on a throwaway copy, read the outline, put everything back.
 function planOutline(root) {
   const chs = isProject(root) ? projectChapters(root).filter(c => c.estado !== "eliminada") : [root];
@@ -9491,6 +9632,14 @@ async function pcSend(textOverride, extra) {
       last.text += attsText(sentAtts) + `\n(I attached: ${sentAtts.map(a => a.nombre).join(", ")}. If it clearly belongs to a step, offer to file it there.)\nSTEPS YOU CAN FILE THINGS INTO: ${allStepsOf(proj).map(x => x.texto).slice(0, 80).join(" | ")}`;
       last.images = await attsImages(sentAtts);
     }
+    const rootP = pendRoot(proj);
+    if (isProject(rootP) && !sentAtts.length && REORG_TALK.test(text)) {
+      // Big plan changes: the AI rebuilds the whole plan, the app checks it, you see it all and apply it in one go.
+      const r = await withThinking(wait, "pc-input", () => mentorReorganize(proj, text), null, t0);
+      proj.chat.push({ role: "model", text: r.intro || "Here's the whole plan, reorganized:", reorg: r, actions: [], t: Date.now(), by: aiLastProvider });
+      proj.chat = proj.chat.slice(-30);
+      saveIdeas();
+    } else {
     const { text: reply, actions } = splitActions((await withThinking(wait, "pc-input", () => geminiGenerate(hist, PROJECT_MENTOR_RULES, false, undefined, PLAN_TALK.test(text) ? "high" : "low", txt => {
       const b = document.querySelector(`#pc-log [data-t0='${t0}']`); if (!b) return;
       // Follow the text only while you're at the bottom; scroll up to read and it stays put (↓ brings you back).
@@ -9512,6 +9661,7 @@ async function pcSend(textOverride, extra) {
     proj.chat.push({ role: "model", text: reply, actions: acts, t: Date.now(), by: aiLastProvider });
     proj.chat = proj.chat.slice(-30);
     saveIdeas();
+    }
   } catch (e) {
     delete pcPending[proj.id];
     proj.chat.pop();
@@ -10303,7 +10453,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-18 01:30 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-18 02:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
