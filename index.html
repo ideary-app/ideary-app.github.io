@@ -4418,6 +4418,7 @@ SHIPPING CHANGES
 .pp-gone { margin-top: 10px; color: var(--rust); font-size: .85rem; }
 .pc-why { display: block; font-size: .78rem; color: var(--slate); margin-top: 3px; font-weight: normal; }
 .cb-hdr { position: relative; }
+.cb-proj-btn { border-color: var(--rust, #b5532a) !important; color: var(--rust, #b5532a) !important; }
 .cb-badge { position: absolute; top: -3px; right: -3px; min-width: 16px; height: 16px; border-radius: 8px; background: var(--rust, #b5532a); color: #fff; font-size: 10px; line-height: 16px; text-align: center; padding: 0 4px; font-weight: 700; display: none; }
 .cb-item { border: 1px solid var(--line-strong); border-radius: 12px; padding: 12px 14px; margin: 0 0 14px; background: rgba(255,255,255,.35); }
 .cb-item-h { font-family: var(--hand); font-size: 1.25rem; color: var(--ink); }
@@ -9585,18 +9586,27 @@ function cbPending() {
   }));
   return out;
 }
+// In a project's header: "Claude: N pending" when Claude sent something for THIS project.
+function cbProjBtnHtml(it) {
+  if (typeof cbPending !== "function") return "";
+  const root = pendRoot(it), n = cbPending().filter(x => x.p.id === root.id).length;
+  return n ? `<button type="button" class="share-btn cb-proj-btn" onclick="openClaudeInbox('${escapeAttr(root.id)}')">✨ ${n} update${n > 1 ? "s" : ""} from Claude</button>` : "";
+}
+let cbOnly = null;
 function cbUpdateBadge() {
   const b = document.getElementById("cb-hdr"), n = cbPending().length; if (!b) return;
   b.style.display = cbEnabled() ? "" : "none";
   const g = document.getElementById("cb-badge"); if (g) { g.textContent = n ? String(n) : ""; g.style.display = n ? "" : "none"; }
   b.classList.toggle("has", n > 0);
 }
-function openClaudeInbox() { renderClaudeInbox(); document.getElementById("cb-overlay").classList.add("open"); cbRefreshInbox(); }
+function openClaudeInbox(only) { cbOnly = only || null; renderClaudeInbox(); document.getElementById("cb-overlay").classList.add("open"); cbRefreshInbox(); }
 function closeClaudeInbox() { document.getElementById("cb-overlay").classList.remove("open"); }
 async function cbRefreshInbox(btn) { if (btn) { lockBtn(btn); btn.disabled = true; btn.textContent = "Checking…"; } try { await cbCheckSoon(true); } finally { if (btn) { btn.disabled = false; btn.textContent = "↻ Check now"; } renderClaudeInbox(); } }
 function renderClaudeInbox() {
   const el = document.getElementById("cb-list"); if (!el) return;
-  const list = cbPending();
+  const all = cbPending(), list = cbOnly ? all.filter(x => x.p.id === cbOnly) : all;
+  const others = all.length - list.length;
+  if (!list.length && others) { cbOnly = null; return renderClaudeInbox(); }
   if (!list.length) { el.innerHTML = `<div class="step-empty" style="margin:30px 10px;text-align:center">Nothing new from Claude.<br><span class="form-hint">When you agree on changes with Claude, ask it to "send them to Ideary". They'll show up here.</span></div>`; cbUpdateBadge(); return; }
   el.innerHTML = list.map(({ p, m, k }) => {
     const pid = escapeAttr(p.id), head = `<div class="cb-item-h">▤ ${escapeHtml(p.titulo)}</div><div class="cb-item-intro">${mdLite(m.text || "")}</div>`;
@@ -9606,7 +9616,7 @@ function renderClaudeInbox() {
     }
     const acts = (m.actions || []).map((a, j) => ({ a, j })).filter(x => !x.a.done);
     return `<div class="cb-item">${head}<div class="cb-kind">${acts.length} change${acts.length > 1 ? "s" : ""}</div><ul class="cb-acts">${acts.map(({ a, j }) => `<li><span>${escapeHtml(cbActLabel(a))}</span>${a.porque ? `<div class="pc-why">${escapeHtml(a.porque)}</div>` : ""}<span class="cb-act-btns"><button type="button" class="sug-apply" onclick="cbDo('${pid}',${k},'one',${j})">Add</button><button type="button" class="sug-ignore" onclick="cbDo('${pid}',${k},'no',${j})">Skip</button></span></li>`).join("")}</ul><div class="pc-msgbar"><button type="button" class="sug-apply" onclick="cbDo('${pid}',${k},'all')">Add all ${acts.length}</button><button type="button" class="sug-ignore" onclick="cbDo('${pid}',${k},'skip')">Skip all</button></div></div>`;
-  }).join("");
+  }).join("") + (others ? `<button type="button" class="ai-retry" onclick="cbOnly=null;renderClaudeInbox()">See ${others} more from other projects</button>` : "");
   cbUpdateBadge();
 }
 function cbActLabel(a) {
@@ -9626,7 +9636,7 @@ async function cbDo(pid, k, what, j) {
     else if (what === "no") { m.actions[j].done = "no"; }
     saveIdeas(); render();
   } catch (e) { showAlert(e.message, { title: "Couldn't apply" }); }
-  finally { pcProjId = prevId; renderClaudeInbox(); }
+  finally { pcProjId = prevId; renderClaudeInbox(); render(); }
 }
 
 // "How would the plan look?": apply the open changes on a throwaway copy, read the outline, put everything back.
@@ -10277,7 +10287,7 @@ function renderProjectView(p) {
           ${dueBadgeHtml(p)}${workedBadgeHtml(p)}${notebookBadgeHtml(p)}
           <span class="badges-right">
             <button type="button" class="undo-project" onclick="revertProject('${escapeAttr(p.id)}')">Turn back into a single idea</button>
-            <button type="button" class="share-btn mentor-head-btn" title="Ask anything about the whole project — it sees every chapter, your progress and decisions" onclick="openProjectChat('${escapeAttr(p.id)}')">💬 Talk to your mentor</button>${chatsBtnHtml(p.id)}${popoutButtonsHtml(p)}
+            <button type="button" class="share-btn mentor-head-btn" title="Ask anything about the whole project — it sees every chapter, your progress and decisions" onclick="openProjectChat('${escapeAttr(p.id)}')">💬 Talk to your mentor</button>${chatsBtnHtml(p.id)}${cbProjBtnHtml(p)}${popoutButtonsHtml(p)}
           </span>
         </div>
       </div>
@@ -10718,7 +10728,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-18 23:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-18 23:20 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -13597,7 +13607,7 @@ function renderDetailReadMode(idea) {
           ${isChapter(idea) ? chapterBadgeHtml(idea) : ""}
           ${dueBadgeHtml(idea)}${workedBadgeHtml(idea)}${isChapter(idea) ? "" : notebookBadgeHtml(idea)}
         </div>
-        <div class="idea-head-chat"><button type="button" class="share-btn mentor-head-btn" onclick="openProjectChat('${escapeAttr(idea.id)}')">💬 Talk to your mentor</button>${chatsBtnHtml(idea.id)}${popoutButtonsHtml(idea)}</div>
+        <div class="idea-head-chat"><button type="button" class="share-btn mentor-head-btn" onclick="openProjectChat('${escapeAttr(idea.id)}')">💬 Talk to your mentor</button>${chatsBtnHtml(idea.id)}${cbProjBtnHtml(idea)}${popoutButtonsHtml(idea)}</div>
         ${isChapter(idea) ? chapterNavHtml(idea) : ""}
       </div>
     </div>
