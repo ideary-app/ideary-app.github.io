@@ -6537,7 +6537,9 @@ function groqPick(ids, kind) {
   const by = res => ids.find(id => res.some(re => re.test(id)));
   if (kind === "audio") return by([/whisper-large-v3-turbo/, /whisper-large-v3/, /whisper/]);
   if (kind === "vision") return by([/llama-4-maverick/, /llama-4-scout/, /vision/, /llama-4/]);
-  return by([/llama-3\.3-70b/, /gpt-oss-120b/, /llama-4-maverick/, /kimi/, /qwen.*32b/, /llama/]) || ids.find(id => !/whisper|guard|tts|playai/.test(id));
+  const chat = ids.filter(id => !/whisper|guard|tts|playai|orpheus|safeguard|compound|distil/i.test(id)); // never a safety-filter or speech model
+  const byC = res => chat.find(id => res.some(re => re.test(id)));
+  return byC([/llama-3\.3-70b/, /gpt-oss-120b/, /kimi-k2/, /llama-4-maverick/, /qwen3?.*32b/, /gpt-oss-20b/, /llama-4-scout/, /llama/]) || chat[0];
 }
 // Groq's free tier allows only a few thousand tokens per request: shrink the conversation to fit.
 // Keeps the rules, the most recent messages whole, and as much of the project context as fits.
@@ -6578,10 +6580,15 @@ async function groqGenerate(history, system, onChunk) {
   const ctrl = new AbortController(); aiCtrlUser = ctrl; const t = setTimeout(() => ctrl.abort("timeout"), 60000);
   try {
     let r = null;
-    for (const budget of [6500, 3800]) {
+    let maxTok = 3000;
+    for (const budget of [6500, 3800, 3800]) {
       const fitted = groqFit(messages[0].content, messages.slice(1).filter(m => (typeof m.content === "string" ? m.content : (m.content[0] || {}).text || "").trim()), budget);
-      r = await fetch("https://api.groq.com/openai/v1/chat/completions", { method: "POST", signal: ctrl.signal, headers: { Authorization: "Bearer " + groqKey, "Content-Type": "application/json" }, body: JSON.stringify({ model, messages: fitted, temperature: 0.7, max_tokens: 3000 }) });
+      r = await fetch("https://api.groq.com/openai/v1/chat/completions", { method: "POST", signal: ctrl.signal, headers: { Authorization: "Bearer " + groqKey, "Content-Type": "application/json" }, body: JSON.stringify({ model, messages: fitted, temperature: 0.7, max_tokens: maxTok }) });
       if (r.ok) break;
+      if (r.status === 400) { // the model allows fewer reply tokens: use what it says and try again
+        const pk = await r.clone().json().catch(() => ({})); const mm = /max_tokens.{0,40}?(\d{3,6})/i.exec((pk.error && pk.error.message) || "");
+        if (mm && +mm[1] < maxTok) { maxTok = +mm[1]; continue; }
+      }
       if (r.status === 400) continue; // try the smaller size once (often "too long" comes as 400)
       if (r.status !== 413 && r.status !== 429) break;
       const peek = await r.clone().json().catch(() => ({}));
@@ -10296,7 +10303,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-17 02:20 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-18 01:30 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
