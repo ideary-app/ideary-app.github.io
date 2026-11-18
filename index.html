@@ -9526,7 +9526,8 @@ function renderCbSettings() {
   <ol class="key-guide">
     <li>Turn on the switch above (needs Google Drive connected in Ideary). Ideary keeps a small copy of your projects in your Drive folder <strong>Ideary/for-claude</strong>, updated on its own.</li>
     <li>On <a href="https://claude.ai" target="_blank" rel="noopener">claude.ai</a>, create a <strong>Project</strong> (e.g. "Ideary").</li>
-    <li>In that Project, turn on the <strong>Google Drive</strong> connector (Settings → Connectors) with the same Google account.</li>
+    <li>Connect Google Drive to Claude once: open <a href="https://claude.ai/customize/connectors" target="_blank" rel="noopener">claude.ai/customize/connectors</a>, find <strong>Google Drive</strong> and connect it with the same Google account you use in Ideary.</li>
+    <li>In a chat inside that Project, tap the <strong>+</strong> next to the message box → <strong>Connectors</strong> → turn <strong>Google Drive</strong> on. (Not the "Files" section of the Project: that only adds single files.)</li>
     <li>Paste this into the Project's <strong>instructions</strong>: <button type="button" class="stuck-btn" style="margin:4px 0" onclick="navigator.clipboard.writeText(CB_PROJECT_INSTRUCTIONS).then(()=>showAlert('Copied. Paste it in your Claude Project instructions.',{title:'Copied'}))">📋 Copy the instructions</button></li>
     <li>Chat with Claude in that Project about any project ("check the plan of Speck & Frac"). When you agree on changes, ask it to send them to Ideary. They show up here in the mentor, to Add/Skip, with Undo.</li>
   </ol>
@@ -10623,7 +10624,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-18 16:00 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-18 15:55 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
