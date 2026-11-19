@@ -477,3 +477,8 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 - Botón en el documento: el mentor lee el Google Doc + pasos del capítulo + contexto del proyecto (thinking "high") y devuelve por paso ✓/◐/○ con qué falta, secciones que tiene una versión profesional completa, y contradicciones.
 - Se guarda en `d.audit` (sincroniza por Drive). Pasos que pertenecen al doc y no están cubiertos se vinculan a `d.pasos` → aparecen como pendientes.
 - La fila del doc en cada paso muestra su estado. El export para Claude incluye lo que falta.
+
+## 2026-11-19 — Guiones con formato real + abrir documentos
+- `openDoc` abre el overlay ya (antes esperaba la copia en IndexedDB, que en algunos celus se cuelga), busca el doc en cualquier ítem y avisa si no lo encuentra.
+- Docs de guion (`d.formato="guion"`): DOC_RULES pide Fountain con "FORMAT: screenplay"; `spFormat` clasifica líneas (escena, acción, PERSONAJE, (paréntesis), diálogo, transición, [FALTA: …]) y "Juan: andate" → personaje + diálogo. Estilos inline (Courier, márgenes en pulgadas) para Google Docs; CSS con % en la app. Se reformatea al salir del editor y al guardar.
+- Botón "🎬 Format as a script" (SCRIPT_RULES, thinking high): pasa notas sueltas a guion sin inventar, marca lo que falta; se puede deshacer.

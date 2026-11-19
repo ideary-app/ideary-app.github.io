@@ -4438,6 +4438,10 @@ SHIPPING CHANGES
 .doc-meta { font-size: .75rem; color: var(--slate); white-space: nowrap; }
 .step-docs { margin: 8px 0 4px; }
 .doc-audit:empty { display: none; }
+.doc-body p[class^="sp-"] { max-width: 640px; }
+.doc-body p.sp-char { margin-left: 38% !important; }
+.doc-body p.sp-paren { margin-left: 28% !important; }
+.doc-body p.sp-dial { margin-left: 17% !important; margin-right: 12% !important; }
 .doc-audit-box { border: 1px solid var(--line-strong); border-radius: 10px; padding: 8px 12px; margin: 8px 0 4px; max-height: 40vh; overflow-y: auto; background: rgba(255,255,255,.35); }
 .doc-audit-box summary { cursor: pointer; font-weight: 600; }
 .doc-audit-sum { margin: 6px 0; font-size: .9rem; }
@@ -4996,12 +5000,13 @@ SHIPPING CHANGES
       <button type="button" onmousedown="event.preventDefault()" onclick="docCmd('formatBlock','p')" title="Normal text">¶</button>
     </div>
     <div id="doc-audit" class="doc-audit"></div>
-    <div id="doc-body" class="doc-body" contenteditable="true" oninput="docChanged()"></div>
+    <div id="doc-body" class="doc-body" contenteditable="true" oninput="docChanged()" onblur="docScriptTidy()"></div>
     <div class="doc-foot">
       <span id="doc-status" class="note-date"></span>
       <a id="doc-open-gdoc" class="stuck-btn" style="margin:0;display:none" target="_blank" rel="noopener">Open in Google Docs ↗</a>
       <button type="button" class="stuck-btn" id="doc-gdoc-btn" style="margin:0" onclick="docToGoogle(this)">Save to my Drive</button>
       <button type="button" class="stuck-btn" style="margin:0" onclick="docAudit(this)">🧭 What's missing?</button>
+      <button type="button" class="stuck-btn" style="margin:0" onclick="docFormatScript(this)" title="Write dialogue as you like (Juan: andate) and it becomes a real script">🎬 Format as a script</button>
       <button type="button" class="stuck-btn" id="doc-undo" style="margin:0;display:none" onclick="docUndoGather()">↶ Undo last gather</button>
       <button type="button" class="stuck-btn" style="margin:0;color:var(--rust)" onclick="docDelete()">Delete</button>
     </div>
@@ -10092,16 +10097,16 @@ async function docFromStep(btn) {
     // 2) gather everything into it
     docProgress(`2/2 · Putting your notes in order${pick.length > 1 ? ` (${pick.length} steps)` : ""}…`, "");
     const curText = target ? await docText(target.d) : "";
-    const d = await docGenerate(item, (target && target.d.titulo) || (plan && plan.titulo) || ref.step.texto, pick, target ? { html: curText } : null);
+    const d = await docGenerate(item, (target && target.d.titulo) || (plan && plan.titulo) || ref.step.texto, pick, target ? { html: curText, formato: target.d.formato } : null);
     if (target) {
-      const t = target.d;
+      const t = target.d; if (d.formato) t.formato = d.formato;
       try { await idbPut("docprev_" + (t.gdocId || t.id), new Blob([curText], { type: "text/html" })); t.hasPrev = 1; } catch (e) {}
       if (t.gdocId && driveReady) await docDriveWrite(t, d.html); else { t.html = d.html; await docCachePut(t, d.html); }
       t.actualizado = d.actualizado;
       t.pasos = docSteps(t).concat(pick.map(st => st.texto)).filter((v, i, a) => a.findIndex(w => sameStep(w, v)) === i);
       logChanges(target.x, "You", [`Gathered more notes into "${t.titulo}"`]);
       saveIdeas(); renderStepDocs(); render(); openDoc(target.x.id, t.id);
-      showToast(`"${t.titulo}" is updated with your notes.`, "Open it", () => openDoc(target.x.id, t.id));
+      if (!document.getElementById("doc-overlay").classList.contains("open")) showToast(`"${t.titulo}" is updated with your notes.`, "Open it", () => openDoc(target.x.id, t.id));
       docStatus("Updated with your notes from: " + pick.map(st => st.texto).join(", ") + ". (↶ Undo in the bar below)");
     } else {
       d.pasos = pick.map(st => st.texto);
@@ -10110,7 +10115,7 @@ async function docFromStep(btn) {
       item.documentos = docsOf(item).concat([d]);
       logChanges(item, "You", [`Gathered your notes into "${d.titulo}"`]);
       saveIdeas(); renderStepDocs(); render(); openDoc(item.id, d.id);
-      showToast(driveReady ? `"${d.titulo}" is ready, as a Google Doc in your Drive (${pendRoot(item).titulo} / documents).` : `"${d.titulo}" is ready. Connect Drive to keep it there.`, "Open it", () => openDoc(item.id, d.id));
+      if (!document.getElementById("doc-overlay").classList.contains("open")) showToast(driveReady ? `"${d.titulo}" is ready, as a Google Doc in your Drive (${pendRoot(item).titulo} / documents).` : `"${d.titulo}" is ready. Connect Drive to keep it there.`, "Open it", () => openDoc(item.id, d.id));
       if (pick.length > 1) docStatus("This document covers " + pick.length + " steps: " + pick.map(st => st.texto).join(", ") + ".");
     }
   } catch (e) { showAlert(/Cancel/.test(e.message) ? "Stopped. Nothing was changed." : e.message, { title: "Couldn't organize it" }); }
@@ -10128,6 +10133,8 @@ You get everything the project already has: descriptions, decisions, notes, thin
 2. Place each piece of the person's material under the heading where it belongs. Keep their words: copy or lightly trim their sentences (fix only obvious typos). Merge exact repeats; if two of their notes contradict each other, keep both and mark "⚠ contradicts:".
 3. Do NOT write new content, ideas, descriptions or dialogue of your own. Never invent facts.
 4. A section with nothing from them yet: leave it with one short line in italics saying what goes there, starting with "To write:" (e.g. "*To write: how the portal works and its rules*").
+5. FORMATTING IS YOUR JOB. The document must look exactly like the real professional thing, not like notes about it.
+   If the document is a SCRIPT / screenplay / dialogue (guion): output a real screenplay in Fountain format and make the FIRST line "FORMAT: screenplay". Scene headings in caps ("INT. KITCHEN - NIGHT" / "EXT. …"), action lines in present tense, the CHARACTER NAME in caps on its own line, the dialogue on the line below, parentheticals like "(whispering)" on their own line, transitions like "CUT TO:". Turn their loose notes ("Juan le dice a Maria que se vaya", "Juan: andate") into proper screenplay elements, keeping their words and their dialogue lines exactly; you may only turn their own description of a moment into an action line. Where a needed piece is missing (no scene heading, a beat with no dialogue yet, an unclear location), put a line "[MISSING: what goes here]" in the script's language (e.g. "[FALTA: diálogo de Juan al irse]"). No "##" sections in a script.
 Write the headings and the "To write" lines in the language of the project's text.
 Output Markdown only: "# Title" first line, then "##" sections, lists, **bold**. No preamble, no closing remarks. End with "## Still open" listing their open questions (from "things to figure out").`;
 async function docGenerate(item, docTitle, steps, existingDoc) {
@@ -10136,12 +10143,13 @@ async function docGenerate(item, docTitle, steps, existingDoc) {
   const work = (steps || []).filter(st => st.trabajo).map(st => `\n\nWHAT I WROTE FOR THE STEP "${st.texto}":\n${st.trabajo}`).join("");
   const cur = existingDoc ? `\n\nTHE DOCUMENT AS IT IS NOW (I may have edited it by hand: keep ALL of it, word for word, and only add my new material where it belongs):\n${docHtmlToText(existingDoc.html)}` : "";
   const raw = await geminiGenerate([{ role: "user", text: `${String(ctx).slice(0, 22000)}${work}${cur}\n\nORGANIZE MY MATERIAL INTO THIS DOCUMENT: ${docTitle}\nIt covers these steps: ${(steps || []).map(st => st.texto).join(" | ")}${isChapter(item) ? ` (chapter "${item.titulo}")` : ""}` }], DOC_RULES, false, undefined, "high", txt => docProgress(null, txt)); // complete over fast: deep thinking, streamed so long ones don't time out
-  let md = stripJsonFences(String(raw || "")).replace(/^```(?:markdown|md)?\s*|```\s*$/g, "").trim();
+  let md = stripJsonFences(String(raw || "")).replace(/^```(?:markdown|md|fountain)?\s*|```\s*$/g, "").trim();
+  const script = /^FORMAT:\s*screenplay/i.test(md) || (existingDoc && existingDoc.formato === "guion"); md = md.replace(/^FORMAT:\s*screenplay\s*/i, "");
   if (md.length < 30) throw new Error("Not enough came back to build the document. Try again in a moment.");
   const m = /^#\s+(.+)$/m.exec(md), titulo = (m ? m[1] : docTitle).trim().slice(0, 120);
   if (m) md = md.replace(m[0], "").trim();
   const now = new Date().toISOString();
-  return { id: "doc" + Date.now().toString(36), titulo, html: docMdToHtml(md), paso: (steps[0] || {}).texto, fecha: now, actualizado: now, by: "organized" };
+  return { id: "doc" + Date.now().toString(36), titulo, html: script ? spFormat(md) : docMdToHtml(md), formato: script ? "guion" : undefined, paso: (steps[0] || {}).texto, fecha: now, actualizado: now, by: "organized" };
 }
 function docHtmlToText(h) { return String(h || "").replace(/<h2>/g, "## ").replace(/<h3>/g, "### ").replace(/<li>/g, "- ").replace(/<\/(h\d|p|li)>/g, "\n").replace(/<br\s*\/?>/g, "\n").replace(/<b>(.*?)<\/b>/g, "**$1**").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&nbsp;/g, " ").replace(/\n{3,}/g, "\n\n").trim(); }
 function docMdToHtml(md) {
@@ -10220,11 +10228,17 @@ async function docText(d) {
 }
 let docLoadedMod = null, docDirty = false;
 async function openDoc(itemId, docId) {
-  const f = docFind(itemId, docId); if (!f) return;
+  let f = docFind(itemId, docId);
+  if (!f) { const it = IDEAS.find(i => docsOf(i).some(x => x.id === docId)); if (it) { itemId = it.id; f = docFind(itemId, docId); } }
+  if (!f) { showAlert("I can't find that document on this device yet. Wait for the sync to finish and try again.", { title: "Can't open it" }); return; }
   docCtx = { itemId, docId }; docDirty = false;
   const body = document.getElementById("doc-body");
   document.getElementById("doc-title").value = f.d.titulo;
-  body.innerHTML = (await docCacheGet(f.d)) || f.d.html || `<p class="note-date">Loading from your Drive…</p>`;
+  // open right away; the device copy must never block it (some phones stall on stored files)
+  body.innerHTML = f.d.html || `<p class="note-date">Loading from your Drive…</p>`;
+  document.getElementById("doc-overlay").classList.add("open");
+  const cached = await Promise.race([docCacheGet(f.d), new Promise(r => setTimeout(() => r(null), 1500))]);
+  if (cached && !docDirty) body.innerHTML = docShow(f.d, cached);
   const ps = docSteps(f.d);
   document.getElementById("doc-where").textContent = `${pendRoot(f.it).titulo}${f.it !== pendRoot(f.it) ? " › " + f.it.titulo : ""}${ps.length ? (ps.length > 1 ? " · steps: " : " · step: ") + ps.join(", ") : ""}`;
   document.getElementById("doc-overlay").classList.add("open");
@@ -10235,7 +10249,7 @@ async function openDoc(itemId, docId) {
       if (driveReady) { await docDriveCreate(f.it, f.d, f.d.html || body.innerHTML); saveIdeas(); }
     } else if (driveReady) {
       const g = await docDriveRead(f.d);
-      if (!docDirty && docCtx && docCtx.docId === docId) { body.innerHTML = g.html; if (g.name) { f.d.titulo = g.name; document.getElementById("doc-title").value = g.name; } }
+      if (!docDirty && docCtx && docCtx.docId === docId) { body.innerHTML = docShow(f.d, g.html); if (g.name) { f.d.titulo = g.name; document.getElementById("doc-title").value = g.name; } }
       f.d.gModified = g.modifiedTime; await docCachePut(f.d, g.html);
     }
     docLoadedMod = f.d.gModified || null;
@@ -10256,7 +10270,7 @@ let docSaving = Promise.resolve();
 function docSave() {
   clearTimeout(docSaveT);
   const f = docCtx && docFind(docCtx.itemId, docCtx.docId); if (!f || !docDirty) return docSaving;
-  const t = document.getElementById("doc-title").value.trim() || "Untitled", h = document.getElementById("doc-body").innerHTML;
+  const t = document.getElementById("doc-title").value.trim() || "Untitled", h = docShow(f.d, document.getElementById("doc-body").innerHTML);
   docDirty = false; f.d.titulo = t; f.d.actualizado = new Date().toISOString();
   docSaving = docSaving.then(async () => {
     try {
@@ -10284,6 +10298,61 @@ async function docDelete() {
 }
 async function docToGoogle(btn) { docDirty = true; lockBtn(btn); btn.disabled = true; btn.textContent = "Saving to Drive…"; try { await docSave(); } finally { btn.disabled = false; docStatus(); } }
 
+
+/* ---- Screenplay formatting: lines are classified like Fountain, so loose dialogue ("Juan: andate") becomes a real script ---- */
+const SP_FONT = "font-family:'Courier New',Courier,monospace;font-size:12pt;line-height:1.2;";
+const SP_ST = { scene: "font-weight:bold;text-transform:uppercase;margin:20px 0 10px", action: "margin:0 0 12px", char: "text-transform:uppercase;margin:12px 0 0 2.2in", paren: "margin:0 0 0 1.6in", dial: "margin:0 1.2in 12px 1in", trans: "text-align:right;text-transform:uppercase;margin:12px 0", missing: "color:#b5462f;font-style:italic;margin:0 0 12px", title: "font-weight:bold;text-align:center;text-transform:uppercase;margin:0 0 24px" };
+function spFormat(src) {
+  const text = /<[a-z][\s\S]*>/i.test(src) ? docHtmlToText(String(src).replace(/<div>/g, "<p>").replace(/<\/div>/g, "</p>")) : String(src);
+  const lines = text.split("\n").map(l => l.replace(/^#+\s*/, "").replace(/\*\*(.+?)\*\*/g, "$1").replace(/^\*(.+)\*$/, "$1").trim());
+  const out = [], P = (k, t) => out.push(`<p class="sp-${k}" style="${SP_FONT}${SP_ST[k]}">${escapeHtml(t)}</p>`);
+  const isScene = l => /^(INT|EXT|INT\.?\/EXT|I\/E)[.\s]/i.test(l) || /^\.[^.\s]/.test(l);
+  const isName = l => l.length <= 40 && /^[A-ZÁÉÍÓÚÑÜ0-9][A-ZÁÉÍÓÚÑÜ0-9 .'’-]*( \((V\.O\.|O\.S\.|O\.C\.|CONT'D|OFF|[A-ZÁÉÍÓÚÑ .']+)\))?\^?$/.test(l) && /[A-ZÁÉÍÓÚÑ]{2}/.test(l) && !/TO:$|A:$/.test(l);
+  let prev = "", first = true;
+  lines.forEach((l, i) => {
+    if (!l) { if (prev === "char") return; prev = ""; return; }
+    let m;
+    if (/^\[(FALTA|MISSING|TO WRITE|POR ESCRIBIR)/i.test(l) || /^(To write|Falta|Por escribir):/i.test(l)) { P("missing", l.replace(/^(To write|Falta|Por escribir):\s*/i, m0 => "[" + m0.replace(/:\s*$/, "").toUpperCase() + ": ").replace(/^(\[[^\]]*)$/, "$1]")); prev = "missing"; }
+    else if (isScene(l)) { P("scene", l.replace(/^\./, "")); prev = "scene"; }
+    else if (/^(>.*|.*\b(TO|A):|FADE (IN|OUT)\.?|FUNDIDO( A NEGRO)?\.?|CORTE\.?)$/i.test(l) && l === l.toUpperCase() && l.length < 40) { P("trans", l.replace(/^>\s*/, "")); prev = "trans"; }
+    else if ((prev === "char" || prev === "dial") && /^\(.*\)$/.test(l)) { P("paren", l); prev = "paren"; }
+    else if (prev === "char" || prev === "paren") { P("dial", l); prev = "dial"; }
+    else if ((m = /^([A-Za-zÁÉÍÓÚÑÜáéíóúñü][\wÁÉÍÓÚÑÜáéíóúñü.'’-]*(?: [\wÁÉÍÓÚÑÜáéíóúñü.'’-]+){0,2})(\s*\([^)]*\))?:\s+(.+)$/.exec(l)) && !/^(nota|note|to write|falta|ver|see)$/i.test(m[1])) {
+      P("char", m[1].toUpperCase()); const rest = m[3], pm = /^(\([^)]*\))\s*(.+)$/.exec(rest); if (m[2]) P("paren", m[2].trim()); if (pm) { P("paren", pm[1]); P("dial", pm[2]); } else P("dial", rest); prev = "dial"; }
+    else if (isName(l) && lines[i + 1] && !isScene(lines[i + 1])) { P("char", l); prev = "char"; }
+    else if (first && l === l.toUpperCase() && /[A-ZÁÉÍÓÚÑ]/.test(l) && !isScene(l)) { P("title", l); prev = "title"; }
+    else { P("action", l); prev = "action"; }
+    first = false;
+  });
+  return out.join("");
+}
+function docScriptTidy() { const f = docCtx && docFind(docCtx.itemId, docCtx.docId), b = document.getElementById("doc-body"); if (f && f.d.formato === "guion" && b) { const h = spFormat(b.innerHTML); if (h !== b.innerHTML) { b.innerHTML = h; docChanged(); } } }
+function docShow(d, html) { return d && d.formato === "guion" ? spFormat(html) : html; }
+const SCRIPT_RULES = `You format screenplays. You get a document with the person's own script material: loose notes, dialogue written like "Juan: andate", descriptions of what happens, maybe parts already formatted.
+Turn it into a proper screenplay in Fountain format. Rules:
+- Keep EVERY line of dialogue exactly as they wrote it (fix only obvious typos). Never invent dialogue, jokes, characters or events.
+- Their descriptions of what happens become action lines (present tense, short). Keep their meaning; don't add new details.
+- Scene headings in caps ("INT. PLACE - DAY"). If they didn't say where/when, write "[MISSING: location and time of this scene]" in the script's language (e.g. "[FALTA: lugar y momento de la escena]") instead of guessing.
+- CHARACTER NAME in caps on its own line, dialogue below, parentheticals on their own line, transitions like "CUT TO:" right before the next scene when they implied one.
+- Wherever a scene clearly needs something they haven't written yet (a reply, the end of the scene, how a character gets there), put "[MISSING: …]" there, saying concretely what's missing.
+- Keep their order. If something's order is unclear, keep it and add "[MISSING: where does this go?]".
+Output ONLY the Fountain text. First line: "FORMAT: screenplay".`;
+async function docFormatScript(btn) {
+  const f = docCtx && docFind(docCtx.itemId, docCtx.docId); if (!f) return;
+  const body = document.getElementById("doc-body"), before = body.innerHTML;
+  if (!geminiKey) { f.d.formato = "guion"; body.innerHTML = spFormat(before); docChanged(); return; }
+  lockBtn(btn); btn.disabled = true; const was = btn.textContent; btn.textContent = "Formatting…";
+  docStatus("Formatting it as a screenplay… (keeps your words; marks what's missing)");
+  try {
+    try { await idbPut("docprev_" + (f.d.gdocId || f.d.id), new Blob([before], { type: "text/html" })); f.d.hasPrev = 1; } catch (e) {}
+    const raw = await geminiGenerate([{ role: "user", text: docHtmlToText(before).slice(0, 40000) }], SCRIPT_RULES, false, undefined, "high", () => {});
+    const md = String(raw || "").replace(/^```(?:fountain|markdown|md)?\s*|```\s*$/g, "").replace(/^FORMAT:\s*screenplay\s*/i, "").trim();
+    if (md.length < 10) throw new Error("Nothing came back. Try again.");
+    f.d.formato = "guion"; body.innerHTML = spFormat(md); docChanged();
+    docStatus("Formatted as a screenplay. (↶ Undo in the bar below)");
+  } catch (e) { docStatus("⚠ " + e.message); }
+  finally { btn.disabled = false; btn.textContent = was; }
+}
 
 /* ---- Document check: the mentor reads the document and says what's missing ---- */
 const AUDIT_RULES = `You are a senior professional mentor in this project's field, reviewing a working document the person wrote (for example a series bible, a script, a beat sheet). You get the document, the steps of the chapter, and the project's context.
@@ -11415,7 +11484,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-19 15:40 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-19 16:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
