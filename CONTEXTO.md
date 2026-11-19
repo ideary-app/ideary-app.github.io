@@ -482,3 +482,8 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 - `openDoc` abre el overlay ya (antes esperaba la copia en IndexedDB, que en algunos celus se cuelga), busca el doc en cualquier ítem y avisa si no lo encuentra.
 - Docs de guion (`d.formato="guion"`): DOC_RULES pide Fountain con "FORMAT: screenplay"; `spFormat` clasifica líneas (escena, acción, PERSONAJE, (paréntesis), diálogo, transición, [FALTA: …]) y "Juan: andate" → personaje + diálogo. Estilos inline (Courier, márgenes en pulgadas) para Google Docs; CSS con % en la app. Se reformatea al salir del editor y al guardar.
 - Botón "🎬 Format as a script" (SCRIPT_RULES, thinking high): pasa notas sueltas a guion sin inventar, marca lo que falta; se puede deshacer.
+
+## 2026-11-19 — Formato según el tipo de documento (no solo guion)
+- DOC_RULES: primero decide qué tipo de documento es y usa la estructura/formato profesional completo de ese tipo (todas las secciones estándar, listas, tablas, guías paso a paso, guion). La IA decide dónde va cada cosa; si puede ir en dos lugares marca "(Could also go in: …)".
+- Botón ahora "✨ Put it in proper format" (FORMAT_RULES + SCRIPT_RULES): sirve para cualquier documento; si es guion usa spFormat.
+- docMdToHtml/docCleanHtml/docHtmlToText soportan tablas.

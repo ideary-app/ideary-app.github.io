@@ -4428,6 +4428,8 @@ SHIPPING CHANGES
 .doc-body h2 { font-family: var(--hand); font-size: 1.35rem; margin: 18px 0 6px; }
 .doc-body h3 { font-size: 1.02rem; margin: 14px 0 4px; }
 .doc-body p { margin: 0 0 8px; }
+.doc-body table { border-collapse: collapse; margin: 6px 0 12px; width: 100%; font-size: .92rem; }
+.doc-body td, .doc-body th { border: 1px solid var(--line-strong); padding: 4px 6px; vertical-align: top; text-align: left; }
 .doc-body ul, .doc-body ol { margin: 0 0 8px 20px; padding: 0; }
 .doc-foot { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding-top: 8px; border-top: 1px dashed var(--line-strong); }
 .doc-foot .note-date { flex: 1; min-width: 120px; }
@@ -5006,7 +5008,7 @@ SHIPPING CHANGES
       <a id="doc-open-gdoc" class="stuck-btn" style="margin:0;display:none" target="_blank" rel="noopener">Open in Google Docs ↗</a>
       <button type="button" class="stuck-btn" id="doc-gdoc-btn" style="margin:0" onclick="docToGoogle(this)">Save to my Drive</button>
       <button type="button" class="stuck-btn" style="margin:0" onclick="docAudit(this)">🧭 What's missing?</button>
-      <button type="button" class="stuck-btn" style="margin:0" onclick="docFormatScript(this)" title="Write dialogue as you like (Juan: andate) and it becomes a real script">🎬 Format as a script</button>
+      <button type="button" class="stuck-btn" style="margin:0" onclick="docFormatScript(this)" title="Write it however you like: it gets the proper structure for its kind of document, with your words">✨ Put it in proper format</button>
       <button type="button" class="stuck-btn" id="doc-undo" style="margin:0;display:none" onclick="docUndoGather()">↶ Undo last gather</button>
       <button type="button" class="stuck-btn" style="margin:0;color:var(--rust)" onclick="docDelete()">Delete</button>
     </div>
@@ -10129,8 +10131,8 @@ async function docUndoGather() {
 }
 const DOC_RULES = `You are an organizer, not a writer. The person writes everything themselves; your job is to put THEIR OWN material in order inside a document.
 You get everything the project already has: descriptions, decisions, notes, things to figure out, what they wrote for this step, and what they said in conversations.
-1. Pick the standard structure professionals use for this kind of document (for example a series bible, a script, a beat sheet, a character sheet, a style guide) and use it as headings.
-2. Place each piece of the person's material under the heading where it belongs. Keep their words: copy or lightly trim their sentences (fix only obvious typos). Merge exact repeats; if two of their notes contradict each other, keep both and mark "⚠ contradicts:".
+1. First decide WHAT KIND of document this is (series/IP bible, script, beat sheet, character sheet, style guide, shot list, a checklist, a how-to guide, a budget list, a pitch…). Then use the full structure and format professionals use for exactly that kind, in their usual order: every standard section, even the ones they haven't filled yet. Lists look like lists, tables like tables (Markdown tables are fine), guides go step by step, a script looks like a script.
+2. Place each piece of the person's material under the heading where it belongs. Keep their words: copy or lightly trim their sentences (fix only obvious typos). Merge exact repeats; if two of their notes contradict each other, keep both and mark "⚠ contradicts:". The person often won't know where something belongs: that is your job — put it where a professional would. If a piece could really go in two places, put it in the best one and add right after it, in italics, "*(Could also go in: …)*".
 3. Do NOT write new content, ideas, descriptions or dialogue of your own. Never invent facts.
 4. A section with nothing from them yet: leave it with one short line in italics saying what goes there, starting with "To write:" (e.g. "*To write: how the portal works and its rules*").
 5. FORMATTING IS YOUR JOB. The document must look exactly like the real professional thing, not like notes about it.
@@ -10151,20 +10153,23 @@ async function docGenerate(item, docTitle, steps, existingDoc) {
   const now = new Date().toISOString();
   return { id: "doc" + Date.now().toString(36), titulo, html: script ? spFormat(md) : docMdToHtml(md), formato: script ? "guion" : undefined, paso: (steps[0] || {}).texto, fecha: now, actualizado: now, by: "organized" };
 }
-function docHtmlToText(h) { return String(h || "").replace(/<h2>/g, "## ").replace(/<h3>/g, "### ").replace(/<li>/g, "- ").replace(/<\/(h\d|p|li)>/g, "\n").replace(/<br\s*\/?>/g, "\n").replace(/<b>(.*?)<\/b>/g, "**$1**").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&nbsp;/g, " ").replace(/\n{3,}/g, "\n\n").trim(); }
+function docHtmlToText(h) { return String(h || "").replace(/<\/t[dh]>\s*/g, " | ").replace(/<tr>/g, "| ").replace(/<\/tr>/g, "\n").replace(/<h2>/g, "## ").replace(/<h3>/g, "### ").replace(/<li>/g, "- ").replace(/<\/(h\d|p|li)>/g, "\n").replace(/<br\s*\/?>/g, "\n").replace(/<b>(.*?)<\/b>/g, "**$1**").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&nbsp;/g, " ").replace(/\n{3,}/g, "\n\n").trim(); }
 function docMdToHtml(md) {
   const lines = String(md).split("\n"), out = []; let list = null;
   const inline = t => escapeHtml(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/(^|[^*])\*(?!\s)(.+?)\*/g, "$1<i>$2</i>");
   const close = () => { if (list) { out.push(`</${list}>`); list = null; } };
+  let tbl = null; const endT = () => { if (tbl) { out.push(`<table>${tbl.map((r, k) => `<tr>${r.map(c => k ? `<td>${inline(c)}</td>` : `<th>${inline(c)}</th>`).join("")}</tr>`).join("")}</table>`); tbl = null; } };
   lines.forEach(l => {
     let m;
+    if (/^\s*\|.*\|\s*$/.test(l)) { close(); if (/^\s*\|[\s:|-]+\|\s*$/.test(l)) return; (tbl = tbl || []).push(l.trim().replace(/^\||\|$/g, "").split("|").map(c => c.trim())); return; }
+    endT();
     if ((m = /^(#{1,3})\s+(.*)$/.exec(l))) { close(); const h = m[1].length <= 2 ? 2 : 3; out.push(`<h${h}>${inline(m[2])}</h${h}>`); }
     else if ((m = /^\s*[-*•]\s+(.*)$/.exec(l))) { if (list !== "ul") { close(); out.push("<ul>"); list = "ul"; } out.push(`<li>${inline(m[1])}</li>`); }
     else if ((m = /^\s*\d+[.)]\s+(.*)$/.exec(l))) { if (list !== "ol") { close(); out.push("<ol>"); list = "ol"; } out.push(`<li>${inline(m[1])}</li>`); }
     else if (!l.trim()) close();
     else { close(); out.push(`<p>${inline(l)}</p>`); }
   });
-  close(); return out.join("");
+  endT(); close(); return out.join("");
 }
 function docFind(itemId, docId) { const it = IDEAS.find(i => i.id === itemId); const d = it && docsOf(it).find(x => x.id === docId); return d ? { it, d } : null; }
 /* The document LIVES in Google Drive (a Google Doc in <Project>/documents/). Ideary only keeps its name, its id and
@@ -10183,7 +10188,7 @@ function docCleanHtml(raw) {
       const tag = n.tagName.toLowerCase(), st = (n.getAttribute("style") || "");
       if (/^(style|script|title|meta)$/.test(tag)) return;
       const bold = /font-weight:\s*(700|bold)/.test(st), ital = /font-style:\s*italic/.test(st);
-      const wrap = { h1: "h2", h2: "h2", h3: "h3", h4: "h3", h5: "h3", h6: "h3", p: "p", ul: "ul", ol: "ol", li: "li", b: "b", strong: "b", i: "i", em: "i", br: "br" }[tag];
+      const wrap = { h1: "h2", h2: "h2", h3: "h3", h4: "h3", h5: "h3", h6: "h3", p: "p", ul: "ul", ol: "ol", li: "li", table: "table", tr: "tr", td: "td", th: "td", b: "b", strong: "b", i: "i", em: "i", br: "br" }[tag];
       if (wrap === "br") { out.push("<br>"); return; }
       if (wrap) out.push(`<${wrap}>`); if (bold && !wrap) out.push("<b>"); if (ital && !wrap) out.push("<i>");
       walk(n, inList || wrap === "ul" || wrap === "ol");
@@ -10328,6 +10333,15 @@ function spFormat(src) {
 }
 function docScriptTidy() { const f = docCtx && docFind(docCtx.itemId, docCtx.docId), b = document.getElementById("doc-body"); if (f && f.d.formato === "guion" && b) { const h = spFormat(b.innerHTML); if (h !== b.innerHTML) { b.innerHTML = h; docChanged(); } } }
 function docShow(d, html) { return d && d.formato === "guion" ? spFormat(html) : html; }
+const FORMAT_RULES = `You put a person's working document into the proper professional format for its kind. You get the document as it is now (it may be loose notes) and the project's context.
+1. Decide what kind of document it is (series/IP bible, script, beat sheet, character sheet, style guide, shot list, checklist, guide, list, pitch…).
+2. Rebuild it with the full standard structure of that kind, in the usual order, with every standard section; sections they haven't filled get one italic line "*To write: …*" saying concretely what goes there.
+3. Move each piece of THEIR material to where a professional would put it — they often don't know where things go; that's your job. If something could go in two places, choose the best and add "*(Could also go in: …)*".
+4. Keep their words. Never invent content, facts, names or dialogue. Keep everything: nothing of theirs may be lost.
+5. If it is a script/screenplay, follow the screenplay rules below and start with "FORMAT: screenplay". Otherwise output Markdown: "##" sections, lists, tables, **bold**. No preamble, no closing remarks.
+Write in the document's language.
+SCREENPLAY RULES:
+`;
 const SCRIPT_RULES = `You format screenplays. You get a document with the person's own script material: loose notes, dialogue written like "Juan: andate", descriptions of what happens, maybe parts already formatted.
 Turn it into a proper screenplay in Fountain format. Rules:
 - Keep EVERY line of dialogue exactly as they wrote it (fix only obvious typos). Never invent dialogue, jokes, characters or events.
@@ -10342,14 +10356,21 @@ async function docFormatScript(btn) {
   const body = document.getElementById("doc-body"), before = body.innerHTML;
   if (!geminiKey) { f.d.formato = "guion"; body.innerHTML = spFormat(before); docChanged(); return; }
   lockBtn(btn); btn.disabled = true; const was = btn.textContent; btn.textContent = "Formatting…";
-  docStatus("Formatting it as a screenplay… (keeps your words; marks what's missing)");
+  docStatus("Putting it in proper format… (keeps your words; marks what's missing)");
   try {
     try { await idbPut("docprev_" + (f.d.gdocId || f.d.id), new Blob([before], { type: "text/html" })); f.d.hasPrev = 1; } catch (e) {}
-    const raw = await geminiGenerate([{ role: "user", text: docHtmlToText(before).slice(0, 40000) }], SCRIPT_RULES, false, undefined, "high", () => {});
-    const md = String(raw || "").replace(/^```(?:fountain|markdown|md)?\s*|```\s*$/g, "").replace(/^FORMAT:\s*screenplay\s*/i, "").trim();
+    const ctx = typeof cbProjectText === "function" ? String(cbProjectText(pendRoot(f.it))).slice(0, 10000) : "";
+    const raw = await geminiGenerate([{ role: "user", text: `PROJECT CONTEXT:
+${ctx}
+
+THE DOCUMENT "${f.d.titulo}":
+${docHtmlToText(before).slice(0, 40000)}` }], FORMAT_RULES + SCRIPT_RULES, false, undefined, "high", () => {});
+    let md = String(raw || "").replace(/^```(?:fountain|markdown|md)?\s*|```\s*$/g, "").trim();
     if (md.length < 10) throw new Error("Nothing came back. Try again.");
-    f.d.formato = "guion"; body.innerHTML = spFormat(md); docChanged();
-    docStatus("Formatted as a screenplay. (↶ Undo in the bar below)");
+    const script = /^FORMAT:\s*screenplay/i.test(md); md = md.replace(/^FORMAT:\s*screenplay\s*/i, "").replace(/^#\s+.+\n/, "");
+    f.d.formato = script ? "guion" : undefined; if (!script) delete f.d.formato;
+    body.innerHTML = script ? spFormat(md) : docMdToHtml(md); docChanged();
+    docStatus("Put in proper format, with your words. (↶ Undo in the bar below)");
   } catch (e) { docStatus("⚠ " + e.message); }
   finally { btn.disabled = false; btn.textContent = was; }
 }
@@ -11484,7 +11505,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-19 16:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-19 16:40 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
