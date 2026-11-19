@@ -5351,11 +5351,25 @@ async function driveFindByName(name, legacyName, fields) {
   return f;
 }
 
+async function driveReadDataFile(fileId) { return storeV2 ? storeReadAll() : driveReadDataFileV1(fileId); }
+async function driveWriteDataFile(fileId, ideasData) { return storeV2 ? storeWriteAll(ideasData) : driveWriteDataFileV1(fileId, ideasData); }
 async function driveFindDataFile() {
-  return driveFindByName(DRIVE_DATA_FILENAME, "artdeas-data.json", "id,name,modifiedTime");
+  const mk = await storeFindMarker();
+  if (mk) { storeV2 = true; return { id: mk }; }
+  storeV2 = false;
+  const f = await driveFindByName(DRIVE_DATA_FILENAME, "artdeas-data.json", "id,name,modifiedTime");
+  if (!f) return null;
+  try { await storeMigrate(f.id); return { id: await storeFindMarker(), migrated: true }; }
+  catch (e) { console.error("Organizing into project folders failed, staying with the single file:", e); storeV2 = false; setTimeout(() => showAlert("I couldn't organize your Drive into project folders this time (" + e.message + "). Everything keeps working as before; I'll try again next time.", { title: "Drive" }), 1500); return f; }
 }
 
 async function driveCreateDataFile(initialIdeas) {
+  { // new accounts start with one folder per project
+    const root = await storeRootFolder();
+    const mk = await storeApi("/upload/drive/v3/files?uploadType=multipart&fields=id", { method: "POST", headers: { "Content-Type": "multipart/related; boundary=mk" },
+      body: `--mk\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name: STORE_MARKER, parents: [root], mimeType: "application/json" })}\r\n--mk\r\nContent-Type: application/json\r\n\r\n${JSON.stringify({ v: 2, createdAt: new Date().toISOString() })}\r\n--mk--` });
+    if (mk.ok) { storeV2 = true; storeFiles = {}; await storeWriteAll(initialIdeas || []); return (await mk.json()).id; }
+  }
   const metadata = { name: DRIVE_DATA_FILENAME, mimeType: "application/json" };
   const boundary = "ideary-boundary";
   const body =
@@ -5374,7 +5388,7 @@ async function driveCreateDataFile(initialIdeas) {
   return data.id;
 }
 
-async function driveReadDataFile(fileId) {
+async function driveReadDataFileV1(fileId) {
   const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
     headers: { Authorization: `Bearer ${accessToken}` }
   });
@@ -5382,7 +5396,7 @@ async function driveReadDataFile(fileId) {
   return res.json();
 }
 
-async function driveWriteDataFile(fileId, ideasData) {
+async function driveWriteDataFileV1(fileId, ideasData) {
   const res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
     method: "PATCH",
     headers: {
@@ -5396,6 +5410,201 @@ async function driveWriteDataFile(fileId, ideasData) {
   writeDriveCache(false);
 }
 
+
+/* ---------------- Storage v2: one folder per project ----------------
+   Drive layout:
+     Ideary/
+       ideary-v2.json                 ← marker (version, migration date, backup id)
+       ideary-data-backup-….json      ← copy of the old single file (never deleted)
+       <Project or idea>/
+         ideary-project.json          ← that root item + its chapters  ({v:2, root, items:[…]})
+         images/                      ← its pictures
+         documents/                   ← its documents
+       <Notebook>/ <Project inside it>/ …
+   Sync still merges the whole list (same safety rules as before); only the
+   project files that actually changed are read or written. */
+const STORE_MARKER = "ideary-v2.json", STORE_FILE = "ideary-project.json";
+let storeV2 = false;
+let storeFiles = {};   // root id -> { id, folder, modifiedTime, json }
+let storeFolders = {}; // folder cache: key -> id
+function storeRootOf(i) { return String(i.proyectoId || i.id); }
+function storeGroups(list) { const g = {}; (list || []).forEach(i => { if (i && i.id != null) (g[storeRootOf(i)] = g[storeRootOf(i)] || []).push(i); }); return g; }
+function storeSafeName(t) { return String(t || "Untitled").replace(/[\\/:*?"<>|#]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "Untitled"; }
+async function storeApi(path, opts) {
+  const r = await fetch("https://www.googleapis.com" + path, Object.assign({}, opts, { headers: Object.assign({ Authorization: `Bearer ${accessToken}` }, (opts && opts.headers) || {}) }));
+  if (r.status === 401) { handleDriveAuthExpired(); throw new Error("Session expired"); }
+  return r;
+}
+async function storeRootFolder() { if (!driveFolderId) driveFolderId = await driveFindFolder("Ideary") || await driveMakeFolder("Ideary"); return driveFolderId; }
+async function storeFindMarker() {
+  const root = await storeRootFolder();
+  const q = encodeURIComponent(`name='${STORE_MARKER}' and '${root}' in parents and trashed=false`);
+  const r = await storeApi(`/drive/v3/files?q=${q}&fields=files(id)`); if (!r.ok) throw new Error("Drive lookup failed: " + r.status);
+  const d = await r.json(); return d.files && d.files[0] ? d.files[0].id : null;
+}
+async function storeList() {
+  const out = []; let pageToken = "";
+  do {
+    const q = encodeURIComponent(`name='${STORE_FILE}' and trashed=false`);
+    const r = await storeApi(`/drive/v3/files?q=${q}&fields=nextPageToken,files(id,modifiedTime,parents,appProperties)&pageSize=1000${pageToken ? "&pageToken=" + pageToken : ""}`);
+    if (!r.ok) throw new Error("Drive list failed: " + r.status);
+    const d = await r.json(); out.push(...(d.files || [])); pageToken = d.nextPageToken || "";
+  } while (pageToken);
+  return out;
+}
+// Read every project file (only the ones that changed since last time) and return the whole list.
+async function storeReadAll() {
+  const files = await storeList(), seen = new Set(), items = [];
+  for (const f of files) {
+    const root = f.appProperties && f.appProperties.idearyRoot; if (!root) continue;
+    if (seen.has(root)) { continue; } // a stray duplicate: the first (oldest listed) wins
+    seen.add(root);
+    let c = storeFiles[root];
+    if (!c || c.id !== f.id || c.modifiedTime !== f.modifiedTime || c.json == null) {
+      const r = await storeApi(`/drive/v3/files/${f.id}?alt=media`); if (!r.ok) throw new Error("Couldn't read a project from Drive: " + r.status);
+      const d = await r.json();
+      c = storeFiles[root] = { id: f.id, folder: (f.parents || [])[0], modifiedTime: f.modifiedTime, pos: d.pos, json: JSON.stringify(Array.isArray(d.items) ? d.items : []) };
+    }
+    items.push({ pos: c.pos == null ? 1e9 : c.pos, list: JSON.parse(c.json) });
+  }
+  // a file we just wrote may not be listed yet (Drive's list lags a little): keep it instead of forgetting it
+  Object.keys(storeFiles).forEach(k => { if (seen.has(k)) return; const c = storeFiles[k]; if (c.json != null && Date.now() - Date.parse(c.modifiedTime || 0) < 180000) items.push({ pos: c.pos == null ? 1e9 : c.pos, list: JSON.parse(c.json) }); else delete storeFiles[k]; });
+  return items.sort((a, b) => a.pos - b.pos).flatMap(g => g.list); // keep the order the app had
+}
+async function storeFolderFor(rootItem, all) {
+  const nb = rootItem.cuadernoId && all.find(x => x.id === rootItem.cuadernoId);
+  const parent = nb ? await storeFolderFor(nb, all) : await storeRootFolder();
+  const c = storeFiles[String(rootItem.id)];
+  if (c && c.folder) return c.folder;
+  const key = parent + "/" + rootItem.id;
+  if (storeFolders[key]) return storeFolders[key];
+  const id = await driveMakeFolder(storeSafeName(rootItem.titulo), parent);
+  return (storeFolders[key] = id);
+}
+async function storeWriteGroup(rootId, items, all) {
+  const pos = Math.max(0, all.findIndex(i => storeRootOf(i) === rootId));
+  const body = JSON.stringify({ v: 2, root: rootId, pos, items });
+  let c = storeFiles[rootId];
+  if (c && c.id) {
+    const r = await storeApi(`/upload/drive/v3/files/${c.id}?uploadType=media&fields=id,modifiedTime`, { method: "PATCH", headers: { "Content-Type": "application/json; charset=UTF-8" }, body });
+    if (!r.ok) throw new Error("Error saving to Drive: " + r.status);
+    const d = await r.json(); c.modifiedTime = d.modifiedTime; c.pos = pos; c.json = JSON.stringify(items); return;
+  }
+  const rootItem = items.find(i => String(i.id) === rootId) || all.find(i => String(i.id) === rootId) || { id: rootId, titulo: (items[0] || {}).titulo };
+  const folder = await storeFolderFor(rootItem, all);
+  const meta = { name: STORE_FILE, mimeType: "application/json", parents: [folder], appProperties: { idearyRoot: rootId, ideary: "2" } };
+  const b = "ideary-v2";
+  const mp = `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${body}\r\n--${b}--`;
+  const r = await storeApi("/upload/drive/v3/files?uploadType=multipart&fields=id,modifiedTime,parents", { method: "POST", headers: { "Content-Type": `multipart/related; boundary=${b}` }, body: mp });
+  if (!r.ok) throw new Error("Error creating a project file in Drive: " + r.status);
+  const d = await r.json();
+  storeFiles[rootId] = { id: d.id, folder, modifiedTime: d.modifiedTime, pos, json: JSON.stringify(items) };
+}
+// Write only the projects whose content changed; empty projects go to Drive's trash (folder included).
+async function storeWriteAll(list) {
+  const groups = storeGroups(list);
+  for (const [root, items] of Object.entries(groups)) {
+    const c = storeFiles[root], pos = Math.max(0, list.findIndex(i => storeRootOf(i) === root));
+    if (c && c.json === JSON.stringify(items) && (c.pos === pos || Math.abs((c.pos || 0) - pos) < 1)) continue;
+    await storeWriteGroup(root, items, list);
+  }
+  for (const root of Object.keys(storeFiles)) {
+    if (groups[root]) continue;
+    const c = storeFiles[root];
+    await storeApi(`/drive/v3/files/${c.folder || c.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) });
+    delete storeFiles[root];
+  }
+  storeTidyFolders(list);
+  writeDriveCache(false);
+}
+// Keep folder names and places in step with the projects (renamed, moved into/out of a notebook). Best effort.
+let storeTidyAt = 0;
+async function storeTidyFolders(list) {
+  if (Date.now() - storeTidyAt < 60000) return; storeTidyAt = Date.now();
+  try {
+    for (const [root, c] of Object.entries(storeFiles)) {
+      const it = list.find(i => String(i.id) === root); if (!it || !c.folder) continue;
+      const want = storeSafeName(it.titulo);
+      const r = await storeApi(`/drive/v3/files/${c.folder}?fields=name,parents`); if (!r.ok) continue;
+      const f = await r.json();
+      const nb = it.cuadernoId && list.find(x => x.id === it.cuadernoId);
+      const parent = nb && storeFiles[String(nb.id)] ? storeFiles[String(nb.id)].folder : await storeRootFolder();
+      const q = [];
+      if (f.name !== want) q.push(["name", want]);
+      const moveQ = parent && !(f.parents || []).includes(parent) ? `?addParents=${parent}&removeParents=${(f.parents || []).join(",")}` : "";
+      if (q.length || moveQ) await storeApi(`/drive/v3/files/${c.folder}${moveQ}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(q.length ? { name: want } : {}) });
+    }
+  } catch (e) { console.warn("Folder tidy:", e.message); }
+}
+async function storeSubfolder(rootId, name) {
+  const c = storeFiles[String(rootId)]; if (!c || !c.folder) return null;
+  const key = c.folder + "/" + name;
+  if (storeFolders[key]) return storeFolders[key];
+  return (storeFolders[key] = await driveFindFolder(name, c.folder) || await driveMakeFolder(name, c.folder));
+}
+// One-time move from the single "ideary-data.json" to one folder per project. Nothing is deleted:
+// the old file is copied as a backup first, and kept (renamed) after everything is verified.
+async function storeMigrate(oldFileId) {
+  setSyncStatus("Organizing your Drive into one folder per project… (one time)", false);
+  const root = await storeRootFolder();
+  const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
+  const cp = await storeApi(`/drive/v3/files/${oldFileId}/copy?fields=id`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: `ideary-data-backup-${stamp}.json`, parents: [root] }) });
+  if (!cp.ok) throw new Error("Couldn't make the backup copy (" + cp.status + ") — nothing was changed.");
+  const backupId = (await cp.json()).id;
+  const old = await driveReadDataFileV1(oldFileId);
+  const list = Array.isArray(old) ? old : [];
+  storeFiles = {};
+  const existing = await storeList(); // a half-finished earlier attempt: reuse its files
+  for (const f of existing) { const k = f.appProperties && f.appProperties.idearyRoot; if (k && !storeFiles[k]) storeFiles[k] = { id: f.id, folder: (f.parents || [])[0], modifiedTime: f.modifiedTime, json: null }; }
+  const groups = storeGroups(list);
+  // notebooks first, so projects inside them get their folder inside the notebook's
+  const order = Object.keys(groups).sort((a, b) => (isNotebook(list.find(i => String(i.id) === b) || {}) ? 1 : 0) - (isNotebook(list.find(i => String(i.id) === a) || {}) ? 1 : 0));
+  for (const k of order) await storeWriteGroup(k, groups[k], list);
+  // verify: read everything back and compare item by item
+  Object.values(storeFiles).forEach(c => { c.json = null; });
+  const back = await storeReadAll();
+  const A = snapshotOf(list), B = snapshotOf(back);
+  const missing = Object.keys(A).filter(id => A[id] !== B[id]);
+  if (missing.length || Object.keys(A).length !== Object.keys(B).length) throw new Error(`The check after organizing didn't match (${missing.length} item(s)). Your data is untouched in the original file; nothing switched over.`);
+  const mk = await storeApi("/upload/drive/v3/files?uploadType=multipart&fields=id", { method: "POST", headers: { "Content-Type": "multipart/related; boundary=mk" },
+    body: `--mk\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name: STORE_MARKER, parents: [root], mimeType: "application/json" })}\r\n--mk\r\nContent-Type: application/json\r\n\r\n${JSON.stringify({ v: 2, migratedAt: new Date().toISOString(), backup: backupId, from: oldFileId, items: list.length })}\r\n--mk--` });
+  if (!mk.ok) throw new Error("Couldn't finish organizing (" + mk.status + ").");
+  // keep the old file, renamed, so an old open tab can't keep using it by mistake
+  await storeApi(`/drive/v3/files/${oldFileId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "ideary-data (old, before project folders).json" }) });
+  storeV2 = true;
+  setTimeout(storeMoveImages, 8000);
+  return back;
+}
+// Pictures move into their project's images/ folder (their ids don't change, so nothing breaks).
+async function storeMoveImages() {
+  if (!storeV2 || !driveReady) return;
+  try {
+    for (const [root, items] of Object.entries(storeGroups(IDEAS))) {
+      const ids = allImageObjs(items).flatMap(o => [o.driveId, o.origDriveId]).filter(Boolean); if (!ids.length) continue;
+      const folder = await storeSubfolder(root, "images"); if (!folder) continue;
+      for (const id of ids) await driveMoveInto(id, folder);
+    }
+  } catch (e) { console.warn("Moving images:", e.message); }
+}
+function storeRootOfImageRef(ref) {
+  const it = IDEAS.find(i => allImageObjs([i]).some(o => o.ref === ref || o.origRef === ref || (ref && o.ref && ref.startsWith(o.ref))));
+  return it ? storeRootOf(it) : null;
+}
+// After switching: a tab still running the old version may have recreated "ideary-data.json". Bring its newer edits in once.
+async function storeCatchUpLegacy() {
+  try {
+    const f = await driveFindByName(DRIVE_DATA_FILENAME, null, "id,modifiedTime"); if (!f) return;
+    const old = await driveReadDataFileV1(f.id);
+    let n = 0;
+    (Array.isArray(old) ? old : []).forEach(o => {
+      const cur = IDEAS.find(i => i.id === o.id);
+      if (!cur) { IDEAS.push(o); n++; }
+      else if (JSON.stringify(cur) !== JSON.stringify(o) && String(o.actualizado || "") > String(cur.actualizado || "")) { Object.assign(cur, o); n++; }
+    });
+    await storeApi(`/drive/v3/files/${f.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: `ideary-data (old tab copy ${new Date().toISOString().slice(0, 10)}).json` }) });
+    if (n) { saveIdeas(); render(); }
+  } catch (e) { console.warn("Legacy catch-up:", e.message); }
+}
 
 /* ---------------- Multi-device safety ----------------
    Each device remembers what Drive looked like when it last synced
@@ -5614,6 +5823,8 @@ async function initDriveSync(ideasParaCrearSiNoExiste) {
       IDEAS.forEach(migrateFasesIfNeeded);
       driveBase = snapshotOf(IDEAS);
       render();
+      if (storeV2 && file.migrated) setTimeout(() => showAlert("Your Drive is now organized: one folder per project (with its images), inside the Ideary folder. A full backup of the old file was kept.", { title: "Drive organized" }), 800);
+      else if (storeV2) setTimeout(storeCatchUpLegacy, 4000);
     }
     driveReady = true;
     driveExpired = false;
@@ -7476,12 +7687,14 @@ async function ensureDriveFolders() {
   if (driveImagesFolderId) return driveImagesFolderId;
   driveFolderId = await driveFindFolder("Ideary") || await driveMakeFolder("Ideary");
   driveImagesFolderId = await driveFindFolder("images", driveFolderId) || await driveMakeFolder("images", driveFolderId);
-  if (driveFileId) await driveMoveInto(driveFileId, driveFolderId);
+  if (driveFileId && !storeV2) await driveMoveInto(driveFileId, driveFolderId);
   if (typeof driveSettingsFileId !== "undefined" && driveSettingsFileId) await driveMoveInto(driveSettingsFileId, driveFolderId);
   return driveImagesFolderId;
 }
 async function driveUploadImage(ref, blob) {
-  const folder = await ensureDriveFolders();
+  let folder = null;
+  if (storeV2) { const root = storeRootOfImageRef(ref); if (root) { try { folder = await storeSubfolder(root, "images"); } catch (e) {} } }
+  if (!folder) folder = await ensureDriveFolders();
   const ext = (blob.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
   const meta = { name: `${ref}.${ext}`, parents: [folder] };
   if (blob.size > 4.5e6) { // Drive's simple multipart upload stops at 5 MB: use a resumable upload
@@ -7530,10 +7743,12 @@ async function driveImageGC(force) {
   if (!driveReady || !accessToken || (!force && Date.now() - lastImageGC < 10 * 60 * 1000)) return;
   lastImageGC = Date.now();
   try {
-    const folder = await ensureDriveFolders();
+    const folders = [await ensureDriveFolders()];
+    if (storeV2) for (const root of Object.keys(storeFiles)) { const k = storeFiles[root].folder + "/images"; if (storeFolders[k]) folders.push(storeFolders[k]); else { const f = await driveFindFolder("images", storeFiles[root].folder).catch(() => null); if (f) folders.push(storeFolders[k] = f); } }
     const used = new Set(allImageObjs().flatMap(o => [o.driveId, o.origDriveId]).filter(Boolean));
     const cutoff = Date.now() - 15 * 60 * 1000;
-    let pageToken = "", removed = 0;
+    let removed = 0;
+    for (const folder of folders) { let pageToken = "";
     do {
       const q = encodeURIComponent(`'${folder}' in parents and trashed=false`);
       const r = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=nextPageToken,files(id,createdTime)&pageSize=1000${pageToken ? "&pageToken=" + pageToken : ""}`, { headers: { Authorization: `Bearer ${accessToken}` } });
@@ -7541,7 +7756,7 @@ async function driveImageGC(force) {
       const d = await r.json();
       for (const f of d.files || []) if (!used.has(f.id) && new Date(f.createdTime).getTime() < cutoff) { await driveDeleteFile(f.id); removed++; }
       pageToken = d.nextPageToken || "";
-    } while (pageToken);
+    } while (pageToken); }
     if (removed) console.log("Ideary: removed", removed, "unused image(s) from Drive");
   } catch (e) { console.error("Image clean-up failed", e); }
 }
@@ -10728,7 +10943,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-18 23:20 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-19 03:00 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
