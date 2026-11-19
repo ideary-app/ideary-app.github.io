@@ -4973,6 +4973,7 @@ SHIPPING CHANGES
       <span id="doc-status" class="note-date"></span>
       <a id="doc-open-gdoc" class="stuck-btn" style="margin:0;display:none" target="_blank" rel="noopener">Open in Google Docs ↗</a>
       <button type="button" class="stuck-btn" id="doc-gdoc-btn" style="margin:0" onclick="docToGoogle(this)">Save as Google Doc</button>
+      <button type="button" class="stuck-btn" id="doc-undo" style="margin:0;display:none" onclick="docUndoGather()">↶ Undo last gather</button>
       <button type="button" class="stuck-btn" style="margin:0;color:var(--rust)" onclick="docDelete()">Delete</button>
     </div>
   </div>
@@ -9906,6 +9907,11 @@ async function cbDo(pid, k, what, j) {
    "Update in Google Docs" pushes the latest version there. */
 let docCtx = null; // { itemId, docId }
 function docsOf(it) { return (it && it.documentos) || []; }
+function docSteps(d) { return (d.pasos && d.pasos.length ? d.pasos : d.paso ? [d.paso] : []); }
+function docsOfStep(it, texto) {
+  const root = pendRoot(it), pool = [it].concat(it !== root ? [root] : []);
+  return pool.flatMap(x => docsOf(x)).filter(d => docSteps(d).some(t => sameStep(t, texto)));
+}
 function docsBlockHtml(it) {
   const own = docsOf(it).map(d => ({ it, d }));
   const more = isProject(it) ? projectChapters(it).flatMap(c => docsOf(c).map(d => ({ it: c, d }))) : [];
@@ -9914,7 +9920,7 @@ function docsBlockHtml(it) {
 }
 function stepDocsHtml() {
   const ref = getStepRef(); if (!ref) return "";
-  const mine = docsOf(ref.idea).filter(d => d.paso && sameStep(d.paso, ref.step.texto));
+  const mine = docsOfStep(ref.idea, ref.step.texto);
   return `<div class="step-docs">${mine.map(d => `<button type="button" class="doc-row" onclick="openDoc('${escapeAttr(ref.idea.id)}','${escapeAttr(d.id)}')"><span class="doc-ico">📄</span><span class="doc-t">${escapeHtml(d.titulo)}</span><span class="doc-meta">open</span></button>`).join("")}
     <button type="button" class="stuck-btn" style="margin:6px 0 0" onclick="docFromStep(this)">🗂 ${mine.length ? "Gather my notes into another document" : "Gather my notes into a document"}</button></div>`;
 }
@@ -9925,13 +9931,42 @@ async function docFromStep(btn) {
   saveStepWork();
   lockBtn(btn); btn.disabled = true; btn.textContent = "Gathering your notes… (can take a minute)";
   try {
-    const d = await docGenerate(ref.idea, ref.step.texto, ref.step);
-    ref.idea.documentos = docsOf(ref.idea).concat([d]);
-    logChanges(ref.idea, "You", [`Organized the document "${d.titulo}"`]);
-    saveIdeas(); renderStepDocs(); render();
-    openDoc(ref.idea.id, d.id);
+    const item = ref.idea, root = pendRoot(item);
+    const steps = (item.fases || []).flatMap(f => (f.pasos || []).map(st => typeof st === "string" ? { texto: st } : st));
+    const existing = [item].concat(item !== root ? [root] : []).flatMap(x => docsOf(x).map(d => ({ x, d })));
+    // 1) which document does this belong to, and which other steps go in the same one?
+    let plan = null;
+    try {
+      const raw = await geminiGenerate([{ role: "user", text: `STEPS IN THIS CHAPTER:\n${steps.map((st, i) => `${i}. ${st.texto}${st.trabajo ? " (has notes)" : ""}`).join("\n")}\n\nEXISTING DOCUMENTS:\n${existing.map(({ d }) => `${d.id}: "${d.titulo}" (steps: ${docSteps(d).join(" | ") || "none"})`).join("\n") || "(none)"}\n\nTHE PERSON IS ON STEP: ${ref.step.texto}` }],
+        `You decide how a creative project's working documents are split, like a professional would. Usually ONE document covers several steps (e.g. a series bible covers world rules, characters and tone; a script covers outline, scenes and dialogue). Decide: does this step belong in an existing document, or a new one? And which other steps of this chapter belong in that same document? Output ONLY JSON: {"doc": "<existing document id>" or null, "titulo": "document title (in the language of the steps)", "pasos": [indexes of ALL steps of this chapter that belong in that document, including the current one]}`, false, undefined, "minimal");
+      plan = parseJsonLenient(stripJsonFences(raw));
+    } catch (e) { console.warn("doc split:", e.message); }
+    const pick = (plan && Array.isArray(plan.pasos) ? plan.pasos : []).map(n => steps[+n]).filter(Boolean);
+    if (!pick.some(st => sameStep(st.texto, ref.step.texto))) pick.push(ref.step);
+    const target = plan && plan.doc ? existing.find(e => e.d.id === plan.doc) : (docsOfStep(item, ref.step.texto)[0] ? existing.find(e => e.d === docsOfStep(item, ref.step.texto)[0]) : null);
+    // 2) gather everything into it
+    const d = await docGenerate(item, (target && target.d.titulo) || (plan && plan.titulo) || ref.step.texto, pick, target && target.d);
+    if (target) {
+      const t = target.d;
+      t.prevHtml = t.html; t.html = d.html; t.actualizado = d.actualizado;
+      t.pasos = docSteps(t).concat(pick.map(st => st.texto)).filter((v, i, a) => a.findIndex(w => sameStep(w, v)) === i);
+      logChanges(target.x, "You", [`Gathered more notes into "${t.titulo}"`]);
+      saveIdeas(); renderStepDocs(); render(); openDoc(target.x.id, t.id);
+      docStatus("Updated with your notes from: " + pick.map(st => st.texto).join(", ") + ". (↶ Undo in the bar below)");
+    } else {
+      d.pasos = pick.map(st => st.texto);
+      item.documentos = docsOf(item).concat([d]);
+      logChanges(item, "You", [`Gathered your notes into "${d.titulo}"`]);
+      saveIdeas(); renderStepDocs(); render(); openDoc(item.id, d.id);
+      if (pick.length > 1) docStatus("This document covers " + pick.length + " steps: " + pick.map(st => st.texto).join(", ") + ".");
+    }
   } catch (e) { showAlert(e.message, { title: "Couldn't organize it" }); }
   finally { btn.disabled = false; renderStepDocs(); }
+}
+function docUndoGather() {
+  const f = docCtx && docFind(docCtx.itemId, docCtx.docId); if (!f || !f.d.prevHtml) return;
+  f.d.html = f.d.prevHtml; delete f.d.prevHtml; f.d.actualizado = new Date().toISOString(); saveIdeas();
+  document.getElementById("doc-body").innerHTML = f.d.html; docStatus("Back to how it was.");
 }
 const DOC_RULES = `You are an organizer, not a writer. The person writes everything themselves; your job is to put THEIR OWN material in order inside a document.
 You get everything the project already has: descriptions, decisions, notes, things to figure out, what they wrote for this step, and what they said in conversations.
@@ -9941,25 +9976,27 @@ You get everything the project already has: descriptions, decisions, notes, thin
 4. A section with nothing from them yet: leave it with one short line in italics saying what goes there, starting with "To write:" (e.g. "*To write: how the portal works and its rules*").
 Write the headings and the "To write" lines in the language of the project's text.
 Output Markdown only: "# Title" first line, then "##" sections, lists, **bold**. No preamble, no closing remarks. End with "## Still open" listing their open questions (from "things to figure out").`;
-async function docGenerate(item, stepTitle, step) {
+async function docGenerate(item, docTitle, steps, existingDoc) {
   const root = pendRoot(item);
   const ctx = typeof cbProjectText === "function" ? cbProjectText(root) : chatContextText(item);
-  const work = step && step.trabajo ? `\n\nWHAT THE PERSON WROTE FOR THIS STEP:\n${step.trabajo}` : "";
-  const raw = await geminiGenerate([{ role: "user", text: `${String(ctx).slice(0, 24000)}${work}\n\nORGANIZE MY MATERIAL INTO THIS DOCUMENT: ${stepTitle}${isChapter(item) ? ` (chapter "${item.titulo}")` : ""}` }], DOC_RULES, false, undefined, "high");
+  const work = (steps || []).filter(st => st.trabajo).map(st => `\n\nWHAT I WROTE FOR THE STEP "${st.texto}":\n${st.trabajo}`).join("");
+  const cur = existingDoc ? `\n\nTHE DOCUMENT AS IT IS NOW (I may have edited it by hand: keep ALL of it, word for word, and only add my new material where it belongs):\n${docHtmlToText(existingDoc.html)}` : "";
+  const raw = await geminiGenerate([{ role: "user", text: `${String(ctx).slice(0, 22000)}${work}${cur}\n\nORGANIZE MY MATERIAL INTO THIS DOCUMENT: ${docTitle}\nIt covers these steps: ${(steps || []).map(st => st.texto).join(" | ")}${isChapter(item) ? ` (chapter "${item.titulo}")` : ""}` }], DOC_RULES, false, undefined, "high");
   let md = stripJsonFences(String(raw || "")).replace(/^```(?:markdown|md)?\s*|```\s*$/g, "").trim();
-  if (md.length < 80) throw new Error("Not enough came back to build the document. Try again in a moment.");
-  const m = /^#\s+(.+)$/m.exec(md), titulo = (m ? m[1] : stepTitle).trim().slice(0, 120);
+  if (md.length < 30) throw new Error("Not enough came back to build the document. Try again in a moment.");
+  const m = /^#\s+(.+)$/m.exec(md), titulo = (m ? m[1] : docTitle).trim().slice(0, 120);
   if (m) md = md.replace(m[0], "").trim();
   const now = new Date().toISOString();
-  return { id: "doc" + Date.now().toString(36), titulo, html: docMdToHtml(md), paso: stepTitle, fecha: now, actualizado: now, by: "organized" };
+  return { id: "doc" + Date.now().toString(36), titulo, html: docMdToHtml(md), paso: (steps[0] || {}).texto, fecha: now, actualizado: now, by: "organized" };
 }
+function docHtmlToText(h) { return String(h || "").replace(/<h2>/g, "## ").replace(/<h3>/g, "### ").replace(/<li>/g, "- ").replace(/<\/(h\d|p|li)>/g, "\n").replace(/<br\s*\/?>/g, "\n").replace(/<b>(.*?)<\/b>/g, "**$1**").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&nbsp;/g, " ").replace(/\n{3,}/g, "\n\n").trim(); }
 function docMdToHtml(md) {
   const lines = String(md).split("\n"), out = []; let list = null;
   const inline = t => escapeHtml(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/(^|[^*])\*(?!\s)(.+?)\*/g, "$1<i>$2</i>");
   const close = () => { if (list) { out.push(`</${list}>`); list = null; } };
   lines.forEach(l => {
     let m;
-    if ((m = /^(#{1,3})\s+(.*)$/.exec(l))) { close(); const h = Math.min(3, m[1].length + 1); out.push(`<h${h}>${inline(m[2])}</h${h}>`); }
+    if ((m = /^(#{1,3})\s+(.*)$/.exec(l))) { close(); const h = m[1].length <= 2 ? 2 : 3; out.push(`<h${h}>${inline(m[2])}</h${h}>`); }
     else if ((m = /^\s*[-*•]\s+(.*)$/.exec(l))) { if (list !== "ul") { close(); out.push("<ul>"); list = "ul"; } out.push(`<li>${inline(m[1])}</li>`); }
     else if ((m = /^\s*\d+[.)]\s+(.*)$/.exec(l))) { if (list !== "ol") { close(); out.push("<ol>"); list = "ol"; } out.push(`<li>${inline(m[1])}</li>`); }
     else if (!l.trim()) close();
@@ -9973,12 +10010,14 @@ function openDoc(itemId, docId) {
   docCtx = { itemId, docId };
   document.getElementById("doc-title").value = f.d.titulo;
   document.getElementById("doc-body").innerHTML = f.d.html || "";
-  document.getElementById("doc-where").textContent = `${pendRoot(f.it).titulo}${f.it !== pendRoot(f.it) ? " › " + f.it.titulo : ""}${f.d.paso ? " · step: " + f.d.paso : ""}`;
+  const ps = docSteps(f.d);
+  document.getElementById("doc-where").textContent = `${pendRoot(f.it).titulo}${f.it !== pendRoot(f.it) ? " › " + f.it.titulo : ""}${ps.length ? (ps.length > 1 ? " · steps: " : " · step: ") + ps.join(", ") : ""}`;
   docStatus();
   document.getElementById("doc-overlay").classList.add("open");
 }
 function docStatus(msg) {
   const f = docCtx && docFind(docCtx.itemId, docCtx.docId), el = document.getElementById("doc-status"); if (!el || !f) return;
+  const u = document.getElementById("doc-undo"); if (u) u.style.display = f.d.prevHtml ? "" : "none";
   const g = document.getElementById("doc-gdoc-btn");
   if (g) g.textContent = f.d.gdocId ? "↻ Update the Google Doc" : "Save as Google Doc";
   const o = document.getElementById("doc-open-gdoc"); if (o) { o.style.display = f.d.gdocId ? "" : "none"; o.href = f.d.gdocId ? `https://docs.google.com/document/d/${f.d.gdocId}/edit` : "#"; }
@@ -11122,7 +11161,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-19 04:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-19 04:30 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
