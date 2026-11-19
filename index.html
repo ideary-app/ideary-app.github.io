@@ -4437,6 +4437,12 @@ SHIPPING CHANGES
 .doc-t { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .doc-meta { font-size: .75rem; color: var(--slate); white-space: nowrap; }
 .step-docs { margin: 8px 0 4px; }
+.doc-progress { margin-top: 8px; border: 1px dashed var(--line-strong); border-radius: 10px; padding: 8px 10px; }
+.doc-prog-h { display: flex; align-items: center; gap: 8px; font-size: .85rem; }
+.doc-prog-h #doc-prog-msg { flex: 1; }
+.doc-prog-h b { font-weight: 500; color: var(--slate); font-size: .78rem; }
+.doc-prog-prev { margin-top: 6px; max-height: 120px; overflow: hidden; white-space: pre-wrap; font-size: .78rem; color: var(--slate); }
+.doc-prog-prev:empty { display: none; }
 .cb-hdr { position: relative; }
 .cb-proj-btn { border-color: var(--rust, #b5532a) !important; color: var(--rust, #b5532a) !important; }
 .cb-badge { position: absolute; top: -3px; right: -3px; min-width: 16px; height: 16px; border-radius: 8px; background: var(--rust, #b5532a); color: #fff; font-size: 10px; line-height: 16px; text-align: center; padding: 0 4px; font-weight: 700; display: none; }
@@ -9925,11 +9931,19 @@ function stepDocsHtml() {
     <button type="button" class="stuck-btn" style="margin:6px 0 0" onclick="docFromStep(this)">🗂 ${mine.length ? "Gather my notes into another document" : "Gather my notes into a document"}</button></div>`;
 }
 function renderStepDocs() { const el = document.getElementById("step-docs"); if (el) el.innerHTML = stepDocsHtml(); }
+function docProgress(msg, preview) {
+  let el = document.getElementById("doc-progress");
+  if (!el) { const host = document.getElementById("step-docs"); if (!host) return; host.insertAdjacentHTML("beforeend", `<div id="doc-progress" class="doc-progress"><div class="doc-prog-h"><span class="ai-dots"><i></i><i></i><i></i></span><span id="doc-prog-msg"></span><b id="doc-prog-t">0s</b><button type="button" class="ai-cancel" onclick="if(aiCtrlUser)aiCtrlUser.abort('user')">Cancel</button></div><div id="doc-prog-prev" class="doc-prog-prev"></div></div>`); el = document.getElementById("doc-progress"); const t0 = Date.now(); el._t = setInterval(() => { const t = document.getElementById("doc-prog-t"); if (t) t.textContent = Math.round((Date.now() - t0) / 1000) + "s"; }, 1000); }
+  if (msg != null) document.getElementById("doc-prog-msg").textContent = msg;
+  if (preview != null) { const pv = document.getElementById("doc-prog-prev"); pv.textContent = preview.slice(-600); pv.scrollTop = pv.scrollHeight; }
+}
+function docProgressEnd() { const el = document.getElementById("doc-progress"); if (el) { clearInterval(el._t); el.remove(); } }
 async function docFromStep(btn) {
   const ref = getStepRef(); if (!ref) return;
   if (!geminiKey) { showAlert("Add a free Gemini key in Settings → AI first.", { title: "AI needs a key" }); return; }
   saveStepWork();
-  lockBtn(btn); btn.disabled = true; btn.textContent = "Gathering your notes… (can take a minute)";
+  lockBtn(btn); btn.disabled = true; btn.textContent = "Gathering your notes…";
+  docProgress("1/2 · Deciding which document this goes in…");
   try {
     const item = ref.idea, root = pendRoot(item);
     const steps = (item.fases || []).flatMap(f => (f.pasos || []).map(st => typeof st === "string" ? { texto: st } : st));
@@ -9945,6 +9959,7 @@ async function docFromStep(btn) {
     if (!pick.some(st => sameStep(st.texto, ref.step.texto))) pick.push(ref.step);
     const target = plan && plan.doc ? existing.find(e => e.d.id === plan.doc) : (docsOfStep(item, ref.step.texto)[0] ? existing.find(e => e.d === docsOfStep(item, ref.step.texto)[0]) : null);
     // 2) gather everything into it
+    docProgress(`2/2 · Putting your notes in order${pick.length > 1 ? ` (${pick.length} steps)` : ""}…`, "");
     const d = await docGenerate(item, (target && target.d.titulo) || (plan && plan.titulo) || ref.step.texto, pick, target && target.d);
     if (target) {
       const t = target.d;
@@ -9960,8 +9975,8 @@ async function docFromStep(btn) {
       saveIdeas(); renderStepDocs(); render(); openDoc(item.id, d.id);
       if (pick.length > 1) docStatus("This document covers " + pick.length + " steps: " + pick.map(st => st.texto).join(", ") + ".");
     }
-  } catch (e) { showAlert(e.message, { title: "Couldn't organize it" }); }
-  finally { btn.disabled = false; renderStepDocs(); }
+  } catch (e) { showAlert(/Cancel/.test(e.message) ? "Stopped. Nothing was changed." : e.message, { title: "Couldn't organize it" }); }
+  finally { docProgressEnd(); btn.disabled = false; renderStepDocs(); }
 }
 function docUndoGather() {
   const f = docCtx && docFind(docCtx.itemId, docCtx.docId); if (!f || !f.d.prevHtml) return;
@@ -9981,7 +9996,7 @@ async function docGenerate(item, docTitle, steps, existingDoc) {
   const ctx = typeof cbProjectText === "function" ? cbProjectText(root) : chatContextText(item);
   const work = (steps || []).filter(st => st.trabajo).map(st => `\n\nWHAT I WROTE FOR THE STEP "${st.texto}":\n${st.trabajo}`).join("");
   const cur = existingDoc ? `\n\nTHE DOCUMENT AS IT IS NOW (I may have edited it by hand: keep ALL of it, word for word, and only add my new material where it belongs):\n${docHtmlToText(existingDoc.html)}` : "";
-  const raw = await geminiGenerate([{ role: "user", text: `${String(ctx).slice(0, 22000)}${work}${cur}\n\nORGANIZE MY MATERIAL INTO THIS DOCUMENT: ${docTitle}\nIt covers these steps: ${(steps || []).map(st => st.texto).join(" | ")}${isChapter(item) ? ` (chapter "${item.titulo}")` : ""}` }], DOC_RULES, false, undefined, "high");
+  const raw = await geminiGenerate([{ role: "user", text: `${String(ctx).slice(0, 22000)}${work}${cur}\n\nORGANIZE MY MATERIAL INTO THIS DOCUMENT: ${docTitle}\nIt covers these steps: ${(steps || []).map(st => st.texto).join(" | ")}${isChapter(item) ? ` (chapter "${item.titulo}")` : ""}` }], DOC_RULES, false, undefined, "low", txt => docProgress(null, txt)); // streamed: you see it being organized, and long ones don't time out
   let md = stripJsonFences(String(raw || "")).replace(/^```(?:markdown|md)?\s*|```\s*$/g, "").trim();
   if (md.length < 30) throw new Error("Not enough came back to build the document. Try again in a moment.");
   const m = /^#\s+(.+)$/m.exec(md), titulo = (m ? m[1] : docTitle).trim().slice(0, 120);
@@ -11161,7 +11176,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-19 04:30 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-19 13:55 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
