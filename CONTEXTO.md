@@ -494,3 +494,6 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 
 ## 2026-11-19 — Caja de progreso estable
 - El progreso de Gather vivía dentro de #step-docs y cada renderStepDocs (syncs, docRecover) lo recreaba → contador reiniciaba. Ahora en #step-docs-prog, con t0 global y alto fijo.
+
+## 2026-11-19 — Chips de documento en cada paso
+- renderStep → stepDocChips: debajo de cada paso del plan, un chip 📄 por documento ligado (abre el doc), con ✓/◐/○ pending según la última auditoría.

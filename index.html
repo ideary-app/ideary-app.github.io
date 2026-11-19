@@ -4440,6 +4440,9 @@ SHIPPING CHANGES
 .doc-meta { font-size: .75rem; color: var(--slate); white-space: nowrap; }
 .step-docs { margin: 8px 0 4px; }
 .doc-audit:empty { display: none; }
+.step-doc-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.step-doc-chip { font: inherit; font-size: .76rem; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line-strong); background: rgba(255,255,255,.45); color: var(--ink); cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.step-doc-chip.pend { border-style: dashed; color: #9a5a2a; }
 .doc-body p[class^="sp-"] { max-width: 640px; }
 .doc-body p.sp-char { margin-left: 38% !important; }
 .doc-body p.sp-paren { margin-left: 28% !important; }
@@ -11531,7 +11534,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-19 17:30 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-19 17:45 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -14614,7 +14617,16 @@ function renderStep(step, ideaId, faseIdx, stepIdx) {
     : "";
   const work = typeof step === "object" && step.trabajo ? step.trabajo : "";
   const clickable = ideaId !== undefined ? ` onclick="openStepHelp('${escapeAttr(ideaId)}',${faseIdx},${stepIdx})" title="Open this step: get help or work on it with the AI"` : "";
-  return `<li class="step-row s${hecho}">${box}<div class="step-body"><span class="step-text${ideaId !== undefined ? " step-link" : ""}"${clickable}>${escapeHtml(txt)}</span>${ideaId !== undefined ? `<button type="button" class="step-help-btn"${clickable}>${work ? "📎 Your work" : "Help"}</button>` : ""}${exp ? `<div class="phase-desc">${escapeHtml(exp)}</div>` : ""}</div></li>`;
+  return `<li class="step-row s${hecho}">${box}<div class="step-body"><span class="step-text${ideaId !== undefined ? " step-link" : ""}"${clickable}>${escapeHtml(txt)}</span>${ideaId !== undefined ? `<button type="button" class="step-help-btn"${clickable}>${work ? "📎 Your work" : "Help"}</button>` : ""}${exp ? `<div class="phase-desc">${escapeHtml(exp)}</div>` : ""}${stepDocChips(ideaId, txt)}</div></li>`;
+}
+// which document(s) this step lives in, with its state from the last check
+function stepDocChips(ideaId, txt) {
+  if (ideaId === undefined) return "";
+  const it = IDEAS.find(i => String(i.id) === String(ideaId)); if (!it) return "";
+  const ds = docsOfStep(it, txt); if (!ds.length) return "";
+  const owner = d => IDEAS.find(i => docsOf(i).includes(d)) || it;
+  return `<div class="step-doc-chips">${ds.map(d => { const x = d.audit && (d.audit.pasos || []).find(p => sameStep(p.paso, txt)); const st = x ? (x.estado === "done" ? " ✓" : x.estado === "partial" ? " ◐ pending" : " ○ pending") : "";
+    return `<button type="button" class="step-doc-chip${x && x.estado !== "done" ? " pend" : ""}" title="${escapeAttr(x && x.falta ? "Missing: " + x.falta : "Open the document")}" onclick="event.stopPropagation();openDoc('${escapeAttr(owner(d).id)}','${escapeAttr(d.id)}')">📄 ${escapeHtml(d.titulo)}${st}</button>`; }).join("")}</div>`;
 }
 async function cycleStep(ideaId, faseIdx, stepIdx) {
   const idea = IDEAS.find(i => i.id === ideaId);
