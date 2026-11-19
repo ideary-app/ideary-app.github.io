@@ -4437,6 +4437,11 @@ SHIPPING CHANGES
 .doc-t { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .doc-meta { font-size: .75rem; color: var(--slate); white-space: nowrap; }
 .step-docs { margin: 8px 0 4px; }
+.app-toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translate(-50%, 20px); opacity: 0; transition: .25s; z-index: 600; display: flex; align-items: center; gap: 10px; max-width: min(560px, calc(100vw - 32px)); background: var(--ink, #2b2620); color: var(--paper, #fbf6e8); border-radius: 12px; padding: 10px 12px 10px 16px; box-shadow: 0 10px 30px rgba(0,0,0,.25); font-size: .9rem; }
+.app-toast.in { opacity: 1; transform: translate(-50%, 0); }
+.app-toast button { background: none; border: 1px solid currentColor; color: inherit; border-radius: 8px; padding: 4px 10px; font: inherit; font-size: .85rem; cursor: pointer; white-space: nowrap; }
+.app-toast button.x { border: none; font-size: 1.1rem; padding: 0 4px; opacity: .7; }
+@media (max-width: 760px) { .app-toast { bottom: calc(84px + env(safe-area-inset-bottom)); } }
 .doc-progress { margin-top: 8px; border: 1px dashed var(--line-strong); border-radius: 10px; padding: 8px 10px; }
 .doc-prog-h { display: flex; align-items: center; gap: 8px; font-size: .85rem; }
 .doc-prog-h #doc-prog-msg { flex: 1; }
@@ -9931,6 +9936,30 @@ function stepDocsHtml() {
     <button type="button" class="stuck-btn" style="margin:6px 0 0" onclick="docFromStep(this)">🗂 ${mine.length ? "Gather my notes into another document" : "Gather my notes into a document"}</button></div>`;
 }
 function renderStepDocs() { const el = document.getElementById("step-docs"); if (el) el.innerHTML = stepDocsHtml(); }
+// Small toast at the bottom with an optional action (and a system notification if the app is in the background).
+function showToast(msg, actionLabel, action, ms) {
+  document.querySelectorAll(".app-toast").forEach(t => t.remove());
+  const t = document.createElement("div"); t.className = "app-toast"; t.setAttribute("role", "status");
+  t.innerHTML = `<span>${escapeHtml(msg)}</span>${actionLabel ? `<button type="button">${escapeHtml(actionLabel)}</button>` : ""}<button type="button" class="x" aria-label="Close">×</button>`;
+  if (actionLabel) t.querySelector("button").onclick = () => { t.remove(); action && action(); };
+  t.querySelector(".x").onclick = () => t.remove();
+  document.body.appendChild(t); requestAnimationFrame(() => t.classList.add("in"));
+  setTimeout(() => { t.classList.remove("in"); setTimeout(() => t.remove(), 300); }, ms || 9000);
+  try { if (document.hidden && "Notification" in window && Notification.permission === "granted") { const n = new Notification("Ideary", { body: msg, icon: "icon-192.png" }); n.onclick = () => { window.focus(); action && action(); n.close(); }; } } catch (e) {}
+}
+// Header button of a project/chapter: its documents, one tap away.
+function docsBtnHtml(it) {
+  if (typeof docsOf !== "function") return "";
+  const root = pendRoot(it), all = [root].concat(isProject(root) ? projectChapters(root) : []).flatMap(x => docsOf(x).map(d => ({ x, d })));
+  return all.length ? `<button type="button" class="share-btn" onclick="openDocsList('${escapeAttr(it.id)}')">📄 ${all.length === 1 ? "Document" : all.length + " documents"}</button>` : "";
+}
+async function openDocsList(id) {
+  const it = IDEAS.find(i => i.id === id); if (!it) return;
+  const root = pendRoot(it), all = [root].concat(isProject(root) ? projectChapters(root) : []).flatMap(x => docsOf(x).map(d => ({ x, d })));
+  if (all.length === 1) return openDoc(all[0].x.id, all[0].d.id);
+  const pick = await showChoice("Your documents in this project:", all.map(({ x, d }, n) => ({ label: `📄 ${d.titulo}${x !== root ? " · " + x.titulo : ""}`, value: String(n) })), { title: "Documents" });
+  if (pick != null) { const a = all[+pick]; openDoc(a.x.id, a.d.id); }
+}
 function docProgress(msg, preview) {
   let el = document.getElementById("doc-progress");
   if (!el) { const host = document.getElementById("step-docs"); if (!host) return; host.insertAdjacentHTML("beforeend", `<div id="doc-progress" class="doc-progress"><div class="doc-prog-h"><span class="ai-dots"><i></i><i></i><i></i></span><span id="doc-prog-msg"></span><b id="doc-prog-t">0s</b><button type="button" class="ai-cancel" onclick="if(aiCtrlUser)aiCtrlUser.abort('user')">Cancel</button></div><div id="doc-prog-prev" class="doc-prog-prev"></div></div>`); el = document.getElementById("doc-progress"); const t0 = Date.now(); el._t = setInterval(() => { const t = document.getElementById("doc-prog-t"); if (t) t.textContent = Math.round((Date.now() - t0) / 1000) + "s"; }, 1000); }
@@ -9943,6 +9972,7 @@ async function docFromStep(btn) {
   if (!geminiKey) { showAlert("Add a free Gemini key in Settings → AI first.", { title: "AI needs a key" }); return; }
   saveStepWork();
   lockBtn(btn); btn.disabled = true; btn.textContent = "Gathering your notes…";
+  try { if ("Notification" in window && Notification.permission === "default") Notification.requestPermission(); } catch (e) {}
   docProgress("1/2 · Deciding which document this goes in…  (it takes its time to get it complete)");
   try {
     const item = ref.idea, root = pendRoot(item);
@@ -9967,12 +9997,14 @@ async function docFromStep(btn) {
       t.pasos = docSteps(t).concat(pick.map(st => st.texto)).filter((v, i, a) => a.findIndex(w => sameStep(w, v)) === i);
       logChanges(target.x, "You", [`Gathered more notes into "${t.titulo}"`]);
       saveIdeas(); renderStepDocs(); render(); openDoc(target.x.id, t.id);
+      showToast(`"${t.titulo}" is updated with your notes.`, "Open it", () => openDoc(target.x.id, t.id));
       docStatus("Updated with your notes from: " + pick.map(st => st.texto).join(", ") + ". (↶ Undo in the bar below)");
     } else {
       d.pasos = pick.map(st => st.texto);
       item.documentos = docsOf(item).concat([d]);
       logChanges(item, "You", [`Gathered your notes into "${d.titulo}"`]);
       saveIdeas(); renderStepDocs(); render(); openDoc(item.id, d.id);
+      showToast(`Your document "${d.titulo}" is ready. It's also under "📄 Document" at the top of the chapter.`, "Open it", () => openDoc(item.id, d.id));
       if (pick.length > 1) docStatus("This document covers " + pick.length + " steps: " + pick.map(st => st.texto).join(", ") + ".");
     }
   } catch (e) { showAlert(/Cancel/.test(e.message) ? "Stopped. Nothing was changed." : e.message, { title: "Couldn't organize it" }); }
@@ -10734,7 +10766,7 @@ function renderProjectView(p) {
           ${dueBadgeHtml(p)}${workedBadgeHtml(p)}${notebookBadgeHtml(p)}
           <span class="badges-right">
             <button type="button" class="undo-project" onclick="revertProject('${escapeAttr(p.id)}')">Turn back into a single idea</button>
-            <button type="button" class="share-btn mentor-head-btn" title="Ask anything about the whole project — it sees every chapter, your progress and decisions" onclick="openProjectChat('${escapeAttr(p.id)}')">💬 Talk to your mentor</button>${chatsBtnHtml(p.id)}${cbProjBtnHtml(p)}${popoutButtonsHtml(p)}
+            <button type="button" class="share-btn mentor-head-btn" title="Ask anything about the whole project — it sees every chapter, your progress and decisions" onclick="openProjectChat('${escapeAttr(p.id)}')">💬 Talk to your mentor</button>${chatsBtnHtml(p.id)}${docsBtnHtml(p)}${cbProjBtnHtml(p)}${popoutButtonsHtml(p)}
           </span>
         </div>
       </div>
@@ -11176,7 +11208,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-19 14:00 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-19 14:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -14060,7 +14092,7 @@ function renderDetailReadMode(idea) {
           ${isChapter(idea) ? chapterBadgeHtml(idea) : ""}
           ${dueBadgeHtml(idea)}${workedBadgeHtml(idea)}${isChapter(idea) ? "" : notebookBadgeHtml(idea)}
         </div>
-        <div class="idea-head-chat"><button type="button" class="share-btn mentor-head-btn" onclick="openProjectChat('${escapeAttr(idea.id)}')">💬 Talk to your mentor</button>${chatsBtnHtml(idea.id)}${cbProjBtnHtml(idea)}${popoutButtonsHtml(idea)}</div>
+        <div class="idea-head-chat"><button type="button" class="share-btn mentor-head-btn" onclick="openProjectChat('${escapeAttr(idea.id)}')">💬 Talk to your mentor</button>${chatsBtnHtml(idea.id)}${docsBtnHtml(idea)}${cbProjBtnHtml(idea)}${popoutButtonsHtml(idea)}</div>
         ${isChapter(idea) ? chapterNavHtml(idea) : ""}
       </div>
     </div>
