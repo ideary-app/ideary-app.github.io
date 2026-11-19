@@ -9916,14 +9916,14 @@ function stepDocsHtml() {
   const ref = getStepRef(); if (!ref) return "";
   const mine = docsOf(ref.idea).filter(d => d.paso && sameStep(d.paso, ref.step.texto));
   return `<div class="step-docs">${mine.map(d => `<button type="button" class="doc-row" onclick="openDoc('${escapeAttr(ref.idea.id)}','${escapeAttr(d.id)}')"><span class="doc-ico">📄</span><span class="doc-t">${escapeHtml(d.titulo)}</span><span class="doc-meta">open</span></button>`).join("")}
-    <button type="button" class="stuck-btn" style="margin:6px 0 0" onclick="docFromStep(this)">🗂 ${mine.length ? "Organize another document" : "Organize what I already have into this document"}</button></div>`;
+    <button type="button" class="stuck-btn" style="margin:6px 0 0" onclick="docFromStep(this)">🗂 ${mine.length ? "Gather my notes into another document" : "Gather my notes into a document"}</button></div>`;
 }
 function renderStepDocs() { const el = document.getElementById("step-docs"); if (el) el.innerHTML = stepDocsHtml(); }
 async function docFromStep(btn) {
   const ref = getStepRef(); if (!ref) return;
   if (!geminiKey) { showAlert("Add a free Gemini key in Settings → AI first.", { title: "AI needs a key" }); return; }
   saveStepWork();
-  lockBtn(btn); btn.disabled = true; btn.textContent = "Organizing… (this can take a minute)";
+  lockBtn(btn); btn.disabled = true; btn.textContent = "Gathering your notes… (can take a minute)";
   try {
     const d = await docGenerate(ref.idea, ref.step.texto, ref.step);
     ref.idea.documentos = docsOf(ref.idea).concat([d]);
@@ -11122,13 +11122,13 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-19 04:00 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-19 04:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
     version: "1.17.0",
     public: true,
-    items: ["Your Drive is organized: one folder per project, with its images and documents (a full backup of the old file is kept)", "Documents: in any step, \"Organize what I already have\" puts your own notes, decisions and words in order inside the document (a series bible, a script…), with the empty sections marked for you to write; read and edit it right in Ideary", "Save any document as a Google Doc in the project's folder", "Work with Claude: connect your own Claude account and apply its changes from \"Updates from Claude\""],
+    items: ["Your Drive is organized: one folder per project, with its images and documents (a full backup of the old file is kept)", "Documents: in any step, \"Gather my notes into a document\" puts your own notes, decisions and words in order inside the document (a series bible, a script…), with the empty sections marked for you to write; read and edit it right in Ideary", "Save any document as a Google Doc in the project's folder", "Work with Claude: connect your own Claude account and apply its changes from \"Updates from Claude\""],
   },
   {
     version: "1.16.0",
