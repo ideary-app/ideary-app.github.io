@@ -4460,7 +4460,9 @@ SHIPPING CHANGES
 @media (max-width: 760px) { .app-toast { bottom: calc(84px + env(safe-area-inset-bottom)); } }
 .doc-progress { margin-top: 8px; border: 1px dashed var(--line-strong); border-radius: 10px; padding: 8px 10px; }
 .doc-prog-h { display: flex; align-items: center; gap: 8px; font-size: .85rem; }
-.doc-prog-h #doc-prog-msg { flex: 1; }
+.doc-prog-h #doc-prog-msg { flex: 1; min-width: 0; }
+.doc-prog-h b { min-width: 3.2em; text-align: right; font-variant-numeric: tabular-nums; }
+.doc-prog-prev { height: 7.5em; overflow: hidden; }
 .doc-prog-h b { font-weight: 500; color: var(--slate); font-size: .78rem; }
 .doc-prog-prev { margin-top: 6px; max-height: 120px; overflow: hidden; white-space: pre-wrap; font-size: .78rem; color: var(--slate); }
 .doc-prog-prev:empty { display: none; }
@@ -5053,7 +5055,7 @@ SHIPPING CHANGES
     <div class="ws-pane" id="ws-work">
       <div class="form-hint" style="margin:0 0 6px">Your answer, decisions, drafts, and any images or files for this step. The tutor can see all of it.</div>
       <textarea class="form-input form-textarea" id="step-work" style="flex:1;min-height:120px;font-size:16px" placeholder="Write here…" onblur="saveStepWork()"></textarea>
-      <div id="step-docs"></div>
+      <div id="step-docs"></div><div id="step-docs-prog"></div>
       <div class="att-list" id="step-atts"></div>
       <label class="att-add">📎 Add image or file<input type="file" multiple accept="image/*,.txt,.md,.csv,.json,.srt,.fountain,text/plain" style="display:none" onchange="addStepFiles(this)"></label>
       <div class="ws-foot"><span id="step-saved" class="note-date"></span>
@@ -10071,11 +10073,11 @@ function runDataCheck() {
 }
 function docProgress(msg, preview) {
   let el = document.getElementById("doc-progress");
-  if (!el) { const host = document.getElementById("step-docs"); if (!host) return; host.insertAdjacentHTML("beforeend", `<div id="doc-progress" class="doc-progress"><div class="doc-prog-h"><span class="ai-dots"><i></i><i></i><i></i></span><span id="doc-prog-msg"></span><b id="doc-prog-t">0s</b><button type="button" class="ai-cancel" onclick="if(aiCtrlUser)aiCtrlUser.abort('user')">Cancel</button></div><div id="doc-prog-prev" class="doc-prog-prev"></div></div>`); el = document.getElementById("doc-progress"); const t0 = Date.now(); el._t = setInterval(() => { const t = document.getElementById("doc-prog-t"); if (t) t.textContent = Math.round((Date.now() - t0) / 1000) + "s"; }, 1000); }
+  if (!el) { const host = document.getElementById("step-docs-prog"); if (!host) return; host.insertAdjacentHTML("beforeend", `<div id="doc-progress" class="doc-progress"><div class="doc-prog-h"><span class="ai-dots"><i></i><i></i><i></i></span><span id="doc-prog-msg"></span><b id="doc-prog-t">0s</b><button type="button" class="ai-cancel" onclick="if(aiCtrlUser)aiCtrlUser.abort('user')">Cancel</button></div><div id="doc-prog-prev" class="doc-prog-prev"></div></div>`); el = document.getElementById("doc-progress"); const t0 = window.docProgT0 = window.docProgT0 || Date.now(); el._t = setInterval(() => { const t = document.getElementById("doc-prog-t"); if (t) t.textContent = Math.round((Date.now() - t0) / 1000) + "s"; }, 1000); }
   if (msg != null) document.getElementById("doc-prog-msg").textContent = msg;
   if (preview != null) { const pv = document.getElementById("doc-prog-prev"); pv.textContent = preview.slice(-600); pv.scrollTop = pv.scrollHeight; }
 }
-function docProgressEnd() { const el = document.getElementById("doc-progress"); if (el) { clearInterval(el._t); el.remove(); } }
+function docProgressEnd() { window.docProgT0 = 0; const el = document.getElementById("doc-progress"); if (el) { clearInterval(el._t); el.remove(); } }
 async function docFromStep(btn) {
   const ref = getStepRef(); if (!ref) return;
   if (!geminiKey) { showAlert("Add a free Gemini key in Settings → AI first.", { title: "AI needs a key" }); return; }
@@ -11529,7 +11531,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-19 17:20 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-19 17:30 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {

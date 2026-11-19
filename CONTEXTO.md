@@ -491,3 +491,6 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 ## 2026-11-19 — Bug "Can't open it" (doc perdido)
 - Causa: "Gather my notes" tarda; si en el medio sincroniza (volver a la app), IDEAS se reemplaza y el doc se agregaba al objeto viejo → se perdía el registro (el Google Doc sí quedaba en Drive).
 - Fix: tras la llamada a la IA se vuelve a buscar el ítem en IDEAS (también en docAudit). Nuevo `docRecover()`: lista los Google Docs de la app (appProperties idearyDoc/idearyItem) y re-vincula los que falten; corre después de cada sync y antes de rendirse en openDoc.
+
+## 2026-11-19 — Caja de progreso estable
+- El progreso de Gather vivía dentro de #step-docs y cada renderStepDocs (syncs, docRecover) lo recreaba → contador reiniciaba. Ahora en #step-docs-prog, con t0 global y alto fijo.
