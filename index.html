@@ -5680,6 +5680,21 @@ let driveSyncChain = Promise.resolve();
 function snapshotOf(list) { const m = {}; (list || []).forEach(i => { if (i && i.id != null) m[i.id] = JSON.stringify(i); }); return m; }
 // An item edited on this device AND on another one since the last sync: merge field by field instead of
 // letting one side wipe the other (e.g. a document made on the computer must survive an edit on the phone).
+// Keep the data small: undo snapshots were piling up (each proposal kept a full copy of the project,
+// and history kept copies of the chats that held those copies). Only recent undos are kept.
+function compactItem(i) {
+  let n = 0;
+  (i.historial || []).forEach(e => (e.antes || []).forEach(o => { if (o && (o.chat || o.historial)) { delete o.chat; delete o.historial; n++; } }));
+  const withUndo = (i.chat || []).map((m, k) => (m.undo || (m.actions || []).some(a => a.snap)) ? k : -1).filter(k => k >= 0);
+  const keep = new Set(withUndo.slice(-2)); // the last two proposals stay undoable one by one
+  (i.chat || []).forEach((m, k) => {
+    if (m.undo && m.undo.items) m.undo.items.forEach(o => { if (o.chat || o.historial) { delete o.chat; delete o.historial; n++; } });
+    if (!keep.has(k)) { if (m.undo) { delete m.undo; n++; } (m.actions || []).forEach(a => { if (a.snap) { delete a.snap; n++; } }); }
+    else (m.actions || []).forEach(a => { if (a.snap && a.snap.items) a.snap.items.forEach(o => { delete o.chat; delete o.historial; }); });
+  });
+  return n;
+}
+function compactAll() { let n = 0; IDEAS.forEach(i => { n += compactItem(i); }); return n; }
 function mergeItem3(baseJson, L, R) {
   if (!R) return L;
   let B = null; try { B = baseJson ? JSON.parse(baseJson) : null; } catch (e) {}
@@ -5736,7 +5751,8 @@ function driveSyncNow(opts) {
     let remote = await driveReadDataFile(driveFileId);
     remote = Array.isArray(remote) ? remote : [];
     remote.forEach(migrateFasesIfNeeded);
-    const merged = mergeWithRemote(IDEAS, remote, driveBase);
+    let merged = mergeWithRemote(IDEAS, remote, driveBase);
+    merged.forEach(compactItem);
     const before = JSON.stringify(IDEAS);
     const needsWrite = JSON.stringify(merged) !== JSON.stringify(remote);
     if (needsWrite && !(opts && opts.readOnly)) await driveWriteDataFile(driveFileId, merged);
@@ -5791,7 +5807,11 @@ function writeDriveCache(pending) {
       base: driveBase,
       pending: !!pending || (pending === undefined && prev && prev.pending)
     }));
-  } catch (e) {}
+  } catch (e) {
+    // too big for this browser's storage: drop the old copy instead of keeping a stale one that could come back later
+    try { localStorage.removeItem(DRIVE_CACHE_KEY); localStorage.setItem(DRIVE_CACHE_KEY, JSON.stringify({ email: currentUserEmail || (prev && prev.email) || null, fileId: driveFileId || (prev && prev.fileId) || null, ideas: null, tooBig: true })); } catch (e2) {}
+    console.warn("Local copy too big to keep on this device:", e.message);
+  }
 }
 function clearDriveSessionData() {
   try { localStorage.removeItem(DRIVE_SESSION_KEY); localStorage.removeItem(DRIVE_CACHE_KEY); } catch (e) {}
@@ -7166,7 +7186,7 @@ function diffPlan(before, after) {
 let lastSaved = new Map();
 function refreshLastSaved() { lastSaved = new Map(IDEAS.map(i => [i.id, JSON.stringify(i)])); }
 function snapForUndo(idea) {
-  const strip = j => { const o = JSON.parse(j); delete o.bocetos; delete o.historial; return o; };
+  const strip = j => { const o = JSON.parse(j); delete o.bocetos; delete o.historial; delete o.chat; return o; };
   const ids = [idea.id].concat(isProject(idea) ? [...lastSaved.keys()].filter(id => { try { return JSON.parse(lastSaved.get(id)).proyectoId === idea.id; } catch (e) { return false; } }) : []);
   return ids.filter(id => lastSaved.has(id)).map(id => strip(lastSaved.get(id)));
 }
@@ -7190,7 +7210,7 @@ async function undoAiChange(ideaId, k) {
   e.antes.forEach(o => {
     const k2 = IDEAS.findIndex(i => i.id === o.id);
     const cur = k2 >= 0 ? IDEAS[k2] : null;
-    const restored = Object.assign({}, o, { bocetos: cur ? cur.bocetos : o.bocetos, historial: cur ? cur.historial : [] });
+    const restored = Object.assign({}, o, { bocetos: cur ? cur.bocetos : o.bocetos, historial: cur ? cur.historial : [], chat: cur ? cur.chat : o.chat });
     if (k2 >= 0) IDEAS[k2] = restored; else IDEAS.push(restored);
   });
   const now = IDEAS.find(i => i.id === ideaId);
@@ -11278,7 +11298,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-19 14:30 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-19 14:50 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
