@@ -5670,6 +5670,44 @@ async function storeCatchUpLegacy() {
 let driveBase = {};
 let driveSyncChain = Promise.resolve();
 function snapshotOf(list) { const m = {}; (list || []).forEach(i => { if (i && i.id != null) m[i.id] = JSON.stringify(i); }); return m; }
+// An item edited on this device AND on another one since the last sync: merge field by field instead of
+// letting one side wipe the other (e.g. a document made on the computer must survive an edit on the phone).
+function mergeItem3(baseJson, L, R) {
+  if (!R) return L;
+  let B = null; try { B = baseJson ? JSON.parse(baseJson) : null; } catch (e) {}
+  if (!B) return L;
+  const rJ = JSON.stringify(R); if (rJ === baseJson) return L; // only this device changed it
+  const out = {}, keys = new Set([...Object.keys(L), ...Object.keys(R), ...Object.keys(B)]);
+  keys.forEach(k => {
+    const lv = JSON.stringify(L[k]), rv = JSON.stringify(R[k]), bv = JSON.stringify(B[k]);
+    let v;
+    if (lv === bv) v = R[k];             // only the other device touched it
+    else if (rv === bv || rv === lv) v = L[k]; // only this device touched it
+    else v = mergeBoth(L[k], R[k], B[k]);      // both touched it
+    if (v !== undefined) out[k] = v;
+  });
+  return out;
+}
+function mergeBoth(l, r, b) {
+  // lists of things with an id (documents, references, images…): keep everyone's, newest version of each
+  if (Array.isArray(l) && Array.isArray(r) && [...l, ...r].every(x => x && typeof x === "object" && (x.id || x.ref || x.url))) {
+    const key = x => x.id || x.ref || x.url, bk = new Set((Array.isArray(b) ? b : []).map(key)), m = new Map();
+    const t = x => String(x.actualizado || x.fecha || x.t || "");
+    r.forEach(x => m.set(key(x), x));
+    l.forEach(x => { const o = m.get(key(x)); if (!o || t(x) >= t(o)) m.set(key(x), x); });
+    // removed on one side (was in base, missing there): drop it
+    [l, r].forEach(side => bk.forEach(k => { if (!side.some(x => key(x) === k)) m.delete(k); }));
+    return [...m.values()];
+  }
+  // chat-like lists: keep both sides' new messages
+  if (Array.isArray(l) && Array.isArray(r) && [...l, ...r].every(x => x && typeof x === "object" && "role" in x)) {
+    const seen = new Set(), outL = [];
+    [...l, ...r].sort((a, c) => (a.t || 0) - (c.t || 0)).forEach(x => { const k = (x.t || "") + "|" + x.role + "|" + String(x.text || "").slice(0, 80); if (!seen.has(k)) { seen.add(k); outL.push(x); } });
+    return outL;
+  }
+  if (l && r && typeof l === "object" && typeof r === "object" && !Array.isArray(l) && !Array.isArray(r)) return mergeItem3(JSON.stringify(b || {}), l, r);
+  return l; // a plain value both changed: this device's edit wins (as before)
+}
 function mergeWithRemote(local, remote, base) {
   const localMap = {}; local.forEach(i => { localMap[i.id] = i; });
   const changed = new Set(), deleted = new Set();
@@ -5679,7 +5717,7 @@ function mergeWithRemote(local, remote, base) {
   (remote || []).forEach(r => {
     const id = r.id; seen.add(String(id));
     if (deleted.has(String(id))) return;
-    out.push(changed.has(id) ? localMap[id] : r);
+    out.push(changed.has(id) ? mergeItem3(base[id], localMap[id], r) : r);
   });
   local.forEach(i => { if (!seen.has(String(i.id)) && (changed.has(i.id))) out.push(i); });
   return out;
@@ -11208,7 +11246,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-19 14:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-19 14:20 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
