@@ -4991,7 +4991,7 @@ SHIPPING CHANGES
     <div class="doc-foot">
       <span id="doc-status" class="note-date"></span>
       <a id="doc-open-gdoc" class="stuck-btn" style="margin:0;display:none" target="_blank" rel="noopener">Open in Google Docs ↗</a>
-      <button type="button" class="stuck-btn" id="doc-gdoc-btn" style="margin:0" onclick="docToGoogle(this)">Save as Google Doc</button>
+      <button type="button" class="stuck-btn" id="doc-gdoc-btn" style="margin:0" onclick="docToGoogle(this)">Save to my Drive</button>
       <button type="button" class="stuck-btn" id="doc-undo" style="margin:0;display:none" onclick="docUndoGather()">↶ Undo last gather</button>
       <button type="button" class="stuck-btn" style="margin:0;color:var(--rust)" onclick="docDelete()">Delete</button>
     </div>
@@ -9788,7 +9788,7 @@ function cbProjectText(p) {
     sec("References", it, "referencias", x => `${x.titulo || x.url || ""}${x.url ? " (" + x.url + ")" : ""}`);
   });
   const docs = [p].concat(isProject(p) ? projectChapters(p) : []).flatMap(it => docsOf(it).map(d => ({ it, d })));
-  if (docs.length) { L.push("## Documents"); docs.forEach(({ it, d }) => { const tx = String(d.html || "").replace(/<\/(h\d|p|li)>/g, "\n").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/\n{3,}/g, "\n\n").trim(); L.push(`### ${d.titulo}${it !== p ? " (" + it.titulo + ")" : ""}`, tx.slice(0, 6000), ""); }); }
+  if (docs.length) { L.push("## Documents (Google Docs in this project's documents folder — read them with Google Drive)"); docs.forEach(({ it, d }) => L.push(`- "${d.titulo}"${it !== p ? " (" + it.titulo + ")" : ""}${d.gdocId ? ` → Google Doc id ${d.gdocId}` : " (not in Drive yet)"}`)); L.push(""); }
   const talk = (p.chat || []).filter(m => m.role === "user").slice(-15).map(m => "- " + String(m.text).replace(/\s+/g, " ").slice(0, 300));
   if (talk.length) L.push("## Recent things the person told the in-app mentor", ...talk, "");
   return L.join("\n");
@@ -10080,10 +10080,13 @@ async function docFromStep(btn) {
     const target = plan && plan.doc ? existing.find(e => e.d.id === plan.doc) : (docsOfStep(item, ref.step.texto)[0] ? existing.find(e => e.d === docsOfStep(item, ref.step.texto)[0]) : null);
     // 2) gather everything into it
     docProgress(`2/2 · Putting your notes in order${pick.length > 1 ? ` (${pick.length} steps)` : ""}…`, "");
-    const d = await docGenerate(item, (target && target.d.titulo) || (plan && plan.titulo) || ref.step.texto, pick, target && target.d);
+    const curText = target ? await docText(target.d) : "";
+    const d = await docGenerate(item, (target && target.d.titulo) || (plan && plan.titulo) || ref.step.texto, pick, target ? { html: curText } : null);
     if (target) {
       const t = target.d;
-      t.prevHtml = t.html; t.html = d.html; t.actualizado = d.actualizado;
+      try { await idbPut("docprev_" + (t.gdocId || t.id), new Blob([curText], { type: "text/html" })); t.hasPrev = 1; } catch (e) {}
+      if (t.gdocId && driveReady) await docDriveWrite(t, d.html); else { t.html = d.html; await docCachePut(t, d.html); }
+      t.actualizado = d.actualizado;
       t.pasos = docSteps(t).concat(pick.map(st => st.texto)).filter((v, i, a) => a.findIndex(w => sameStep(w, v)) === i);
       logChanges(target.x, "You", [`Gathered more notes into "${t.titulo}"`]);
       saveIdeas(); renderStepDocs(); render(); openDoc(target.x.id, t.id);
@@ -10091,19 +10094,22 @@ async function docFromStep(btn) {
       docStatus("Updated with your notes from: " + pick.map(st => st.texto).join(", ") + ". (↶ Undo in the bar below)");
     } else {
       d.pasos = pick.map(st => st.texto);
+      const body0 = d.html;
+      if (driveReady) await docDriveCreate(item, d, body0); else await docCachePut(d, body0);
       item.documentos = docsOf(item).concat([d]);
       logChanges(item, "You", [`Gathered your notes into "${d.titulo}"`]);
       saveIdeas(); renderStepDocs(); render(); openDoc(item.id, d.id);
-      showToast(`Your document "${d.titulo}" is ready. It's also under "📄 Document" at the top of the chapter.`, "Open it", () => openDoc(item.id, d.id));
+      showToast(driveReady ? `"${d.titulo}" is ready, as a Google Doc in your Drive (${pendRoot(item).titulo} / documents).` : `"${d.titulo}" is ready. Connect Drive to keep it there.`, "Open it", () => openDoc(item.id, d.id));
       if (pick.length > 1) docStatus("This document covers " + pick.length + " steps: " + pick.map(st => st.texto).join(", ") + ".");
     }
   } catch (e) { showAlert(/Cancel/.test(e.message) ? "Stopped. Nothing was changed." : e.message, { title: "Couldn't organize it" }); }
   finally { docProgressEnd(); btn.disabled = false; renderStepDocs(); }
 }
-function docUndoGather() {
-  const f = docCtx && docFind(docCtx.itemId, docCtx.docId); if (!f || !f.d.prevHtml) return;
-  f.d.html = f.d.prevHtml; delete f.d.prevHtml; f.d.actualizado = new Date().toISOString(); saveIdeas();
-  document.getElementById("doc-body").innerHTML = f.d.html; docStatus("Back to how it was.");
+async function docUndoGather() {
+  const f = docCtx && docFind(docCtx.itemId, docCtx.docId); if (!f || !f.d.hasPrev) return;
+  const b = await idbGet("docprev_" + (f.d.gdocId || f.d.id)); if (!b) { delete f.d.hasPrev; docStatus("The previous version isn't on this device."); return; }
+  const h = await b.text();
+  document.getElementById("doc-body").innerHTML = h; delete f.d.hasPrev; docDirty = true; await docSave(); docStatus("Back to how it was.");
 }
 const DOC_RULES = `You are an organizer, not a writer. The person writes everything themselves; your job is to put THEIR OWN material in order inside a document.
 You get everything the project already has: descriptions, decisions, notes, things to figure out, what they wrote for this step, and what they said in conversations.
@@ -10142,71 +10148,129 @@ function docMdToHtml(md) {
   close(); return out.join("");
 }
 function docFind(itemId, docId) { const it = IDEAS.find(i => i.id === itemId); const d = it && docsOf(it).find(x => x.id === docId); return d ? { it, d } : null; }
-function openDoc(itemId, docId) {
+/* The document LIVES in Google Drive (a Google Doc in <Project>/documents/). Ideary only keeps its name, its id and
+   which steps it covers; the text is read from Drive when you open it and written back when you edit it here.
+   Edits made in Google Docs show up in Ideary, and the other way around. A copy is cached on the device for offline. */
+const docCacheKey = d => "doctext_" + (d.gdocId || d.id);
+async function docCacheGet(d) { try { const b = await idbGet(docCacheKey(d)); return b ? await b.text() : null; } catch (e) { return null; } }
+async function docCachePut(d, html) { try { await idbPut(docCacheKey(d), new Blob([html], { type: "text/html" })); } catch (e) {} }
+// Google's exported HTML is full of inline styles: keep only headings, paragraphs, lists, bold and italics.
+function docCleanHtml(raw) {
+  const t = document.createElement("template"); t.innerHTML = String(raw || "").replace(/^[\s\S]*<body[^>]*>|<\/body>[\s\S]*$/gi, "");
+  const out = [], walk = (node, inList) => {
+    node.childNodes.forEach(n => {
+      if (n.nodeType === 3) { out.push(escapeHtml(n.textContent)); return; }
+      if (n.nodeType !== 1) return;
+      const tag = n.tagName.toLowerCase(), st = (n.getAttribute("style") || "");
+      if (/^(style|script|title|meta)$/.test(tag)) return;
+      const bold = /font-weight:\s*(700|bold)/.test(st), ital = /font-style:\s*italic/.test(st);
+      const wrap = { h1: "h2", h2: "h2", h3: "h3", h4: "h3", h5: "h3", h6: "h3", p: "p", ul: "ul", ol: "ol", li: "li", b: "b", strong: "b", i: "i", em: "i", br: "br" }[tag];
+      if (wrap === "br") { out.push("<br>"); return; }
+      if (wrap) out.push(`<${wrap}>`); if (bold && !wrap) out.push("<b>"); if (ital && !wrap) out.push("<i>");
+      walk(n, inList || wrap === "ul" || wrap === "ol");
+      if (ital && !wrap) out.push("</i>"); if (bold && !wrap) out.push("</b>"); if (wrap) out.push(`</${wrap}>`);
+    });
+  };
+  walk(t.content, false);
+  return out.join("").replace(/<p>\s*<\/p>/g, "").replace(/<(b|i)><\/\1>/g, "");
+}
+function docFullHtml(d, body) { return `<html><head><meta charset="utf-8"><title>${escapeHtml(d.titulo)}</title></head><body>${body}</body></html>`; }
+async function docDriveCreate(it, d, body) {
+  if (!driveReady || !accessToken) throw new Error("Connect Google Drive (Settings → Sync): documents live in your Drive.");
+  let folder = null; if (storeV2) { try { folder = await storeSubfolder(storeRootOf(it), "documents"); } catch (e) {} }
+  if (!folder) folder = await storeRootFolder();
+  const b = "ideary-doc", meta = { name: d.titulo, mimeType: "application/vnd.google-apps.document", parents: [folder], appProperties: { idearyDoc: d.id, idearyItem: String(it.id) } };
+  const r = await storeApi("/upload/drive/v3/files?uploadType=multipart&fields=id,modifiedTime", { method: "POST", headers: { "Content-Type": `multipart/related; boundary=${b}` },
+    body: `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${b}\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n${docFullHtml(d, body)}\r\n--${b}--` });
+  if (!r.ok) throw new Error("Couldn't create the Google Doc (Drive answered " + r.status + ").");
+  const j = await r.json(); d.gdocId = j.id; d.gModified = j.modifiedTime; delete d.html;
+  await docCachePut(d, body);
+}
+async function docDriveRead(d) {
+  const m = await storeApi(`/drive/v3/files/${d.gdocId}?fields=name,modifiedTime,trashed`);
+  if (m.status === 404) throw new Error("This Google Doc isn't in your Drive anymore (it may have been deleted).");
+  if (!m.ok) throw new Error("Drive answered " + m.status);
+  const meta = await m.json();
+  const r = await storeApi(`/drive/v3/files/${d.gdocId}/export?mimeType=text%2Fhtml`); if (!r.ok) throw new Error("Couldn't read the Google Doc (" + r.status + ").");
+  const html = docCleanHtml(await r.text());
+  return { html, name: meta.name, modifiedTime: meta.modifiedTime, trashed: meta.trashed };
+}
+async function docDriveWrite(d, body) {
+  const r = await storeApi(`/upload/drive/v3/files/${d.gdocId}?uploadType=media&fields=modifiedTime`, { method: "PATCH", headers: { "Content-Type": "text/html; charset=UTF-8" }, body: docFullHtml(d, body) });
+  if (!r.ok) throw new Error("Couldn't save to the Google Doc (" + r.status + ").");
+  d.gModified = (await r.json()).modifiedTime;
+  await storeApi(`/drive/v3/files/${d.gdocId}?fields=modifiedTime`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: d.titulo }) }).then(x => x.ok && x.json()).then(x => { if (x && x.modifiedTime) d.gModified = x.modifiedTime; }).catch(() => {});
+  await docCachePut(d, body);
+}
+// current text of a document: from Drive when possible, else the cached copy
+async function docText(d) {
+  if (d.gdocId && driveReady) { try { const g = await docDriveRead(d); d.gModified = g.modifiedTime; if (g.name && g.name !== d.titulo) d.titulo = g.name; await docCachePut(d, g.html); return g.html; } catch (e) { console.warn(e.message); } }
+  return (await docCacheGet(d)) || d.html || "";
+}
+let docLoadedMod = null, docDirty = false;
+async function openDoc(itemId, docId) {
   const f = docFind(itemId, docId); if (!f) return;
-  docCtx = { itemId, docId };
+  docCtx = { itemId, docId }; docDirty = false;
+  const body = document.getElementById("doc-body");
   document.getElementById("doc-title").value = f.d.titulo;
-  document.getElementById("doc-body").innerHTML = f.d.html || "";
+  body.innerHTML = (await docCacheGet(f.d)) || f.d.html || `<p class="note-date">Loading from your Drive…</p>`;
   const ps = docSteps(f.d);
   document.getElementById("doc-where").textContent = `${pendRoot(f.it).titulo}${f.it !== pendRoot(f.it) ? " › " + f.it.titulo : ""}${ps.length ? (ps.length > 1 ? " · steps: " : " · step: ") + ps.join(", ") : ""}`;
-  docStatus();
   document.getElementById("doc-overlay").classList.add("open");
+  docStatus(f.d.gdocId ? "Opening the latest version from your Drive…" : "");
+  try {
+    if (!f.d.gdocId) { // made before documents moved to Drive: move it now
+      if (driveReady) { await docDriveCreate(f.it, f.d, f.d.html || body.innerHTML); saveIdeas(); }
+    } else if (driveReady) {
+      const g = await docDriveRead(f.d);
+      if (!docDirty && docCtx && docCtx.docId === docId) { body.innerHTML = g.html; if (g.name) { f.d.titulo = g.name; document.getElementById("doc-title").value = g.name; } }
+      f.d.gModified = g.modifiedTime; await docCachePut(f.d, g.html);
+    }
+    docLoadedMod = f.d.gModified || null;
+  } catch (e) { docStatus("⚠ " + e.message + " Showing the copy saved on this device."); return; }
+  docStatus();
 }
 function docStatus(msg) {
   const f = docCtx && docFind(docCtx.itemId, docCtx.docId), el = document.getElementById("doc-status"); if (!el || !f) return;
-  const u = document.getElementById("doc-undo"); if (u) u.style.display = f.d.prevHtml ? "" : "none";
-  const g = document.getElementById("doc-gdoc-btn");
-  if (g) g.textContent = f.d.gdocId ? "↻ Update the Google Doc" : "Save as Google Doc";
+  const u = document.getElementById("doc-undo"); if (u) u.style.display = f.d.hasPrev ? "" : "none";
+  const g = document.getElementById("doc-gdoc-btn"); if (g) g.style.display = f.d.gdocId ? "none" : "";
+  if (g) g.textContent = "Save to my Drive";
   const o = document.getElementById("doc-open-gdoc"); if (o) { o.style.display = f.d.gdocId ? "" : "none"; o.href = f.d.gdocId ? `https://docs.google.com/document/d/${f.d.gdocId}/edit` : "#"; }
-  el.textContent = msg || (f.d.gdocId && f.d.gdocAt && f.d.actualizado > f.d.gdocAt ? "Edited since the Google Doc was updated." : `Saved · ${fmtShortDate(f.d.actualizado)}`);
+  el.textContent = msg || (f.d.gdocId ? `In your Drive (${pendRoot(f.it).titulo} / documents) · synced` : "Only on this device — connect Drive to keep it there");
 }
 let docSaveT = null;
-function docChanged() { clearTimeout(docSaveT); docSaveT = setTimeout(docSave, 800); const el = document.getElementById("doc-status"); if (el) el.textContent = "Saving…"; }
+function docChanged() { docDirty = true; clearTimeout(docSaveT); docSaveT = setTimeout(docSave, 1500); const el = document.getElementById("doc-status"); if (el) el.textContent = "Saving…"; }
+let docSaving = Promise.resolve();
 function docSave() {
-  const f = docCtx && docFind(docCtx.itemId, docCtx.docId); if (!f) return;
+  clearTimeout(docSaveT);
+  const f = docCtx && docFind(docCtx.itemId, docCtx.docId); if (!f || !docDirty) return docSaving;
   const t = document.getElementById("doc-title").value.trim() || "Untitled", h = document.getElementById("doc-body").innerHTML;
-  if (t === f.d.titulo && h === f.d.html) { docStatus(); return; }
-  f.d.titulo = t; f.d.html = h; f.d.actualizado = new Date().toISOString();
-  saveIdeas(); docStatus();
+  docDirty = false; f.d.titulo = t; f.d.actualizado = new Date().toISOString();
+  docSaving = docSaving.then(async () => {
+    try {
+      if (!f.d.gdocId) { if (driveReady) await docDriveCreate(f.it, f.d, h); else { f.d.html = h; } }
+      else {
+        // edited in Google Docs while open here? don't overwrite silently
+        const m = await storeApi(`/drive/v3/files/${f.d.gdocId}?fields=modifiedTime`).then(r => r.ok ? r.json() : null).catch(() => null);
+        if (m && docLoadedMod && m.modifiedTime > docLoadedMod && !(await showConfirm("This document was changed in Google Docs while you had it open here. Save your version over it?", { title: "Changed in Google Docs", confirmLabel: "Save mine" }))) { docStatus("Not saved. Close and reopen to see the Google Docs version."); return; }
+        await docDriveWrite(f.d, h);
+      }
+      docLoadedMod = f.d.gModified || docLoadedMod;
+      saveIdeas(); if (docCtx && docCtx.docId === f.d.id) docStatus();
+    } catch (e) { f.d.html = h; saveIdeas(); docStatus("⚠ " + e.message + " Kept on this device; it will retry."); docDirty = true; }
+  });
+  return docSaving;
 }
-function closeDoc() { docSave(); document.getElementById("doc-overlay").classList.remove("open"); docCtx = null; render(); renderStepDocs(); }
+async function closeDoc() { await docSave(); document.getElementById("doc-overlay").classList.remove("open"); docCtx = null; render(); renderStepDocs(); }
 function docCmd(c, v) { document.getElementById("doc-body").focus(); document.execCommand(c, false, v || null); docChanged(); }
 async function docDelete() {
   const f = docCtx && docFind(docCtx.itemId, docCtx.docId); if (!f) return;
-  if (!(await showConfirm(`Delete "${f.d.titulo}"? ${f.d.gdocId ? "The Google Doc in your Drive stays (delete it there if you want)." : ""}`, { title: "Delete document?", confirmLabel: "Delete" }))) return;
+  if (!(await showConfirm(`Delete "${f.d.titulo}"? ${f.d.gdocId ? "It goes to your Drive's trash (you can restore it from there)." : ""}`, { title: "Delete document?", confirmLabel: "Delete" }))) return;
+  if (f.d.gdocId && driveReady) { try { await storeApi(`/drive/v3/files/${f.d.gdocId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }); } catch (e) {} }
   f.it.documentos = docsOf(f.it).filter(x => x.id !== f.d.id); saveIdeas();
   document.getElementById("doc-overlay").classList.remove("open"); docCtx = null; render(); renderStepDocs();
 }
-// Save / update a Google Doc in the project's documents/ folder (Drive converts the HTML).
-async function docToGoogle(btn) {
-  docSave();
-  const f = docCtx && docFind(docCtx.itemId, docCtx.docId); if (!f) return;
-  if (!driveReady || !accessToken) { showAlert("Connect Google Drive first (Settings → Sync).", { title: "Needs Google Drive" }); return; }
-  lockBtn(btn); btn.disabled = true; const was = btn.textContent; btn.textContent = "Saving to Drive…";
-  try {
-    const html = `<html><head><meta charset="utf-8"><title>${escapeHtml(f.d.titulo)}</title></head><body><h1>${escapeHtml(f.d.titulo)}</h1>${f.d.html}</body></html>`;
-    if (f.d.gdocId) {
-      const r = await storeApi(`/upload/drive/v3/files/${f.d.gdocId}?uploadType=media`, { method: "PATCH", headers: { "Content-Type": "text/html; charset=UTF-8" }, body: html });
-      if (r.status === 404) f.d.gdocId = null; else if (!r.ok) throw new Error("Drive answered " + r.status);
-    }
-    if (!f.d.gdocId) {
-      const root = storeRootOf(f.it);
-      let folder = null; if (storeV2) { try { folder = await storeSubfolder(root, "documents"); } catch (e) {} }
-      if (!folder) folder = await storeRootFolder();
-      const meta = { name: f.d.titulo, mimeType: "application/vnd.google-apps.document", parents: [folder] };
-      const b = "ideary-doc";
-      const r = await storeApi("/upload/drive/v3/files?uploadType=multipart&fields=id", { method: "POST", headers: { "Content-Type": `multipart/related; boundary=${b}` },
-        body: `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${b}\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n${html}\r\n--${b}--` });
-      if (!r.ok) throw new Error("Drive answered " + r.status);
-      f.d.gdocId = (await r.json()).id;
-    } else {
-      await storeApi(`/drive/v3/files/${f.d.gdocId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: f.d.titulo }) });
-    }
-    f.d.gdocAt = new Date().toISOString(); saveIdeas();
-    docStatus("Saved in your Drive, in the project's documents folder.");
-  } catch (e) { showAlert("Couldn't save the Google Doc: " + e.message, { title: "Drive" }); }
-  finally { btn.disabled = false; btn.textContent = was; docStatus(); }
-}
+async function docToGoogle(btn) { docDirty = true; lockBtn(btn); btn.disabled = true; btn.textContent = "Saving to Drive…"; try { await docSave(); } finally { btn.disabled = false; docStatus(); } }
 
 // "How would the plan look?": apply the open changes on a throwaway copy, read the outline, put everything back.
 function planOutline(root) {
@@ -11298,7 +11362,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-19 14:50 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-19 15:20 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
