@@ -9943,7 +9943,7 @@ async function docFromStep(btn) {
   if (!geminiKey) { showAlert("Add a free Gemini key in Settings → AI first.", { title: "AI needs a key" }); return; }
   saveStepWork();
   lockBtn(btn); btn.disabled = true; btn.textContent = "Gathering your notes…";
-  docProgress("1/2 · Deciding which document this goes in…");
+  docProgress("1/2 · Deciding which document this goes in…  (it takes its time to get it complete)");
   try {
     const item = ref.idea, root = pendRoot(item);
     const steps = (item.fases || []).flatMap(f => (f.pasos || []).map(st => typeof st === "string" ? { texto: st } : st));
@@ -9952,7 +9952,7 @@ async function docFromStep(btn) {
     let plan = null;
     try {
       const raw = await geminiGenerate([{ role: "user", text: `STEPS IN THIS CHAPTER:\n${steps.map((st, i) => `${i}. ${st.texto}${st.trabajo ? " (has notes)" : ""}`).join("\n")}\n\nEXISTING DOCUMENTS:\n${existing.map(({ d }) => `${d.id}: "${d.titulo}" (steps: ${docSteps(d).join(" | ") || "none"})`).join("\n") || "(none)"}\n\nTHE PERSON IS ON STEP: ${ref.step.texto}` }],
-        `You decide how a creative project's working documents are split, like a professional would. Usually ONE document covers several steps (e.g. a series bible covers world rules, characters and tone; a script covers outline, scenes and dialogue). Decide: does this step belong in an existing document, or a new one? And which other steps of this chapter belong in that same document? Output ONLY JSON: {"doc": "<existing document id>" or null, "titulo": "document title (in the language of the steps)", "pasos": [indexes of ALL steps of this chapter that belong in that document, including the current one]}`, false, undefined, "minimal");
+        `You decide how a creative project's working documents are split, like a professional would. Usually ONE document covers several steps (e.g. a series bible covers world rules, characters and tone; a script covers outline, scenes and dialogue). Decide: does this step belong in an existing document, or a new one? And which other steps of this chapter belong in that same document? Output ONLY JSON: {"doc": "<existing document id>" or null, "titulo": "document title (in the language of the steps)", "pasos": [indexes of ALL steps of this chapter that belong in that document, including the current one]}`, false, undefined, "low");
       plan = parseJsonLenient(stripJsonFences(raw));
     } catch (e) { console.warn("doc split:", e.message); }
     const pick = (plan && Array.isArray(plan.pasos) ? plan.pasos : []).map(n => steps[+n]).filter(Boolean);
@@ -9996,7 +9996,7 @@ async function docGenerate(item, docTitle, steps, existingDoc) {
   const ctx = typeof cbProjectText === "function" ? cbProjectText(root) : chatContextText(item);
   const work = (steps || []).filter(st => st.trabajo).map(st => `\n\nWHAT I WROTE FOR THE STEP "${st.texto}":\n${st.trabajo}`).join("");
   const cur = existingDoc ? `\n\nTHE DOCUMENT AS IT IS NOW (I may have edited it by hand: keep ALL of it, word for word, and only add my new material where it belongs):\n${docHtmlToText(existingDoc.html)}` : "";
-  const raw = await geminiGenerate([{ role: "user", text: `${String(ctx).slice(0, 22000)}${work}${cur}\n\nORGANIZE MY MATERIAL INTO THIS DOCUMENT: ${docTitle}\nIt covers these steps: ${(steps || []).map(st => st.texto).join(" | ")}${isChapter(item) ? ` (chapter "${item.titulo}")` : ""}` }], DOC_RULES, false, undefined, "low", txt => docProgress(null, txt)); // streamed: you see it being organized, and long ones don't time out
+  const raw = await geminiGenerate([{ role: "user", text: `${String(ctx).slice(0, 22000)}${work}${cur}\n\nORGANIZE MY MATERIAL INTO THIS DOCUMENT: ${docTitle}\nIt covers these steps: ${(steps || []).map(st => st.texto).join(" | ")}${isChapter(item) ? ` (chapter "${item.titulo}")` : ""}` }], DOC_RULES, false, undefined, "high", txt => docProgress(null, txt)); // complete over fast: deep thinking, streamed so long ones don't time out
   let md = stripJsonFences(String(raw || "")).replace(/^```(?:markdown|md)?\s*|```\s*$/g, "").trim();
   if (md.length < 30) throw new Error("Not enough came back to build the document. Try again in a moment.");
   const m = /^#\s+(.+)$/m.exec(md), titulo = (m ? m[1] : docTitle).trim().slice(0, 120);
@@ -11176,7 +11176,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-19 13:55 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-19 14:00 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
