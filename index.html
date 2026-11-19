@@ -4437,6 +4437,14 @@ SHIPPING CHANGES
 .doc-t { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .doc-meta { font-size: .75rem; color: var(--slate); white-space: nowrap; }
 .step-docs { margin: 8px 0 4px; }
+.doc-audit:empty { display: none; }
+.doc-audit-box { border: 1px solid var(--line-strong); border-radius: 10px; padding: 8px 12px; margin: 8px 0 4px; max-height: 40vh; overflow-y: auto; background: rgba(255,255,255,.35); }
+.doc-audit-box summary { cursor: pointer; font-weight: 600; }
+.doc-audit-sum { margin: 6px 0; font-size: .9rem; }
+.doc-audit-h { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--slate); margin: 10px 0 4px; }
+.doc-audit-l { list-style: none; margin: 0; padding: 0; font-size: .88rem; }
+.doc-audit-l li { padding: 4px 0; border-top: 1px dashed var(--line-strong); }
+.doc-audit-l li.st-done { opacity: .6; }
 .data-check { white-space: pre-wrap; font-size: .72rem; line-height: 1.4; max-height: 50vh; overflow: auto; margin: 8px 0 0; background: rgba(0,0,0,.04); border-radius: 8px; padding: 0 8px; }
 .data-check:not(:empty) { padding: 8px; }
 .app-toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translate(-50%, 20px); opacity: 0; transition: .25s; z-index: 600; display: flex; align-items: center; gap: 10px; max-width: min(560px, calc(100vw - 32px)); background: var(--ink, #2b2620); color: var(--paper, #fbf6e8); border-radius: 12px; padding: 10px 12px 10px 16px; box-shadow: 0 10px 30px rgba(0,0,0,.25); font-size: .9rem; }
@@ -4987,11 +4995,13 @@ SHIPPING CHANGES
       <button type="button" onmousedown="event.preventDefault()" onclick="docCmd('insertUnorderedList')" title="List">• List</button>
       <button type="button" onmousedown="event.preventDefault()" onclick="docCmd('formatBlock','p')" title="Normal text">¶</button>
     </div>
+    <div id="doc-audit" class="doc-audit"></div>
     <div id="doc-body" class="doc-body" contenteditable="true" oninput="docChanged()"></div>
     <div class="doc-foot">
       <span id="doc-status" class="note-date"></span>
       <a id="doc-open-gdoc" class="stuck-btn" style="margin:0;display:none" target="_blank" rel="noopener">Open in Google Docs ↗</a>
       <button type="button" class="stuck-btn" id="doc-gdoc-btn" style="margin:0" onclick="docToGoogle(this)">Save to my Drive</button>
+      <button type="button" class="stuck-btn" style="margin:0" onclick="docAudit(this)">🧭 What's missing?</button>
       <button type="button" class="stuck-btn" id="doc-undo" style="margin:0;display:none" onclick="docUndoGather()">↶ Undo last gather</button>
       <button type="button" class="stuck-btn" style="margin:0;color:var(--rust)" onclick="docDelete()">Delete</button>
     </div>
@@ -9788,7 +9798,7 @@ function cbProjectText(p) {
     sec("References", it, "referencias", x => `${x.titulo || x.url || ""}${x.url ? " (" + x.url + ")" : ""}`);
   });
   const docs = [p].concat(isProject(p) ? projectChapters(p) : []).flatMap(it => docsOf(it).map(d => ({ it, d })));
-  if (docs.length) { L.push("## Documents (Google Docs in this project's documents folder — read them with Google Drive)"); docs.forEach(({ it, d }) => L.push(`- "${d.titulo}"${it !== p ? " (" + it.titulo + ")" : ""}${d.gdocId ? ` → Google Doc id ${d.gdocId}` : " (not in Drive yet)"}`)); L.push(""); }
+  if (docs.length) { L.push("## Documents (Google Docs in this project's documents folder — read them with Google Drive)"); docs.forEach(({ it, d }) => { L.push(`- "${d.titulo}"${it !== p ? " (" + it.titulo + ")" : ""}${d.gdocId ? ` → Google Doc id ${d.gdocId}` : " (not in Drive yet)"}`); if (d.audit) { const pend = (d.audit.pasos || []).filter(x => x.estado !== "done"); if (pend.length) L.push(`  Still missing in it: ${pend.map(x => x.paso + (x.falta ? " (" + x.falta + ")" : "")).join("; ")}`); (d.audit.secciones || []).forEach(x => L.push(`  A complete version also needs: ${x.seccion}`)); } }); L.push(""); }
   const talk = (p.chat || []).filter(m => m.role === "user").slice(-15).map(m => "- " + String(m.text).replace(/\s+/g, " ").slice(0, 300));
   if (talk.length) L.push("## Recent things the person told the in-app mentor", ...talk, "");
   return L.join("\n");
@@ -10000,7 +10010,8 @@ function docsBlockHtml(it) {
 function stepDocsHtml() {
   const ref = getStepRef(); if (!ref) return "";
   const mine = docsOfStep(ref.idea, ref.step.texto);
-  return `<div class="step-docs">${mine.map(d => `<button type="button" class="doc-row" onclick="openDoc('${escapeAttr(ref.idea.id)}','${escapeAttr(d.id)}')"><span class="doc-ico">📄</span><span class="doc-t">${escapeHtml(d.titulo)}</span><span class="doc-meta">open</span></button>`).join("")}
+  const stepState = d => { const x = d.audit && (d.audit.pasos || []).find(p => sameStep(p.paso, ref.step.texto)); return x ? (x.estado === "done" ? "✓ covered" : x.estado === "partial" ? "◐ missing: " + x.falta : "○ still to write") : "open"; };
+  return `<div class="step-docs">${mine.map(d => `<button type="button" class="doc-row" onclick="openDoc('${escapeAttr(ref.idea.id)}','${escapeAttr(d.id)}')"><span class="doc-ico">📄</span><span class="doc-t">${escapeHtml(d.titulo)}</span><span class="doc-meta" style="white-space:normal;text-align:right;max-width:55%">${escapeHtml(stepState(d))}</span></button>`).join("")}
     <button type="button" class="stuck-btn" style="margin:6px 0 0" onclick="docFromStep(this)">🗂 ${mine.length ? "Gather my notes into another document" : "Gather my notes into a document"}</button></div>`;
 }
 function renderStepDocs() { const el = document.getElementById("step-docs"); if (el) el.innerHTML = stepDocsHtml(); }
@@ -10217,6 +10228,7 @@ async function openDoc(itemId, docId) {
   const ps = docSteps(f.d);
   document.getElementById("doc-where").textContent = `${pendRoot(f.it).titulo}${f.it !== pendRoot(f.it) ? " › " + f.it.titulo : ""}${ps.length ? (ps.length > 1 ? " · steps: " : " · step: ") + ps.join(", ") : ""}`;
   document.getElementById("doc-overlay").classList.add("open");
+  renderDocAudit();
   docStatus(f.d.gdocId ? "Opening the latest version from your Drive…" : "");
   try {
     if (!f.d.gdocId) { // made before documents moved to Drive: move it now
@@ -10271,6 +10283,47 @@ async function docDelete() {
   document.getElementById("doc-overlay").classList.remove("open"); docCtx = null; render(); renderStepDocs();
 }
 async function docToGoogle(btn) { docDirty = true; lockBtn(btn); btn.disabled = true; btn.textContent = "Saving to Drive…"; try { await docSave(); } finally { btn.disabled = false; docStatus(); } }
+
+
+/* ---- Document check: the mentor reads the document and says what's missing ---- */
+const AUDIT_RULES = `You are a senior professional mentor in this project's field, reviewing a working document the person wrote (for example a series bible, a script, a beat sheet). You get the document, the steps of the chapter, and the project's context.
+1. For EVERY step of the chapter, decide if it belongs in this document. For those that do: is it covered? "done" (fully there), "partial" (started, something important missing) or "missing" (nothing yet). Say concretely what's missing, in one short line.
+2. Compare the document with what a professional version of this kind of document always has; list the important sections or pieces that are absent or too thin.
+3. Point out contradictions inside the document or with the project's decisions, if any.
+Be specific to THEIR project, beginner-friendly, and short. Never write the content for them: say what is missing, not the text.
+Write in the language of the document. Output ONLY JSON: {"resumen":"one or two sentences: how complete it is","pasos":[{"paso":"exact step text","estado":"done|partial|missing","falta":"what is missing (empty if done)"}],"secciones":[{"seccion":"name","falta":"what to add"}],"contradicciones":["…"]}`;
+async function docAudit(btn) {
+  const f = docCtx && docFind(docCtx.itemId, docCtx.docId); if (!f) return;
+  if (!geminiKey) { showAlert("Add a free Gemini key in Settings → AI first.", { title: "AI needs a key" }); return; }
+  await docSave();
+  lockBtn(btn); btn.disabled = true; const was = btn.textContent; btn.textContent = "Reading it…";
+  const box = document.getElementById("doc-audit"); box.innerHTML = `<div class="note-date">The mentor is reading your document… (it takes its time to be thorough)</div>`;
+  try {
+    const text = docHtmlToText(document.getElementById("doc-body").innerHTML);
+    const steps = (f.it.fases || []).flatMap(fa => (fa.pasos || []).map(st => typeof st === "string" ? st : st.texto));
+    const ctx = typeof cbProjectText === "function" ? cbProjectText(pendRoot(f.it)) : "";
+    const raw = await geminiGenerate([{ role: "user", text: `PROJECT CONTEXT:\n${String(ctx).slice(0, 12000)}\n\nCHAPTER: ${f.it.titulo}\nSTEPS OF THIS CHAPTER:\n${steps.map(t => "- " + t).join("\n")}\nSTEPS THIS DOCUMENT WAS MADE FOR: ${docSteps(f.d).join(" | ")}\n\nTHE DOCUMENT "${f.d.titulo}":\n${text.slice(0, 30000)}` }], AUDIT_RULES, false, undefined, "high", () => {});
+    let a = null; try { a = parseJsonLenient(stripJsonFences(raw)); } catch (e) {}
+    if (!a || !(a.pasos || a.secciones)) throw new Error("The check didn't come back right. Try again.");
+    f.d.audit = { at: new Date().toISOString(), resumen: String(a.resumen || "").slice(0, 400), pasos: (a.pasos || []).filter(x => x && x.paso).slice(0, 30).map(x => ({ paso: String(x.paso).slice(0, 200), estado: x.estado, falta: String(x.falta || "").slice(0, 300) })), secciones: (a.secciones || []).slice(0, 15).map(x => ({ seccion: String(x.seccion || "").slice(0, 120), falta: String(x.falta || "").slice(0, 300) })), contradicciones: (a.contradicciones || []).slice(0, 8).map(x => String(x).slice(0, 300)) };
+    // steps that belong here but aren't covered: link them to the document so they show as pending in it
+    f.d.audit.pasos.forEach(x => { if (x.estado !== "done" && !docSteps(f.d).some(t => sameStep(t, x.paso)) && steps.some(t => sameStep(t, x.paso))) f.d.pasos = docSteps(f.d).concat([steps.find(t => sameStep(t, x.paso))]); });
+    saveIdeas(); renderDocAudit(); renderStepDocs();
+  } catch (e) { box.innerHTML = `<div class="note-date">⚠ ${escapeHtml(e.message)}</div>`; }
+  finally { btn.disabled = false; btn.textContent = was; }
+}
+function renderDocAudit() {
+  const f = docCtx && docFind(docCtx.itemId, docCtx.docId), box = document.getElementById("doc-audit"); if (!f || !box) return;
+  const a = f.d.audit; if (!a) { box.innerHTML = ""; return; }
+  const ico = { done: "✓", partial: "◐", missing: "○" };
+  const pend = (a.pasos || []).filter(x => x.estado !== "done");
+  box.innerHTML = `<details class="doc-audit-box"${pend.length || (a.secciones || []).length ? " open" : ""}><summary>🧭 What's missing <span class="note-date">· checked ${escapeHtml(fmtShortDate(a.at))}${pend.length ? ` · ${pend.length} pending` : ""}</span></summary>
+    ${a.resumen ? `<p class="doc-audit-sum">${escapeHtml(a.resumen)}</p>` : ""}
+    ${(a.pasos || []).length ? `<div class="doc-audit-h">Steps in this document</div><ul class="doc-audit-l">${a.pasos.map(x => `<li class="st-${escapeAttr(x.estado || "")}"><b>${ico[x.estado] || "•"}</b> ${escapeHtml(x.paso)}${x.falta ? `<div class="pc-why">${escapeHtml(x.falta)}</div>` : ""}</li>`).join("")}</ul>` : ""}
+    ${(a.secciones || []).length ? `<div class="doc-audit-h">A complete version also has</div><ul class="doc-audit-l">${a.secciones.map(x => `<li><b>+</b> ${escapeHtml(x.seccion)}${x.falta ? `<div class="pc-why">${escapeHtml(x.falta)}</div>` : ""}</li>`).join("")}</ul>` : ""}
+    ${(a.contradicciones || []).length ? `<div class="doc-audit-h">⚠ Doesn't add up</div><ul class="doc-audit-l">${a.contradicciones.map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>` : ""}
+  </details>`;
+}
 
 // "How would the plan look?": apply the open changes on a throwaway copy, read the outline, put everything back.
 function planOutline(root) {
@@ -11362,7 +11415,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-19 15:20 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-19 15:40 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
