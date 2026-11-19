@@ -5782,6 +5782,7 @@ function driveSyncNow(opts) {
     writeDriveCache(false);
     if (typeof driveImageGC === "function") setTimeout(() => driveImageGC(), 5000);
     if (typeof cbExport === "function") setTimeout(() => cbExport(), 3000);
+    if (typeof docRecover === "function") setTimeout(() => docRecover(), 4000);
     if (JSON.stringify(IDEAS) !== before && editingIdeaId == null && !document.querySelector(".open[id$='-overlay']")) render();
   });
   return driveSyncChain.catch(e => { console.error("Drive sync failed:", e); throw e; });
@@ -10083,7 +10084,7 @@ async function docFromStep(btn) {
   try { if ("Notification" in window && Notification.permission === "default") Notification.requestPermission(); } catch (e) {}
   docProgress("1/2 · Deciding which document this goes in…  (it takes its time to get it complete)");
   try {
-    const item = ref.idea, root = pendRoot(item);
+    let item = ref.idea; const root = pendRoot(item);
     const steps = (item.fases || []).flatMap(f => (f.pasos || []).map(st => typeof st === "string" ? { texto: st } : st));
     const existing = [item].concat(item !== root ? [root] : []).flatMap(x => docsOf(x).map(d => ({ x, d })));
     // 1) which document does this belong to, and which other steps go in the same one?
@@ -10100,6 +10101,8 @@ async function docFromStep(btn) {
     docProgress(`2/2 · Putting your notes in order${pick.length > 1 ? ` (${pick.length} steps)` : ""}…`, "");
     const curText = target ? await docText(target.d) : "";
     const d = await docGenerate(item, (target && target.d.titulo) || (plan && plan.titulo) || ref.step.texto, pick, target ? { html: curText, formato: target.d.formato } : null);
+    { const fresh = IDEAS.find(i => String(i.id) === String(item.id)); if (fresh) item = fresh; }
+    if (target) { const fx = IDEAS.find(i => String(i.id) === String(target.x.id)); if (fx) { target.x = fx; target.d = docsOf(fx).find(x => x.id === target.d.id) || target.d; } }
     if (target) {
       const t = target.d; if (d.formato) t.formato = d.formato;
       try { await idbPut("docprev_" + (t.gdocId || t.id), new Blob([curText], { type: "text/html" })); t.hasPrev = 1; } catch (e) {}
@@ -10171,6 +10174,25 @@ function docMdToHtml(md) {
   });
   endT(); close(); return out.join("");
 }
+
+// Documents live in Drive with their Ideary ids: if the app lost track of one (e.g. a sync replaced the data while
+// it was being made), put it back where it belongs. Nothing is ever lost from Drive.
+let docRecoverBusy = false;
+async function docRecover() {
+  if (docRecoverBusy || !driveReady || !accessToken) return; docRecoverBusy = true;
+  try {
+    const q = encodeURIComponent("mimeType='application/vnd.google-apps.document' and trashed=false");
+    const r = await storeApi(`/drive/v3/files?q=${q}&fields=files(id,name,modifiedTime,createdTime,appProperties)&pageSize=200`); if (!r.ok) return;
+    const known = new Set(IDEAS.flatMap(i => docsOf(i).flatMap(d => [d.id, d.gdocId])));
+    let n = 0;
+    ((await r.json()).files || []).forEach(g => {
+      const a = g.appProperties || {}; if (!a.idearyDoc || known.has(a.idearyDoc) || known.has(g.id)) return;
+      const it = IDEAS.find(i => String(i.id) === String(a.idearyItem)); if (!it) return;
+      it.documentos = docsOf(it).concat([{ id: a.idearyDoc, titulo: g.name, gdocId: g.id, gModified: g.modifiedTime, fecha: g.createdTime, actualizado: g.modifiedTime, by: "organized", pasos: [] }]); n++;
+    });
+    if (n) { saveIdeas(); render(); if (typeof renderStepDocs === "function") renderStepDocs(); }
+  } catch (e) { console.warn("docRecover:", e.message); } finally { docRecoverBusy = false; }
+}
 function docFind(itemId, docId) { const it = IDEAS.find(i => i.id === itemId); const d = it && docsOf(it).find(x => x.id === docId); return d ? { it, d } : null; }
 /* The document LIVES in Google Drive (a Google Doc in <Project>/documents/). Ideary only keeps its name, its id and
    which steps it covers; the text is read from Drive when you open it and written back when you edit it here.
@@ -10235,6 +10257,7 @@ let docLoadedMod = null, docDirty = false;
 async function openDoc(itemId, docId) {
   let f = docFind(itemId, docId);
   if (!f) { const it = IDEAS.find(i => docsOf(i).some(x => x.id === docId)); if (it) { itemId = it.id; f = docFind(itemId, docId); } }
+  if (!f) { await docRecover(); f = docFind(itemId, docId) || (() => { const it = IDEAS.find(i => docsOf(i).some(x => x.id === docId)); return it ? docFind(it.id, docId) : null; })(); if (f) itemId = f.it.id; }
   if (!f) { showAlert("I can't find that document on this device yet. Wait for the sync to finish and try again.", { title: "Can't open it" }); return; }
   docCtx = { itemId, docId }; docDirty = false;
   const body = document.getElementById("doc-body");
@@ -10395,6 +10418,7 @@ async function docAudit(btn) {
     const raw = await geminiGenerate([{ role: "user", text: `PROJECT CONTEXT:\n${String(ctx).slice(0, 12000)}\n\nCHAPTER: ${f.it.titulo}\nSTEPS OF THIS CHAPTER:\n${steps.map(t => "- " + t).join("\n")}\nSTEPS THIS DOCUMENT WAS MADE FOR: ${docSteps(f.d).join(" | ")}\n\nTHE DOCUMENT "${f.d.titulo}":\n${text.slice(0, 30000)}` }], AUDIT_RULES, false, undefined, "high", () => {});
     let a = null; try { a = parseJsonLenient(stripJsonFences(raw)); } catch (e) {}
     if (!a || !(a.pasos || a.secciones)) throw new Error("The check didn't come back right. Try again.");
+    { const g = docFind(f.it.id, f.d.id); if (g) { f.it = g.it; f.d = g.d; } }
     f.d.audit = { at: new Date().toISOString(), resumen: String(a.resumen || "").slice(0, 400), pasos: (a.pasos || []).filter(x => x && x.paso).slice(0, 30).map(x => ({ paso: String(x.paso).slice(0, 200), estado: x.estado, falta: String(x.falta || "").slice(0, 300) })), secciones: (a.secciones || []).slice(0, 15).map(x => ({ seccion: String(x.seccion || "").slice(0, 120), falta: String(x.falta || "").slice(0, 300) })), contradicciones: (a.contradicciones || []).slice(0, 8).map(x => String(x).slice(0, 300)) };
     // steps that belong here but aren't covered: link them to the document so they show as pending in it
     f.d.audit.pasos.forEach(x => { if (x.estado !== "done" && !docSteps(f.d).some(t => sameStep(t, x.paso)) && steps.some(t => sameStep(t, x.paso))) f.d.pasos = docSteps(f.d).concat([steps.find(t => sameStep(t, x.paso))]); });
@@ -11505,7 +11529,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-19 16:40 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-19 17:20 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
