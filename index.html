@@ -4417,6 +4417,26 @@ SHIPPING CHANGES
 .plan-prev.reorg { max-height: none; margin-top: 8px; }
 .pp-gone { margin-top: 10px; color: var(--rust); font-size: .85rem; }
 .pc-why { display: block; font-size: .78rem; color: var(--slate); margin-top: 3px; font-weight: normal; }
+#doc-overlay { z-index: 230; }
+#dialog-overlay { z-index: 400; }
+#cb-overlay { z-index: 220; }
+.doc-box { max-width: 860px !important; width: 100%; height: min(94vh, 980px); display: flex; flex-direction: column; }
+.doc-title-in { width: 100%; font-family: var(--hand); font-size: 1.6rem; border: none; background: transparent; color: var(--ink); padding: 2px 0; outline: none; }
+.doc-tools { display: flex; gap: 4px; flex-wrap: wrap; padding: 6px 0; border-bottom: 1px dashed var(--line-strong); }
+.doc-tools button { background: none; border: 1px solid var(--line-strong); border-radius: 6px; padding: 3px 9px; font: inherit; font-size: .85rem; cursor: pointer; color: var(--ink); }
+.doc-body { flex: 1; overflow-y: auto; padding: 12px 4px 24px; line-height: 1.55; font-size: 1rem; outline: none; color: var(--ink); }
+.doc-body h2 { font-family: var(--hand); font-size: 1.35rem; margin: 18px 0 6px; }
+.doc-body h3 { font-size: 1.02rem; margin: 14px 0 4px; }
+.doc-body p { margin: 0 0 8px; }
+.doc-body ul, .doc-body ol { margin: 0 0 8px 20px; padding: 0; }
+.doc-foot { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding-top: 8px; border-top: 1px dashed var(--line-strong); }
+.doc-foot .note-date { flex: 1; min-width: 120px; }
+.docs-list { list-style: none; margin: 0; padding: 0; }
+.doc-row { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: none; border: none; border-radius: 8px; padding: 7px 6px; font: inherit; cursor: pointer; color: var(--ink); }
+.doc-row:hover { background: rgba(0,0,0,.05); }
+.doc-t { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-meta { font-size: .75rem; color: var(--slate); white-space: nowrap; }
+.step-docs { margin: 8px 0 4px; }
 .cb-hdr { position: relative; }
 .cb-proj-btn { border-color: var(--rust, #b5532a) !important; color: var(--rust, #b5532a) !important; }
 .cb-badge { position: absolute; top: -3px; right: -3px; min-width: 16px; height: 16px; border-radius: 8px; background: var(--rust, #b5532a); color: #fff; font-size: 10px; line-height: 16px; text-align: center; padding: 0 4px; font-weight: 700; display: none; }
@@ -4554,7 +4574,7 @@ SHIPPING CHANGES
       <div id="nav-categorias"></div>
     </div>
 
-    <div class="version-link" onclick="openChangelog()">v1.16.0 · What's new</div>
+    <div class="version-link" onclick="openChangelog()">v1.17.0 · What's new</div>
     <div style="text-align:center;font-family:var(--hand);font-size:.9rem;margin-top:6px"><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--slate)">Privacy</a> · <a href="terms.html" target="_blank" rel="noopener" style="color:var(--slate)">Terms</a></div>
   </div>
   </aside>
@@ -4934,6 +4954,29 @@ SHIPPING CHANGES
 
 
 <!-- MODAL: Step workspace (tutor) -->
+<div class="modal-overlay" id="doc-overlay">
+  <div class="modal-box doc-box">
+    <div class="modal-head" style="display:flex;align-items:flex-start;gap:8px">
+      <div style="flex:1;min-width:0"><div class="form-hint" id="doc-where" style="margin:0 0 2px"></div><input id="doc-title" class="doc-title-in" oninput="docChanged()" aria-label="Title"></div>
+      <button class="modal-close" onclick="closeDoc()" aria-label="Close">×</button>
+    </div>
+    <div class="doc-tools">
+      <button type="button" onmousedown="event.preventDefault()" onclick="docCmd('formatBlock','h2')" title="Heading">H</button>
+      <button type="button" onmousedown="event.preventDefault()" onclick="docCmd('formatBlock','h3')" title="Subheading" style="font-size:.85em">h</button>
+      <button type="button" onmousedown="event.preventDefault()" onclick="docCmd('bold')" title="Bold"><b>B</b></button>
+      <button type="button" onmousedown="event.preventDefault()" onclick="docCmd('italic')" title="Italic"><i>I</i></button>
+      <button type="button" onmousedown="event.preventDefault()" onclick="docCmd('insertUnorderedList')" title="List">• List</button>
+      <button type="button" onmousedown="event.preventDefault()" onclick="docCmd('formatBlock','p')" title="Normal text">¶</button>
+    </div>
+    <div id="doc-body" class="doc-body" contenteditable="true" oninput="docChanged()"></div>
+    <div class="doc-foot">
+      <span id="doc-status" class="note-date"></span>
+      <a id="doc-open-gdoc" class="stuck-btn" style="margin:0;display:none" target="_blank" rel="noopener">Open in Google Docs ↗</a>
+      <button type="button" class="stuck-btn" id="doc-gdoc-btn" style="margin:0" onclick="docToGoogle(this)">Save as Google Doc</button>
+      <button type="button" class="stuck-btn" style="margin:0;color:var(--rust)" onclick="docDelete()">Delete</button>
+    </div>
+  </div>
+</div>
 <div class="modal-overlay" id="cb-overlay" onclick="if(event.target===this)closeClaudeInbox()">
   <div class="modal-box" style="max-width:760px;height:min(90vh,860px);display:flex;flex-direction:column">
     <div class="modal-head" style="display:flex;align-items:flex-start;gap:8px"><div style="flex:1"><div class="modal-title">Updates from Claude</div><div class="form-hint" style="margin:2px 0 0">What you agreed with Claude, ready to add to your projects. Nothing changes until you tap Apply.</div></div><button type="button" class="stuck-btn" style="margin:0" onclick="cbRefreshInbox(this)">↻ Check now</button><button class="modal-close" onclick="closeClaudeInbox()" aria-label="Close">×</button></div>
@@ -4973,6 +5016,7 @@ SHIPPING CHANGES
     <div class="ws-pane" id="ws-work">
       <div class="form-hint" style="margin:0 0 6px">Your answer, decisions, drafts, and any images or files for this step. The tutor can see all of it.</div>
       <textarea class="form-input form-textarea" id="step-work" style="flex:1;min-height:120px;font-size:16px" placeholder="Write here…" onblur="saveStepWork()"></textarea>
+      <div id="step-docs"></div>
       <div class="att-list" id="step-atts"></div>
       <label class="att-add">📎 Add image or file<input type="file" multiple accept="image/*,.txt,.md,.csv,.json,.srt,.fountain,text/plain" style="display:none" onchange="addStepFiles(this)"></label>
       <div class="ws-foot"><span id="step-saved" class="note-date"></span>
@@ -9663,6 +9707,8 @@ function cbProjectText(p) {
     sec("Notes", it, "notas", txt); sec("Things to figure out", it, "cosasAResolver", txt); sec("Decisions", it, "decisiones", txt);
     sec("References", it, "referencias", x => `${x.titulo || x.url || ""}${x.url ? " (" + x.url + ")" : ""}`);
   });
+  const docs = [p].concat(isProject(p) ? projectChapters(p) : []).flatMap(it => docsOf(it).map(d => ({ it, d })));
+  if (docs.length) { L.push("## Documents"); docs.forEach(({ it, d }) => { const tx = String(d.html || "").replace(/<\/(h\d|p|li)>/g, "\n").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/\n{3,}/g, "\n\n").trim(); L.push(`### ${d.titulo}${it !== p ? " (" + it.titulo + ")" : ""}`, tx.slice(0, 6000), ""); }); }
   const talk = (p.chat || []).filter(m => m.role === "user").slice(-15).map(m => "- " + String(m.text).replace(/\s+/g, " ").slice(0, 300));
   if (talk.length) L.push("## Recent things the person told the in-app mentor", ...talk, "");
   return L.join("\n");
@@ -9852,6 +9898,133 @@ async function cbDo(pid, k, what, j) {
     saveIdeas(); render();
   } catch (e) { showAlert(e.message, { title: "Couldn't apply" }); }
   finally { pcProjId = prevId; renderClaudeInbox(); render(); }
+}
+
+/* ---------- Documents (IP Bible, script, beat sheet…) ----------
+   Made by the AI from what the project already has, read and edited inside Ideary,
+   and kept as a Google Doc in the project's Drive folder (documents/). Ideary's copy is the original:
+   "Update in Google Docs" pushes the latest version there. */
+let docCtx = null; // { itemId, docId }
+function docsOf(it) { return (it && it.documentos) || []; }
+function docsBlockHtml(it) {
+  const own = docsOf(it).map(d => ({ it, d }));
+  const more = isProject(it) ? projectChapters(it).flatMap(c => docsOf(c).map(d => ({ it: c, d }))) : [];
+  const all = own.concat(more); if (!all.length) return "";
+  return `<div class="detail-block docs-block"><div class="block-title c-plan">Documents</div><ul class="docs-list">${all.map(({ it: x, d }) => `<li><button type="button" class="doc-row" onclick="openDoc('${escapeAttr(x.id)}','${escapeAttr(d.id)}')"><span class="doc-ico">📄</span><span class="doc-t">${escapeHtml(d.titulo)}</span><span class="doc-meta">${x !== it ? escapeHtml(x.titulo) + " · " : ""}${escapeHtml(fmtShortDate(d.actualizado || d.fecha))}${d.gdocId ? " · Google Doc" : ""}</span></button></li>`).join("")}</ul></div>`;
+}
+function stepDocsHtml() {
+  const ref = getStepRef(); if (!ref) return "";
+  const mine = docsOf(ref.idea).filter(d => d.paso && sameStep(d.paso, ref.step.texto));
+  return `<div class="step-docs">${mine.map(d => `<button type="button" class="doc-row" onclick="openDoc('${escapeAttr(ref.idea.id)}','${escapeAttr(d.id)}')"><span class="doc-ico">📄</span><span class="doc-t">${escapeHtml(d.titulo)}</span><span class="doc-meta">open</span></button>`).join("")}
+    <button type="button" class="stuck-btn" style="margin:6px 0 0" onclick="docFromStep(this)">✍️ ${mine.length ? "Write another document" : "Write it with AI from what I already have"}</button></div>`;
+}
+function renderStepDocs() { const el = document.getElementById("step-docs"); if (el) el.innerHTML = stepDocsHtml(); }
+async function docFromStep(btn) {
+  const ref = getStepRef(); if (!ref) return;
+  if (!geminiKey) { showAlert("Add a free Gemini key in Settings → AI first.", { title: "AI needs a key" }); return; }
+  saveStepWork();
+  lockBtn(btn); btn.disabled = true; btn.textContent = "Writing… (this can take a minute)";
+  try {
+    const d = await docGenerate(ref.idea, ref.step.texto, ref.step);
+    ref.idea.documentos = docsOf(ref.idea).concat([d]);
+    logChanges(ref.idea, "AI", [`Wrote the document "${d.titulo}"`]);
+    saveIdeas(); renderStepDocs(); render();
+    openDoc(ref.idea.id, d.id);
+  } catch (e) { showAlert(e.message, { title: "Couldn't write it" }); }
+  finally { btn.disabled = false; renderStepDocs(); }
+}
+const DOC_RULES = `You write working documents for a creative project, the way a senior professional in its field would (for example an IP/series bible, a script, a beat sheet, a character sheet, a style guide, a pitch). You get everything the project already has: descriptions, decisions, notes, things to figure out, conversations. Build the document FROM THAT — organize, merge and clean it up; don't invent facts the person hasn't decided. Where something is still open, write a short "To decide:" line instead of making it up.
+First decide the standard structure professionals use for this kind of document and follow it, with clear headings. Be concrete and useful, not padded. Write in the language of the project's text.
+Output the document in Markdown only: "# Title" first line, then "##" sections, lists, **bold**. No preamble, no closing remarks. End with a section "## Open questions" listing what is still undecided.`;
+async function docGenerate(item, stepTitle, step) {
+  const root = pendRoot(item);
+  const ctx = typeof cbProjectText === "function" ? cbProjectText(root) : chatContextText(item);
+  const work = step && step.trabajo ? `\n\nWHAT THE PERSON WROTE FOR THIS STEP:\n${step.trabajo}` : "";
+  const raw = await geminiGenerate([{ role: "user", text: `${String(ctx).slice(0, 24000)}${work}\n\nWRITE THIS DOCUMENT: ${stepTitle}${isChapter(item) ? ` (chapter "${item.titulo}")` : ""}` }], DOC_RULES, false, undefined, "high");
+  let md = stripJsonFences(String(raw || "")).replace(/^```(?:markdown|md)?\s*|```\s*$/g, "").trim();
+  if (md.length < 80) throw new Error("The AI answered too little. Try again in a moment.");
+  const m = /^#\s+(.+)$/m.exec(md), titulo = (m ? m[1] : stepTitle).trim().slice(0, 120);
+  if (m) md = md.replace(m[0], "").trim();
+  const now = new Date().toISOString();
+  return { id: "doc" + Date.now().toString(36), titulo, html: docMdToHtml(md), paso: stepTitle, fecha: now, actualizado: now, by: aiLastProvider || "AI" };
+}
+function docMdToHtml(md) {
+  const lines = String(md).split("\n"), out = []; let list = null;
+  const inline = t => escapeHtml(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/(^|[^*])\*(?!\s)(.+?)\*/g, "$1<i>$2</i>");
+  const close = () => { if (list) { out.push(`</${list}>`); list = null; } };
+  lines.forEach(l => {
+    let m;
+    if ((m = /^(#{1,3})\s+(.*)$/.exec(l))) { close(); const h = Math.min(3, m[1].length + 1); out.push(`<h${h}>${inline(m[2])}</h${h}>`); }
+    else if ((m = /^\s*[-*•]\s+(.*)$/.exec(l))) { if (list !== "ul") { close(); out.push("<ul>"); list = "ul"; } out.push(`<li>${inline(m[1])}</li>`); }
+    else if ((m = /^\s*\d+[.)]\s+(.*)$/.exec(l))) { if (list !== "ol") { close(); out.push("<ol>"); list = "ol"; } out.push(`<li>${inline(m[1])}</li>`); }
+    else if (!l.trim()) close();
+    else { close(); out.push(`<p>${inline(l)}</p>`); }
+  });
+  close(); return out.join("");
+}
+function docFind(itemId, docId) { const it = IDEAS.find(i => i.id === itemId); const d = it && docsOf(it).find(x => x.id === docId); return d ? { it, d } : null; }
+function openDoc(itemId, docId) {
+  const f = docFind(itemId, docId); if (!f) return;
+  docCtx = { itemId, docId };
+  document.getElementById("doc-title").value = f.d.titulo;
+  document.getElementById("doc-body").innerHTML = f.d.html || "";
+  document.getElementById("doc-where").textContent = `${pendRoot(f.it).titulo}${f.it !== pendRoot(f.it) ? " › " + f.it.titulo : ""}${f.d.paso ? " · step: " + f.d.paso : ""}`;
+  docStatus();
+  document.getElementById("doc-overlay").classList.add("open");
+}
+function docStatus(msg) {
+  const f = docCtx && docFind(docCtx.itemId, docCtx.docId), el = document.getElementById("doc-status"); if (!el || !f) return;
+  const g = document.getElementById("doc-gdoc-btn");
+  if (g) g.textContent = f.d.gdocId ? "↻ Update the Google Doc" : "Save as Google Doc";
+  const o = document.getElementById("doc-open-gdoc"); if (o) { o.style.display = f.d.gdocId ? "" : "none"; o.href = f.d.gdocId ? `https://docs.google.com/document/d/${f.d.gdocId}/edit` : "#"; }
+  el.textContent = msg || (f.d.gdocId && f.d.gdocAt && f.d.actualizado > f.d.gdocAt ? "Edited since the Google Doc was updated." : `Saved · ${fmtShortDate(f.d.actualizado)}`);
+}
+let docSaveT = null;
+function docChanged() { clearTimeout(docSaveT); docSaveT = setTimeout(docSave, 800); const el = document.getElementById("doc-status"); if (el) el.textContent = "Saving…"; }
+function docSave() {
+  const f = docCtx && docFind(docCtx.itemId, docCtx.docId); if (!f) return;
+  const t = document.getElementById("doc-title").value.trim() || "Untitled", h = document.getElementById("doc-body").innerHTML;
+  if (t === f.d.titulo && h === f.d.html) { docStatus(); return; }
+  f.d.titulo = t; f.d.html = h; f.d.actualizado = new Date().toISOString();
+  saveIdeas(); docStatus();
+}
+function closeDoc() { docSave(); document.getElementById("doc-overlay").classList.remove("open"); docCtx = null; render(); renderStepDocs(); }
+function docCmd(c, v) { document.getElementById("doc-body").focus(); document.execCommand(c, false, v || null); docChanged(); }
+async function docDelete() {
+  const f = docCtx && docFind(docCtx.itemId, docCtx.docId); if (!f) return;
+  if (!(await showConfirm(`Delete "${f.d.titulo}"? ${f.d.gdocId ? "The Google Doc in your Drive stays (delete it there if you want)." : ""}`, { title: "Delete document?", confirmLabel: "Delete" }))) return;
+  f.it.documentos = docsOf(f.it).filter(x => x.id !== f.d.id); saveIdeas();
+  document.getElementById("doc-overlay").classList.remove("open"); docCtx = null; render(); renderStepDocs();
+}
+// Save / update a Google Doc in the project's documents/ folder (Drive converts the HTML).
+async function docToGoogle(btn) {
+  docSave();
+  const f = docCtx && docFind(docCtx.itemId, docCtx.docId); if (!f) return;
+  if (!driveReady || !accessToken) { showAlert("Connect Google Drive first (Settings → Sync).", { title: "Needs Google Drive" }); return; }
+  lockBtn(btn); btn.disabled = true; const was = btn.textContent; btn.textContent = "Saving to Drive…";
+  try {
+    const html = `<html><head><meta charset="utf-8"><title>${escapeHtml(f.d.titulo)}</title></head><body><h1>${escapeHtml(f.d.titulo)}</h1>${f.d.html}</body></html>`;
+    if (f.d.gdocId) {
+      const r = await storeApi(`/upload/drive/v3/files/${f.d.gdocId}?uploadType=media`, { method: "PATCH", headers: { "Content-Type": "text/html; charset=UTF-8" }, body: html });
+      if (r.status === 404) f.d.gdocId = null; else if (!r.ok) throw new Error("Drive answered " + r.status);
+    }
+    if (!f.d.gdocId) {
+      const root = storeRootOf(f.it);
+      let folder = null; if (storeV2) { try { folder = await storeSubfolder(root, "documents"); } catch (e) {} }
+      if (!folder) folder = await storeRootFolder();
+      const meta = { name: f.d.titulo, mimeType: "application/vnd.google-apps.document", parents: [folder] };
+      const b = "ideary-doc";
+      const r = await storeApi("/upload/drive/v3/files?uploadType=multipart&fields=id", { method: "POST", headers: { "Content-Type": `multipart/related; boundary=${b}` },
+        body: `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${b}\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n${html}\r\n--${b}--` });
+      if (!r.ok) throw new Error("Drive answered " + r.status);
+      f.d.gdocId = (await r.json()).id;
+    } else {
+      await storeApi(`/drive/v3/files/${f.d.gdocId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: f.d.titulo }) });
+    }
+    f.d.gdocAt = new Date().toISOString(); saveIdeas();
+    docStatus("Saved in your Drive, in the project's documents folder.");
+  } catch (e) { showAlert("Couldn't save the Google Doc: " + e.message, { title: "Drive" }); }
+  finally { btn.disabled = false; btn.textContent = was; docStatus(); }
 }
 
 // "How would the plan look?": apply the open changes on a throwaway copy, read the outline, put everything back.
@@ -10463,7 +10636,7 @@ function renderProjectView(p) {
       </div>
       ${aboutMore ? `<button type="button" class="desc-toggle-btn about-toggle hidden" onclick="toggleAbout('${escapeAttr(p.id)}', this)">${aboutOpen[p.id] ? "View less" : "View more"}</button>` : ""}
     </div>`;
-  const notesHtml = `
+  const notesHtml = docsBlockHtml(p) + `
     <div class="detail-block">
       <div class="block-title c-notes">Notes${(p.notas || []).length ? `<button type="button" class="stuck-btn notes-sort-btn" onclick="event.stopPropagation();openSortNotes('${escapeAttr(p.id)}')">Sort into the project</button>` : ""}</div>
       <ul class="notes-list">${(p.notas || []).map(n => `<li>${noteDate(n) ? `<span class="note-date">${escapeHtml(fmtShortDate(noteDate(n)))}</span>` : ""}${escapeHtml(noteText(n))}</li>`).join("")}</ul>
@@ -10566,6 +10739,7 @@ function openStepHelp(ideaId, f, s) {
   document.getElementById("step-title").textContent = ref.step.texto;
   document.getElementById("step-exp").textContent = ref.step.explicacion || "";
   document.getElementById("step-work").value = ref.step.trabajo || "";
+  renderStepDocs();
   renderStepChat();
   renderStepAtts();
   stepTab(ref.step.trabajo || (ref.step.adjuntos || []).length || !(ref.step.chat || []).length ? "work" : "tutor");
@@ -10943,9 +11117,14 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-19 03:00 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-19 03:40 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
+  {
+    version: "1.17.0",
+    public: true,
+    items: ["Your Drive is organized: one folder per project, with its images and documents (a full backup of the old file is kept)", "Documents: in any step, \"Write it with AI from what I already have\" drafts it (like a series bible or a script) from your notes and decisions; read and edit it right in Ideary", "Save any document as a Google Doc in the project's folder", "Work with Claude: connect your own Claude account and apply its changes from \"Updates from Claude\""],
+  },
   {
     version: "1.16.0",
     public: true,
@@ -13795,7 +13974,7 @@ function renderDetailReadMode(idea) {
 
   // Notes get their own internal scroll on desktop (capped height) so a long
   // list doesn't push the sticky header taller than the viewport.
-  const notasStickyHtml = `
+  const notasStickyHtml = docsBlockHtml(idea) + `
     <div class="detail-block">
       <div class="block-title c-notes"><span class="dot" style="background:var(--amber)"></span>Notes${idea.notas.length ? `<button type="button" class="stuck-btn notes-sort-btn" onclick="event.stopPropagation();openSortNotes('${escapeAttr(idea.id)}')">Sort into the plan</button>` : ""}</div>
       <ul class="notes-list">${idea.notas.map(n => `<li>${noteDate(n) ? `<span class="note-date">${escapeHtml(fmtShortDate(noteDate(n)))}</span>` : ""}${escapeHtml(noteText(n))}</li>`).join("")}</ul>
@@ -14362,7 +14541,7 @@ function popOut(kind, id, extra) {
 }
 function secTitleText(bt) { const c = bt.cloneNode(true); c.querySelectorAll(".hint, button, label, input, .plan-tools, .sec-pop, .cs-caret, .refs-head-btns").forEach(x => x.remove()); return c.textContent.replace(/\s+/g, " ").trim().slice(0, 40); }
 // Desktop: a small ⧉ at the top-right of every section of an idea/project opens just that section in its own window.
-const POP_SECTIONS = /^(Production plan|Description|Notes|Things to figure out|Images|References)$/;
+const POP_SECTIONS = /^(Production plan|Description|Notes|Things to figure out|Images|References|Documents)$/;
 function addSectionPopButtons(root, id) {
   if (!IS_DESKTOP || POPOUT) return;
   root.querySelectorAll(".block-title").forEach(bt => {
@@ -14625,7 +14804,7 @@ const LAYER_CLOSE = {
   "nc-overlay": () => closeNewChat(), "pc-overlay": () => closeProjectChat(), "step-overlay": () => closeStepHelp(),
   "chats-overlay": () => closeChats(), "settings-overlay": () => closeSettings(), "new-idea-overlay": () => closeNewIdeaForm(),
   "evolve-overlay": () => closeEvolveModal(), "export-overlay": () => closeExportOptions(), "changelog-overlay": () => closeChangelog(),
-  "backup-import-overlay": () => closeBackupImport(), "howto-overlay": () => closeHowto()
+  "backup-import-overlay": () => closeBackupImport(), "howto-overlay": () => closeHowto(), "doc-overlay": () => closeDoc(), "cb-overlay": () => closeClaudeInbox()
 };
 function openLayers() {
   const out = [...document.querySelectorAll(".modal-overlay.open")].map(o => o.id);
