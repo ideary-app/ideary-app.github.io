@@ -9916,37 +9916,42 @@ function stepDocsHtml() {
   const ref = getStepRef(); if (!ref) return "";
   const mine = docsOf(ref.idea).filter(d => d.paso && sameStep(d.paso, ref.step.texto));
   return `<div class="step-docs">${mine.map(d => `<button type="button" class="doc-row" onclick="openDoc('${escapeAttr(ref.idea.id)}','${escapeAttr(d.id)}')"><span class="doc-ico">📄</span><span class="doc-t">${escapeHtml(d.titulo)}</span><span class="doc-meta">open</span></button>`).join("")}
-    <button type="button" class="stuck-btn" style="margin:6px 0 0" onclick="docFromStep(this)">✍️ ${mine.length ? "Write another document" : "Write it with AI from what I already have"}</button></div>`;
+    <button type="button" class="stuck-btn" style="margin:6px 0 0" onclick="docFromStep(this)">🗂 ${mine.length ? "Organize another document" : "Organize what I already have into this document"}</button></div>`;
 }
 function renderStepDocs() { const el = document.getElementById("step-docs"); if (el) el.innerHTML = stepDocsHtml(); }
 async function docFromStep(btn) {
   const ref = getStepRef(); if (!ref) return;
   if (!geminiKey) { showAlert("Add a free Gemini key in Settings → AI first.", { title: "AI needs a key" }); return; }
   saveStepWork();
-  lockBtn(btn); btn.disabled = true; btn.textContent = "Writing… (this can take a minute)";
+  lockBtn(btn); btn.disabled = true; btn.textContent = "Organizing… (this can take a minute)";
   try {
     const d = await docGenerate(ref.idea, ref.step.texto, ref.step);
     ref.idea.documentos = docsOf(ref.idea).concat([d]);
-    logChanges(ref.idea, "AI", [`Wrote the document "${d.titulo}"`]);
+    logChanges(ref.idea, "You", [`Organized the document "${d.titulo}"`]);
     saveIdeas(); renderStepDocs(); render();
     openDoc(ref.idea.id, d.id);
-  } catch (e) { showAlert(e.message, { title: "Couldn't write it" }); }
+  } catch (e) { showAlert(e.message, { title: "Couldn't organize it" }); }
   finally { btn.disabled = false; renderStepDocs(); }
 }
-const DOC_RULES = `You write working documents for a creative project, the way a senior professional in its field would (for example an IP/series bible, a script, a beat sheet, a character sheet, a style guide, a pitch). You get everything the project already has: descriptions, decisions, notes, things to figure out, conversations. Build the document FROM THAT — organize, merge and clean it up; don't invent facts the person hasn't decided. Where something is still open, write a short "To decide:" line instead of making it up.
-First decide the standard structure professionals use for this kind of document and follow it, with clear headings. Be concrete and useful, not padded. Write in the language of the project's text.
-Output the document in Markdown only: "# Title" first line, then "##" sections, lists, **bold**. No preamble, no closing remarks. End with a section "## Open questions" listing what is still undecided.`;
+const DOC_RULES = `You are an organizer, not a writer. The person writes everything themselves; your job is to put THEIR OWN material in order inside a document.
+You get everything the project already has: descriptions, decisions, notes, things to figure out, what they wrote for this step, and what they said in conversations.
+1. Pick the standard structure professionals use for this kind of document (for example a series bible, a script, a beat sheet, a character sheet, a style guide) and use it as headings.
+2. Place each piece of the person's material under the heading where it belongs. Keep their words: copy or lightly trim their sentences (fix only obvious typos). Merge exact repeats; if two of their notes contradict each other, keep both and mark "⚠ contradicts:".
+3. Do NOT write new content, ideas, descriptions or dialogue of your own. Never invent facts.
+4. A section with nothing from them yet: leave it with one short line in italics saying what goes there, starting with "To write:" (e.g. "*To write: how the portal works and its rules*").
+Write the headings and the "To write" lines in the language of the project's text.
+Output Markdown only: "# Title" first line, then "##" sections, lists, **bold**. No preamble, no closing remarks. End with "## Still open" listing their open questions (from "things to figure out").`;
 async function docGenerate(item, stepTitle, step) {
   const root = pendRoot(item);
   const ctx = typeof cbProjectText === "function" ? cbProjectText(root) : chatContextText(item);
   const work = step && step.trabajo ? `\n\nWHAT THE PERSON WROTE FOR THIS STEP:\n${step.trabajo}` : "";
-  const raw = await geminiGenerate([{ role: "user", text: `${String(ctx).slice(0, 24000)}${work}\n\nWRITE THIS DOCUMENT: ${stepTitle}${isChapter(item) ? ` (chapter "${item.titulo}")` : ""}` }], DOC_RULES, false, undefined, "high");
+  const raw = await geminiGenerate([{ role: "user", text: `${String(ctx).slice(0, 24000)}${work}\n\nORGANIZE MY MATERIAL INTO THIS DOCUMENT: ${stepTitle}${isChapter(item) ? ` (chapter "${item.titulo}")` : ""}` }], DOC_RULES, false, undefined, "high");
   let md = stripJsonFences(String(raw || "")).replace(/^```(?:markdown|md)?\s*|```\s*$/g, "").trim();
-  if (md.length < 80) throw new Error("The AI answered too little. Try again in a moment.");
+  if (md.length < 80) throw new Error("Not enough came back to build the document. Try again in a moment.");
   const m = /^#\s+(.+)$/m.exec(md), titulo = (m ? m[1] : stepTitle).trim().slice(0, 120);
   if (m) md = md.replace(m[0], "").trim();
   const now = new Date().toISOString();
-  return { id: "doc" + Date.now().toString(36), titulo, html: docMdToHtml(md), paso: stepTitle, fecha: now, actualizado: now, by: aiLastProvider || "AI" };
+  return { id: "doc" + Date.now().toString(36), titulo, html: docMdToHtml(md), paso: stepTitle, fecha: now, actualizado: now, by: "organized" };
 }
 function docMdToHtml(md) {
   const lines = String(md).split("\n"), out = []; let list = null;
@@ -11117,13 +11122,13 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-19 03:40 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-19 04:00 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
     version: "1.17.0",
     public: true,
-    items: ["Your Drive is organized: one folder per project, with its images and documents (a full backup of the old file is kept)", "Documents: in any step, \"Write it with AI from what I already have\" drafts it (like a series bible or a script) from your notes and decisions; read and edit it right in Ideary", "Save any document as a Google Doc in the project's folder", "Work with Claude: connect your own Claude account and apply its changes from \"Updates from Claude\""],
+    items: ["Your Drive is organized: one folder per project, with its images and documents (a full backup of the old file is kept)", "Documents: in any step, \"Organize what I already have\" puts your own notes, decisions and words in order inside the document (a series bible, a script…), with the empty sections marked for you to write; read and edit it right in Ideary", "Save any document as a Google Doc in the project's folder", "Work with Claude: connect your own Claude account and apply its changes from \"Updates from Claude\""],
   },
   {
     version: "1.16.0",
