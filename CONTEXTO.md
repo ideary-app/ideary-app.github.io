@@ -497,3 +497,9 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 
 ## 2026-11-19 — Chips de documento en cada paso
 - renderStep → stepDocChips: debajo de cada paso del plan, un chip 📄 por documento ligado (abre el doc), con ✓/◐/○ pending según la última auditoría.
+
+## 2026-11-24 — Estabilidad de documentos + layout + arranque
+- Editor de documento en celu: pantalla completa, ruta en 1 línea ("N steps", detalle en title), estado en su propia línea (máx 3), botones en una fila con scroll horizontal, cuerpo con min 40vh.
+- IA de documentos: thinking "low" (con "high" tardaba minutos y en iPhone se cortaba con "Load failed"). Wake Lock (`keepAwake`) mientras corre gather/format/audit para que la pantalla no se apague y corte la conexión. Format muestra progreso.
+- Groq: modelos de razonamiento devolvían respuesta vacía → reasoning_effort low / include_reasoning false (gpt-oss), reasoning_format hidden (qwen/deepseek), se quita <think>.
+- Arranque/reconectar Drive: muestra al toque los datos guardados en el dispositivo y "Syncing with your Drive…" (flag `driveConnecting`) en vez del home vacío/deslogueado mientras baja todo.

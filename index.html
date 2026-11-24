@@ -4432,7 +4432,14 @@ SHIPPING CHANGES
 .doc-body td, .doc-body th { border: 1px solid var(--line-strong); padding: 4px 6px; vertical-align: top; text-align: left; }
 .doc-body ul, .doc-body ol { margin: 0 0 8px 20px; padding: 0; }
 .doc-foot { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding-top: 8px; border-top: 1px dashed var(--line-strong); }
-.doc-foot .note-date { flex: 1; min-width: 120px; }
+#doc-where { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.doc-status { font-size: .8rem; color: var(--slate); line-height: 1.35; padding: 4px 2px 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.doc-status:empty { display: none; }
+.doc-body { min-height: 40vh; }
+.doc-foot { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.doc-foot::-webkit-scrollbar { display: none; }
+.doc-foot .stuck-btn { flex: 0 0 auto; white-space: nowrap; font-size: .85rem; padding: 5px 10px; }
+@media (max-width: 640px) { .doc-box { height: 100dvh !important; max-height: 100dvh !important; border-radius: 0 !important; margin: 0 !important; } .doc-title-in { font-size: 1.3rem; } }
 .docs-list { list-style: none; margin: 0; padding: 0; }
 .doc-row { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: none; border: none; border-radius: 8px; padding: 7px 6px; font: inherit; cursor: pointer; color: var(--ink); }
 .doc-row:hover { background: rgba(0,0,0,.05); }
@@ -5008,8 +5015,8 @@ SHIPPING CHANGES
     </div>
     <div id="doc-audit" class="doc-audit"></div>
     <div id="doc-body" class="doc-body" contenteditable="true" oninput="docChanged()" onblur="docScriptTidy()"></div>
+    <div id="doc-status" class="doc-status"></div>
     <div class="doc-foot">
-      <span id="doc-status" class="note-date"></span>
       <a id="doc-open-gdoc" class="stuck-btn" style="margin:0;display:none" target="_blank" rel="noopener">Open in Google Docs ↗</a>
       <button type="button" class="stuck-btn" id="doc-gdoc-btn" style="margin:0" onclick="docToGoogle(this)">Save to my Drive</button>
       <button type="button" class="stuck-btn" style="margin:0" onclick="docAudit(this)">🧭 What's missing?</button>
@@ -5889,7 +5896,7 @@ async function reconnectDrive() {
   });
   if (!ok) { setSyncStatus("Couldn't reconnect. Try again.", true); return; }
   showReconnectBanner(false);
-  driveExpired = false;
+  driveExpired = false; driveConnecting = true; updateDriveButtonUI(); setSyncStatus("Syncing with your Drive…", false);
   const cache = readDriveCache();
   if (cache && cache.pending && Array.isArray(cache.ideas)) {
     // Push edits made while the session was paused.
@@ -5912,7 +5919,7 @@ async function reconnectDrive() {
       }
     } catch (e) { console.error(e); }
   }
-  await initDriveSync();
+  try { await initDriveSync(); } finally { driveConnecting = false; updateDriveButtonUI(); }
 }
 
 // Token ran out while the app was open: pause instead of logging out.
@@ -5948,6 +5955,9 @@ async function initDriveSync(ideasParaCrearSiNoExiste) {
       updateDriveButtonUI();
       return;
     }
+    // show what this device already has while Drive loads, instead of an empty, logged-out home
+    { const c = readDriveCache(); if (c && Array.isArray(c.ideas) && c.ideas.length && !IDEAS.length) { IDEAS = c.ideas; IDEAS.forEach(migrateFasesIfNeeded); if (c.email) currentUserEmail = c.email; render(); } }
+    driveConnecting = true; updateDriveButtonUI(); setSyncStatus("Syncing with your Drive…", false);
     currentUserEmail = await fetchCurrentUserEmail();
     let file = await driveFindDataFile();
     if (!file) {
@@ -5971,7 +5981,7 @@ async function initDriveSync(ideasParaCrearSiNoExiste) {
       if (storeV2 && file.migrated) setTimeout(() => showAlert("Your Drive is now organized: one folder per project (with its images), inside the Ideary folder. A full backup of the old file was kept.", { title: "Drive organized" }), 800);
       else if (storeV2) setTimeout(storeCatchUpLegacy, 4000);
     }
-    driveReady = true;
+    driveReady = true; driveConnecting = false;
     driveExpired = false;
     showReconnectBanner(false);
     setDriveSession(currentUserEmail);
@@ -6177,9 +6187,10 @@ async function disconnectGoogleDrive() {
   render();
 }
 
+let driveConnecting = false;
 function updateDriveButtonUI() {
   const cta = document.getElementById("sidebar-drive-cta");
-  if (cta) cta.style.display = (!driveReady && !driveExpired) ? "flex" : "none";
+  if (cta) cta.style.display = (!driveReady && !driveExpired && !driveConnecting) ? "flex" : "none";
   const btn = document.getElementById("drive-connect-btn");
   const label = document.getElementById("drive-btn-label");
   const sub = document.getElementById("brand-sub");
@@ -6969,7 +6980,7 @@ async function groqGenerate(history, system, onChunk) {
     let maxTok = 3000;
     for (const budget of [6500, 3800, 3800]) {
       const fitted = groqFit(messages[0].content, messages.slice(1).filter(m => (typeof m.content === "string" ? m.content : (m.content[0] || {}).text || "").trim()), budget);
-      r = await fetch("https://api.groq.com/openai/v1/chat/completions", { method: "POST", signal: ctrl.signal, headers: { Authorization: "Bearer " + groqKey, "Content-Type": "application/json" }, body: JSON.stringify({ model, messages: fitted, temperature: 0.7, max_tokens: maxTok }) });
+      r = await fetch("https://api.groq.com/openai/v1/chat/completions", { method: "POST", signal: ctrl.signal, headers: { Authorization: "Bearer " + groqKey, "Content-Type": "application/json" }, body: JSON.stringify(Object.assign({ model, messages: fitted, temperature: 0.7, max_tokens: maxTok }, /gpt-oss/i.test(model) ? { reasoning_effort: "low", include_reasoning: false } : /qwen|deepseek|r1/i.test(model) ? { reasoning_format: "hidden" } : {})) });
       if (r.ok) break;
       if (r.status === 400) { // the model allows fewer reply tokens: use what it says and try again
         const pk = await r.clone().json().catch(() => ({})); const mm = /max_tokens.{0,40}?(\d{3,6})/i.exec((pk.error && pk.error.message) || "");
@@ -6981,7 +6992,7 @@ async function groqGenerate(history, system, onChunk) {
       if (!/too large|tokens per minute|TPM|reduce/i.test((peek.error && peek.error.message) || "")) break;
     }
     if (!r.ok) { let m = "Groq error " + r.status; try { m = (await r.json()).error.message || m; } catch (e) {} console.warn("Groq:", m); throw new Error(r.status === 429 || r.status === 413 ? "it's also busy or out of its free limit right now" : "it gave an error (" + r.status + ": " + String(m).slice(0, 120) + ")"); }
-    const j = await r.json(); const out = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || "";
+    const j = await r.json(); const out = String((j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || "").replace(/<think>[\s\S]*?<\/think>\s*/g, "").trim();
     if (!out) throw new Error("The backup AI returned an empty reply.");
     countAiUse(j.usage && j.usage.total_tokens); aiLastProvider = "Groq · " + model;
     if (onChunk) onChunk(out);
@@ -10081,7 +10092,8 @@ function docProgress(msg, preview) {
   if (preview != null) { const pv = document.getElementById("doc-prog-prev"); pv.textContent = preview.slice(-600); pv.scrollTop = pv.scrollHeight; }
 }
 function docProgressEnd() { window.docProgT0 = 0; const el = document.getElementById("doc-progress"); if (el) { clearInterval(el._t); el.remove(); } }
-async function docFromStep(btn) {
+async function docFromStep(btn) { keepAwake(true); try { return await docFromStepRun(btn); } finally { keepAwake(false); } }
+async function docFromStepRun(btn) {
   const ref = getStepRef(); if (!ref) return;
   if (!geminiKey) { showAlert("Add a free Gemini key in Settings → AI first.", { title: "AI needs a key" }); return; }
   saveStepWork();
@@ -10152,7 +10164,7 @@ async function docGenerate(item, docTitle, steps, existingDoc) {
   const ctx = typeof cbProjectText === "function" ? cbProjectText(root) : chatContextText(item);
   const work = (steps || []).filter(st => st.trabajo).map(st => `\n\nWHAT I WROTE FOR THE STEP "${st.texto}":\n${st.trabajo}`).join("");
   const cur = existingDoc ? `\n\nTHE DOCUMENT AS IT IS NOW (I may have edited it by hand: keep ALL of it, word for word, and only add my new material where it belongs):\n${docHtmlToText(existingDoc.html)}` : "";
-  const raw = await geminiGenerate([{ role: "user", text: `${String(ctx).slice(0, 22000)}${work}${cur}\n\nORGANIZE MY MATERIAL INTO THIS DOCUMENT: ${docTitle}\nIt covers these steps: ${(steps || []).map(st => st.texto).join(" | ")}${isChapter(item) ? ` (chapter "${item.titulo}")` : ""}` }], DOC_RULES, false, undefined, "high", txt => docProgress(null, txt)); // complete over fast: deep thinking, streamed so long ones don't time out
+  const raw = await geminiGenerate([{ role: "user", text: `${String(ctx).slice(0, 22000)}${work}${cur}\n\nORGANIZE MY MATERIAL INTO THIS DOCUMENT: ${docTitle}\nIt covers these steps: ${(steps || []).map(st => st.texto).join(" | ")}${isChapter(item) ? ` (chapter "${item.titulo}")` : ""}` }], DOC_RULES, false, undefined, "low", txt => docProgress(null, txt)); // complete over fast: deep thinking, streamed so long ones don't time out
   let md = stripJsonFences(String(raw || "")).replace(/^```(?:markdown|md|fountain)?\s*|```\s*$/g, "").trim();
   const script = /^FORMAT:\s*screenplay/i.test(md) || (existingDoc && existingDoc.formato === "guion"); md = md.replace(/^FORMAT:\s*screenplay\s*/i, "");
   if (md.length < 30) throw new Error("Not enough came back to build the document. Try again in a moment.");
@@ -10273,7 +10285,8 @@ async function openDoc(itemId, docId) {
   const cached = await Promise.race([docCacheGet(f.d), new Promise(r => setTimeout(() => r(null), 1500))]);
   if (cached && !docDirty) body.innerHTML = docShow(f.d, cached);
   const ps = docSteps(f.d);
-  document.getElementById("doc-where").textContent = `${pendRoot(f.it).titulo}${f.it !== pendRoot(f.it) ? " › " + f.it.titulo : ""}${ps.length ? (ps.length > 1 ? " · steps: " : " · step: ") + ps.join(", ") : ""}`;
+  document.getElementById("doc-where").textContent = `${pendRoot(f.it).titulo}${f.it !== pendRoot(f.it) ? " › " + f.it.titulo : ""}${ps.length ? ` · ${ps.length} step${ps.length > 1 ? "s" : ""}` : ""}`;
+  document.getElementById("doc-where").title = ps.join("\n");
   document.getElementById("doc-overlay").classList.add("open");
   renderDocAudit();
   docStatus(f.d.gdocId ? "Opening the latest version from your Drive…" : "");
@@ -10332,6 +10345,16 @@ async function docDelete() {
 async function docToGoogle(btn) { docDirty = true; lockBtn(btn); btn.disabled = true; btn.textContent = "Saving to Drive…"; try { await docSave(); } finally { btn.disabled = false; docStatus(); } }
 
 
+// Keep the phone's screen on during long AI jobs: if it sleeps, the browser drops the connection ("Load failed").
+let wakeLockObj = null, wakeLockN = 0;
+async function keepAwake(on) {
+  wakeLockN = Math.max(0, wakeLockN + (on ? 1 : -1));
+  try {
+    if (wakeLockN && !wakeLockObj && navigator.wakeLock) { wakeLockObj = await navigator.wakeLock.request("screen"); wakeLockObj.addEventListener("release", () => { wakeLockObj = null; }); }
+    if (!wakeLockN && wakeLockObj) { await wakeLockObj.release(); wakeLockObj = null; }
+  } catch (e) {}
+}
+
 /* ---- Screenplay formatting: lines are classified like Fountain, so loose dialogue ("Juan: andate") becomes a real script ---- */
 const SP_FONT = "font-family:'Courier New',Courier,monospace;font-size:12pt;line-height:1.2;";
 const SP_ST = { scene: "font-weight:bold;text-transform:uppercase;margin:20px 0 10px", action: "margin:0 0 12px", char: "text-transform:uppercase;margin:12px 0 0 2.2in", paren: "margin:0 0 0 1.6in", dial: "margin:0 1.2in 12px 1in", trans: "text-align:right;text-transform:uppercase;margin:12px 0", missing: "color:#b5462f;font-style:italic;margin:0 0 12px", title: "font-weight:bold;text-align:center;text-transform:uppercase;margin:0 0 24px" };
@@ -10379,7 +10402,8 @@ Turn it into a proper screenplay in Fountain format. Rules:
 - Wherever a scene clearly needs something they haven't written yet (a reply, the end of the scene, how a character gets there), put "[MISSING: …]" there, saying concretely what's missing.
 - Keep their order. If something's order is unclear, keep it and add "[MISSING: where does this go?]".
 Output ONLY the Fountain text. First line: "FORMAT: screenplay".`;
-async function docFormatScript(btn) {
+async function docFormatScript(btn) { keepAwake(true); try { return await docFormatRun(btn); } finally { keepAwake(false); } }
+async function docFormatRun(btn) {
   const f = docCtx && docFind(docCtx.itemId, docCtx.docId); if (!f) return;
   const body = document.getElementById("doc-body"), before = body.innerHTML;
   if (!geminiKey) { f.d.formato = "guion"; body.innerHTML = spFormat(before); docChanged(); return; }
@@ -10392,7 +10416,7 @@ async function docFormatScript(btn) {
 ${ctx}
 
 THE DOCUMENT "${f.d.titulo}":
-${docHtmlToText(before).slice(0, 40000)}` }], FORMAT_RULES + SCRIPT_RULES, false, undefined, "high", () => {});
+${docHtmlToText(before).slice(0, 40000)}` }], FORMAT_RULES + SCRIPT_RULES, false, undefined, "low", txt => docStatus("Putting it in proper format… " + Math.round(String(txt || "").length / 100) / 10 + "k characters so far"));
     let md = String(raw || "").replace(/^```(?:fountain|markdown|md)?\s*|```\s*$/g, "").trim();
     if (md.length < 10) throw new Error("Nothing came back. Try again.");
     const script = /^FORMAT:\s*screenplay/i.test(md); md = md.replace(/^FORMAT:\s*screenplay\s*/i, "").replace(/^#\s+.+\n/, "");
@@ -10410,7 +10434,8 @@ const AUDIT_RULES = `You are a senior professional mentor in this project's fiel
 3. Point out contradictions inside the document or with the project's decisions, if any.
 Be specific to THEIR project, beginner-friendly, and short. Never write the content for them: say what is missing, not the text.
 Write in the language of the document. Output ONLY JSON: {"resumen":"one or two sentences: how complete it is","pasos":[{"paso":"exact step text","estado":"done|partial|missing","falta":"what is missing (empty if done)"}],"secciones":[{"seccion":"name","falta":"what to add"}],"contradicciones":["…"]}`;
-async function docAudit(btn) {
+async function docAudit(btn) { keepAwake(true); try { return await docAuditRun(btn); } finally { keepAwake(false); } }
+async function docAuditRun(btn) {
   const f = docCtx && docFind(docCtx.itemId, docCtx.docId); if (!f) return;
   if (!geminiKey) { showAlert("Add a free Gemini key in Settings → AI first.", { title: "AI needs a key" }); return; }
   await docSave();
@@ -10420,7 +10445,7 @@ async function docAudit(btn) {
     const text = docHtmlToText(document.getElementById("doc-body").innerHTML);
     const steps = (f.it.fases || []).flatMap(fa => (fa.pasos || []).map(st => typeof st === "string" ? st : st.texto));
     const ctx = typeof cbProjectText === "function" ? cbProjectText(pendRoot(f.it)) : "";
-    const raw = await geminiGenerate([{ role: "user", text: `PROJECT CONTEXT:\n${String(ctx).slice(0, 12000)}\n\nCHAPTER: ${f.it.titulo}\nSTEPS OF THIS CHAPTER:\n${steps.map(t => "- " + t).join("\n")}\nSTEPS THIS DOCUMENT WAS MADE FOR: ${docSteps(f.d).join(" | ")}\n\nTHE DOCUMENT "${f.d.titulo}":\n${text.slice(0, 30000)}` }], AUDIT_RULES, false, undefined, "high", () => {});
+    const raw = await geminiGenerate([{ role: "user", text: `PROJECT CONTEXT:\n${String(ctx).slice(0, 12000)}\n\nCHAPTER: ${f.it.titulo}\nSTEPS OF THIS CHAPTER:\n${steps.map(t => "- " + t).join("\n")}\nSTEPS THIS DOCUMENT WAS MADE FOR: ${docSteps(f.d).join(" | ")}\n\nTHE DOCUMENT "${f.d.titulo}":\n${text.slice(0, 30000)}` }], AUDIT_RULES, false, undefined, "low", () => {});
     let a = null; try { a = parseJsonLenient(stripJsonFences(raw)); } catch (e) {}
     if (!a || !(a.pasos || a.secciones)) throw new Error("The check didn't come back right. Try again.");
     { const g = docFind(f.it.id, f.d.id); if (g) { f.it = g.it; f.d = g.d; } }
@@ -11534,7 +11559,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-19 17:45 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-24 20:40 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
