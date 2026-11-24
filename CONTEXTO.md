@@ -503,3 +503,9 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 - IA de documentos: thinking "low" (con "high" tardaba minutos y en iPhone se cortaba con "Load failed"). Wake Lock (`keepAwake`) mientras corre gather/format/audit para que la pantalla no se apague y corte la conexión. Format muestra progreso.
 - Groq: modelos de razonamiento devolvían respuesta vacía → reasoning_effort low / include_reasoning false (gpt-oss), reasoning_format hidden (qwen/deepseek), se quita <think>.
 - Arranque/reconectar Drive: muestra al toque los datos guardados en el dispositivo y "Syncing with your Drive…" (flag `driveConnecting`) en vez del home vacío/deslogueado mientras baja todo.
+
+## 2026-11-24 — Puente Claude: ids para todo + limpieza + fix de plan duplicado
+- Export: además de pasos, cada decisión/nota/cosa por resolver/pendiente/referencia lleva id: `[D3]`, `[N1]`, `[T1]`, `[P1]`, `[R1]`; en capítulos `[C2.N1]` (`itemIndex`). Son posicionales: al importar, cada acción se "pinea" al dueño+texto (`itemPin`, campo `actual`) y al aplicar se busca por eso (`itemFind`) → no borra la copia equivocada aunque cambien los ids.
+- Nuevas acciones en "cambios": borrar_item, editar_item, mover_item (capítulo o "proyecto"), convertir_item (a decision/nota/resolver/pendiente), editar_about (proyecto o capítulo). `applyItemAction`. Etiquetas en mentor y panel de Claude.
+- Bug plan duplicado: cbImport descartaba el id si Claude cambiaba el texto → paso nuevo + el viejo rescatado = duplicados. Ahora un id válido es ese paso (texto nuevo = edición, conserva estado y trabajo); solo ids desconocidos se buscan por texto.
+- README para Claude actualizado con todo esto.

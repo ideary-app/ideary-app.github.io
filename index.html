@@ -9538,7 +9538,8 @@ function renderPcChat() {
   const log = document.getElementById("pc-log");
   const chat = (proj && proj.chat) || [];
   const label = a => labelCore(a);
-  const labelCore = a => a.tipo === "mover_capitulo" ? `Move chapter <em>${escapeHtml(a.titulo || "")}</em> ${a.antesDe ? "right before <strong>" + escapeHtml(a.antesDe) + "</strong>" : "<strong>to the end</strong> (last chapter)"}`
+  const labelCore = a => /_item$|^editar_about$/.test(a.tipo) ? (a.tipo === "borrar_item" ? `Remove <strong>${escapeHtml(a.actual || a.id || "")}</strong>` : a.tipo === "editar_item" ? `Rewrite <em>${escapeHtml(a.actual || a.id || "")}</em> → <strong>${escapeHtml(a.texto || "")}</strong>` : a.tipo === "mover_item" ? `Move <em>${escapeHtml(a.actual || a.id || "")}</em> to <strong>${escapeHtml(a.capitulo || "")}</strong>` : a.tipo === "convertir_item" ? `Turn <em>${escapeHtml(a.actual || a.id || "")}</em> into a <strong>${escapeHtml(a.a || "")}</strong>${a.texto ? ": " + escapeHtml(a.texto) : ""}` : `New About${a.capitulo ? " for <em>" + escapeHtml(a.capitulo) + "</em>" : ""}: <strong>${escapeHtml(String(a.texto || "").slice(0, 200))}</strong>`)
+    : a.tipo === "mover_capitulo" ? `Move chapter <em>${escapeHtml(a.titulo || "")}</em> ${a.antesDe ? "right before <strong>" + escapeHtml(a.antesDe) + "</strong>" : "<strong>to the end</strong> (last chapter)"}`
     : a.tipo === "borrar_capitulo" ? `Remove chapter <strong>${escapeHtml(a.titulo || "")}</strong> — ${a.destino ? `everything in it moves to <strong>${escapeHtml(a.destino)}</strong>` : "I'll ask you where what's in it goes first"}`
     : a.tipo === "mover" ? `Move ${escapeHtml(a.objeto || "note")} <em>${escapeHtml(a.viejo || "")}</em> to <strong>${escapeHtml(a.capitulo || "")}</strong>`
     : a.tipo === "editar_paso" ? `Rewrite step <em>${escapeHtml(a.paso || "")}</em> → <strong>${escapeHtml(a.texto || "")}</strong>`
@@ -9809,17 +9810,73 @@ async function cbUpsert(name, text, mime, keepIfExists) {
   if (!r.ok) throw new Error("Couldn't create " + name + " (" + r.status + ")");
   cbFiles[name] = (await r.json()).id; cbSaveState(); return cbFiles[name];
 }
+
+/* ---- Ids for everything in a project (for Claude's proposals): D decisions, N notes, T things to figure out,
+   P pending, R references; chapter items get the chapter prefix (C2.N1). Ids are positional, so actions are
+   pinned to the item's owner + text when they arrive and found again by that when applied. ---- */
+const ITEM_KINDS = [["decisiones", "D", "decision"], ["notas", "N", "note"], ["cosasAResolver", "T", "thing to figure out"], ["pendientes", "P", "pending"], ["referencias", "R", "reference"]];
+function itemText(x) { return typeof x === "string" ? x : (x && (x.texto || x.titulo || x.nota || x.url)) || ""; }
+function itemIndex(root) {
+  const out = {}, idx = planIndex(root);
+  const scopes = isProject(root) ? [[root, ""]].concat(idx.chs.map((c, ci) => [c, `C${ci + 1}.`])) : [[root, ""]];
+  scopes.forEach(([it, pre]) => ITEM_KINDS.forEach(([key, L]) => {
+    let n = 0; (Array.isArray(it[key]) ? it[key] : []).forEach((x, i) => { if (key === "pendientes" && x && x.hecho) return; if (key === "decisiones" && !(x && x.texto)) return; n++; out[`${pre}${L}${n}`] = { it, key, i, x, texto: itemText(x) }; });
+  }));
+  return out;
+}
+function itemPin(root, id, actual) {
+  const ix = itemIndex(root); let r = ix[String(id || "").trim()];
+  if (actual && (!r || !sameStep(r.texto, actual))) r = Object.values(ix).find(v => norm2(v.texto) === norm2(actual)) || Object.values(ix).find(v => sameStep(v.texto, actual)) || null;
+  return r ? { owner: r.it.id, key: r.key, i: r.i, texto: r.texto } : null;
+}
+function itemFind(pin) {
+  const it = pin && IDEAS.find(x => x.id === pin.owner); if (!it || !Array.isArray(it[pin.key])) return null;
+  const arr = it[pin.key]; let i = itemText(arr[pin.i]) === pin.texto ? pin.i : arr.findIndex(x => itemText(x) === pin.texto);
+  if (i < 0) i = arr.findIndex(x => sameStep(itemText(x), pin.texto));
+  return i < 0 ? null : { it, arr, i };
+}
+const KIND_KEY = { decision: "decisiones", decisiones: "decisiones", nota: "notas", note: "notas", notas: "notas", resolver: "cosasAResolver", cosa: "cosasAResolver", pendiente: "pendientes", pending: "pendientes", referencia: "referencias", reference: "referencias" };
+function itemOfKind(key, src) {
+  const t = itemText(src), now = new Date().toISOString();
+  if (key === "decisiones") return { texto: t };
+  if (key === "cosasAResolver") return { texto: t, resuelto: false };
+  if (key === "referencias") return typeof src === "object" && src.url ? src : { titulo: t, texto: t };
+  return { texto: t, fecha: now };
+}
+function applyItemAction(proj, a) {
+  const root = pendRoot(proj), pin = a._pin || itemPin(root, a.id, a.actual);
+  if (a.tipo === "editar_about") {
+    const want = norm2(a.capitulo), pool = [root].concat(isProject(root) ? projectChapters(root) : []);
+    const tgt = (want && (pool.find(x => norm2(x.titulo) === want) || pool.find(x => norm2(x.titulo).includes(want)))) || root;
+    tgt.descripcion = String(a.texto || ""); logChanges(tgt, "Claude", ["Rewrote the About"]); return true;
+  }
+  const f = itemFind(pin); if (!f) return false;
+  const [obj] = [f.arr[f.i]], kindName = (ITEM_KINDS.find(k => k[0] === pin.key) || [])[2] || "item";
+  if (a.tipo === "borrar_item") { f.arr.splice(f.i, 1); logChanges(f.it, "Claude", [`Removed ${kindName}: "${pin.texto}"`]); }
+  else if (a.tipo === "editar_item") { if (typeof obj === "string") f.arr[f.i] = String(a.texto); else if (pin.key === "referencias" && !obj.texto) obj.titulo = String(a.texto); else obj.texto = String(a.texto); logChanges(f.it, "Claude", [`Rewrote ${kindName}: "${pin.texto}" → "${a.texto}"`]); }
+  else if (a.tipo === "mover_item") {
+    const want = norm2(a.capitulo), pool = [root].concat(isProject(root) ? projectChapters(root).filter(c => c.estado !== "eliminada") : []);
+    const dest = /^(proyecto|project|general)$/i.test(String(a.capitulo || "").trim()) ? root : (pool.find(x => norm2(x.titulo) === want) || pool.find(x => want && norm2(x.titulo).includes(want)));
+    if (!dest) return false;
+    f.arr.splice(f.i, 1); dest[pin.key] = (Array.isArray(dest[pin.key]) ? dest[pin.key] : []).concat([obj]);
+    logChanges(dest, "Claude", [`Moved ${kindName} "${pin.texto}" here from "${f.it.titulo}"`]);
+  } else if (a.tipo === "convertir_item") {
+    const key = KIND_KEY[norm2(a.a)]; if (!key || key === pin.key) return false;
+    f.arr.splice(f.i, 1); const nu = itemOfKind(key, a.texto ? { texto: a.texto } : obj); f.it[key] = (Array.isArray(f.it[key]) ? f.it[key] : []).concat([nu]);
+    logChanges(f.it, "Claude", [`Turned ${kindName} "${pin.texto}" into a ${(ITEM_KINDS.find(k => k[0] === key) || [])[2]}`]);
+  } else return false;
+  return true;
+}
 function cbProjectText(p) {
   const idx = planIndex(p), L = [];
   L.push(`# ${p.titulo}`, `Ideary project id: ${p.id}`, `Status: ${(ESTADOS[p.estado] || {}).label || p.estado}`, "");
   if (p.descripcion) L.push("## About", String(p.descripcion), "");
   L.push("## Plan (ids are for your answers: C = chapter, S = step)", idx.text || "(no plan yet)", "");
-  const sec = (title, it, key, fmt) => { const a = it[key] || []; if (a.length) { L.push(`### ${title} — ${it.titulo}`); a.forEach(x => L.push("- " + fmt(x))); L.push(""); } };
-  const txt = x => typeof x === "string" ? x : (x.texto || x.titulo || x.nota || "");
-  [p].concat(isProject(p) ? projectChapters(p).filter(c => c.estado !== "eliminada") : []).forEach(it => {
+  const ix = Object.entries(itemIndex(p)), TITLES = { decisiones: "Decisions", notas: "Notes", cosasAResolver: "Things to figure out", pendientes: "Pending", referencias: "References" };
+  L.push("## Everything else (ids: D decision, N note, T thing to figure out, P pending, R reference; C2.N1 = note of chapter C2)");
+  [p].concat(isProject(p) ? planIndex(p).chs : []).forEach(it => {
     if (it !== p && it.descripcion) L.push(`### About chapter — ${it.titulo}`, String(it.descripcion).slice(0, 1500), "");
-    sec("Notes", it, "notas", txt); sec("Things to figure out", it, "cosasAResolver", txt); sec("Decisions", it, "decisiones", txt);
-    sec("References", it, "referencias", x => `${x.titulo || x.url || ""}${x.url ? " (" + x.url + ")" : ""}`);
+    ITEM_KINDS.forEach(([key]) => { const rows = ix.filter(([, v]) => v.it === it && v.key === key); if (!rows.length) return; L.push(`### ${TITLES[key]} — ${it.titulo}`); rows.forEach(([id, v]) => L.push(`- [${id}] ${String(v.texto).replace(/\s+/g, " ")}${key === "referencias" && v.x && v.x.url ? " (" + v.x.url + ")" : ""}`)); L.push(""); });
   });
   const docs = [p].concat(isProject(p) ? projectChapters(p) : []).flatMap(it => docsOf(it).map(d => ({ it, d })));
   if (docs.length) { L.push("## Documents (Google Docs in this project's documents folder — read them with Google Drive)"); docs.forEach(({ it, d }) => { L.push(`- "${d.titulo}"${it !== p ? " (" + it.titulo + ")" : ""}${d.gdocId ? ` → Google Doc id ${d.gdocId}` : " (not in Drive yet)"}`); if (d.audit) { const pend = (d.audit.pasos || []).filter(x => x.estado !== "done"); if (pend.length) L.push(`  Still missing in it: ${pend.map(x => x.paso + (x.falta ? " (" + x.falta + ")" : "")).join("; ")}`); (d.audit.secciones || []).forEach(x => L.push(`  A complete version also needs: ${x.seccion}`)); } }); L.push(""); }
@@ -9844,7 +9901,10 @@ Each description is JSON:
 {"ideary":1,"id":"unique-id-like-2026-11-18-1","part":1,"of":1,"proyecto":"<Ideary project id from the project file>","texto":"short intro for the person","tipo":"cambios" or "plan", ...}
 - **tipo "cambios"**: small edits. Add "actions": a list like the in-app mentor uses. Every action has "cambio" (short title of what changes) and "porque" (why). Types:
   {"tipo":"agregar_paso","capitulo":"exact chapter title","texto":"step"}, {"tipo":"editar_paso","paso":"exact current step text","texto":"new text"}, {"tipo":"mover_paso","paso":"exact step text","capitulo":"destination chapter","antesDe":"step it goes before or null"}, {"tipo":"borrar_paso","paso":"exact step text","capitulo":"chapter of that copy"}, {"tipo":"capitulo","titulo":"new chapter","antesDe":"chapter it goes before or null"}, {"tipo":"mover_capitulo","titulo":"chapter","antesDe":"chapter or null"}, {"tipo":"nota","texto":"note"}, {"tipo":"resolver","texto":"thing to figure out"}, {"tipo":"decision","texto":"decision"}
-- **tipo "plan"**: a full reorganization. Add "plan": {"intro":"…","capitulos":[{"id":"C1" or null,"titulo":"…","porque":"…","pasos":[{"id":"C1.S2" or null,"texto":"step text (always include it)","porque":"why, for new/moved steps"}]}],"quitar":[{"id":"C3.S1","porque":"why (only steps with no work)"}]}. Reuse ids; each id once; keep steps with work.
+  Cleaning up existing items (by the [id] shown in the project file; always add "actual": the item's current text, so Ideary finds the right one even if ids moved):
+  {"tipo":"borrar_item","id":"D3","actual":"current text"}, {"tipo":"editar_item","id":"C2.N1","actual":"current text","texto":"new text"}, {"tipo":"mover_item","id":"C3.R2","actual":"current text","capitulo":"exact chapter title, or \"proyecto\" for the project level"}, {"tipo":"convertir_item","id":"T4","actual":"current text","a":"decision" | "nota" | "resolver" | "pendiente","texto":"optional new wording"}, {"tipo":"editar_about","texto":"the full new About","capitulo":"chapter title, or leave out for the project"}
+  Use these to remove old or contradicting decisions/notes, merge duplicates (edit one, delete the others), and turn a settled "thing to figure out" into a decision.
+- **tipo "plan"**: a full reorganization. Add "plan": {"intro":"…","capitulos":[{"id":"C1" or null,"titulo":"…","porque":"…","pasos":[{"id":"C1.S2" or null,"texto":"step text (always include it)","porque":"why, for new/moved steps"}]}],"quitar":[{"id":"C3.S1","porque":"why (only steps with no work)"}]}. Reuse ids; each id once; keep steps with work. A step sent with its existing id is that same step (Ideary keeps its status and work and applies your new text, chapter and order) — never send it again with id null. Steps with id null are new. Steps you leave out and list in "quitar" are deleted (only if they have no work); steps left out but not in "quitar" are kept. Use the ids of the LATEST project file.
 If the JSON is split in parts, put the parts' raw text in a field "chunk" instead (part 1 starts the JSON, the last part ends it).
 After writing, tell the person: "Listo, abrí Ideary y vas a ver la propuesta en el mentor de <proyecto>." Ideary shows it with Add/Skip and Undo; nothing changes until they accept.
 `;
@@ -9898,10 +9958,15 @@ async function cbImport() {
       const root = pendRoot(proj), idx = planIndex(root);
       // ids may be from an older export: if the text doesn't match, find the step by its text
       msg.plan.capitulos.forEach(c => (c.pasos || []).forEach(p => {
-        if (p.id && idx.steps[p.id] && p.texto && !sameStep(stepText(idx.steps[p.id].st), p.texto)) { const hit = Object.entries(idx.steps).find(([, r]) => sameStep(stepText(r.st), p.texto)); p.id = hit ? hit[0] : null; }
+        // a valid id IS that step (a new text is an edit). Only an unknown id is looked up by its text.
+        if (p.id && !idx.steps[p.id] && p.texto) { const hit = Object.entries(idx.steps).find(([, r]) => sameStep(stepText(r.st), p.texto)); p.id = hit ? hit[0] : null; }
       }));
       m.reorg = checkReorg(root, idx, msg.plan);
-    } else m.actions = (msg.actions || []).filter(a => a && a.tipo);
+    } else {
+      const root = pendRoot(proj);
+      m.actions = (msg.actions || []).filter(a => a && a.tipo);
+      m.actions.forEach(a => { if (/_item$/.test(a.tipo)) { a._pin = itemPin(root, a.id, a.actual); if (!a.actual && a._pin) a.actual = a._pin.texto; } });
+    }
     proj.chat = (proj.chat || []).concat([{ role: "user", text: "📨 (sent from Claude)", t: Date.now() - 1 }, m]).slice(-30);
     cbMarkSeen(key); await clear(); imported++;
     logChanges(proj, "Claude", ["Received a proposal from Claude"]);
@@ -9998,6 +10063,12 @@ function cbActLabel(a) {
   const T = { agregar_paso: "Add step", editar_paso: "Reword step", mover_paso: "Move step", borrar_paso: "Remove step", capitulo: "New chapter", mover_capitulo: "Move chapter", borrar_capitulo: "Remove chapter", nota: "Note", resolver: "To figure out", decision: "Decision", mover: "Move" };
   const what = a.texto || a.titulo || a.paso || "";
   const where = a.capitulo ? ` → ${a.capitulo}` : "";
+  const it = a.actual || a.id || "";
+  if (a.tipo === "borrar_item") return `Remove: "${it}"`;
+  if (a.tipo === "editar_item") return `Reword: "${it}" → "${a.texto || ""}"`;
+  if (a.tipo === "mover_item") return `Move: "${it}" → ${a.capitulo || ""}`;
+  if (a.tipo === "convertir_item") return `Turn into a ${a.a || "?"}: "${it}"${a.texto ? ` → "${a.texto}"` : ""}`;
+  if (a.tipo === "editar_about") return `New About${a.capitulo ? " (" + a.capitulo + ")" : ""}: ${String(a.texto || "").slice(0, 160)}${String(a.texto || "").length > 160 ? "…" : ""}`;
   return `${T[a.tipo] || a.tipo}: ${a.tipo === "editar_paso" ? `"${a.paso}" → "${a.texto}"` : what}${a.tipo === "editar_paso" ? "" : where}`;
 }
 async function cbDo(pid, k, what, j) {
@@ -10661,6 +10732,7 @@ async function pcAct(k, j, yes, batch) {
       if (same) logChanges(r0, "Mentor", [`Chapter "${a.titulo}" already exists — not added twice`]);
       else { addChapter(proj.id, a.titulo, a.antesDe); logChanges(proj, "Mentor", [`Added chapter "${a.titulo}"`]); }
     }
+    else if (/_item$|^editar_about$/.test(a.tipo)) { if (!applyItemAction(proj, a)) await showAlert(`I couldn't find "${a.actual || a.id}" anymore — maybe it was already changed or removed.`, { title: "Not found" }); }
     else if (a.tipo === "decision") { if (decTarget) decTarget.decisiones = decisionsOf(decTarget).concat([{ texto: a.texto }]); else proj.notas = (proj.notas || []).concat([{ texto: "Decided: " + a.texto, fecha: new Date().toISOString() }]); logChanges(proj, "Mentor", [`Added key decision "${a.texto}"`]); }
     else if (a.tipo === "resolver") { proj.cosasAResolver = (proj.cosasAResolver || []).concat([{ texto: a.texto, resuelto: false }]); logChanges(proj, "Mentor", [`Added thing to figure out "${a.texto}"`]); }
     else {
@@ -11559,7 +11631,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-24 20:40 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-24 21:10 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
