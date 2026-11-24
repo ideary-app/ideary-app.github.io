@@ -9908,27 +9908,34 @@ Each description is JSON:
 If the JSON is split in parts, put the parts' raw text in a field "chunk" instead (part 1 starts the JSON, the last part ends it).
 After writing, tell the person: "Listo, abrí Ideary y vas a ver la propuesta en el mentor de <proyecto>." Ideary shows it with Add/Skip and Undo; nothing changes until they accept.
 `;
-async function cbExport() {
-  if (!cbEnabled() || !driveReady || !accessToken || cbBusy || POPOUT) return;
-  cbBusy = true;
+let cbLastErr = "", cbLastOk = 0;
+async function cbExport(force) {
+  if (!cbEnabled() || !driveReady || !accessToken || POPOUT) return "off";
+  if (cbBusy) { if (!force) return "busy"; for (let i = 0; i < 60 && cbBusy; i++) await new Promise(r => setTimeout(r, 250)); }
+  cbBusy = true; const errs = [];
   try {
+    // the instructions first: they must never be blocked by one project that fails
+    const rd = CB_README();
+    if (force || cbLastHash.__readme !== rd.length) { await cbUpsert("ideary-for-claude-README.md", rd); cbLastHash.__readme = rd.length; }
     const roots = IDEAS.filter(i => i.estado !== "eliminada" && !isChapter(i) && !isNotebook(i));
     const index = ["# Ideary projects", "Read the file of the project the person mentions.", ""];
     for (const p of roots) {
       const name = `ideary-project-${cbSlug(p.titulo)}-${p.id.slice(-4)}.md`;
       index.push(`- **${p.titulo}** (${(ESTADOS[p.estado] || {}).label || p.estado}) → ${name} — id ${p.id}`);
-      const t = cbProjectText(p), h = String(t.length) + ":" + t.slice(-80) + t.slice(0, 80);
-      if (cbLastHash[name] !== h) { await cbUpsert(name, t); cbLastHash[name] = h; }
+      try {
+        const t = cbProjectText(p), h = String(t.length) + ":" + t.slice(-80) + t.slice(0, 80);
+        if (force || cbLastHash[name] !== h) { await cbUpsert(name, t); cbLastHash[name] = h; }
+      } catch (e) { console.warn("Claude export", p.titulo, e); errs.push(`${p.titulo}: ${e.message}`); }
     }
     const it = index.join("\n");
     if (cbLastHash.__index !== it) { await cbUpsert("ideary-projects.md", it); cbLastHash.__index = it; }
-    const rd = CB_README();
-    if (cbLastHash.__readme !== rd.length) { await cbUpsert("ideary-for-claude-README.md", rd); cbLastHash.__readme = rd.length; }
     for (let n = 1; n <= CB_SLOTS; n++) if (!cbFiles[`ideary-inbox-${n}.txt`]) await cbUpsert(`ideary-inbox-${n}.txt`, "Ideary inbox: Claude writes proposals in this file's description.", "text/plain", true);
     cbSaveState();
     await cbImport();
-  } catch (e) { console.warn("Claude bridge:", e.message); }
+  } catch (e) { console.warn("Claude bridge:", e); errs.push(e.message); }
   finally { cbBusy = false; }
+  cbLastErr = errs.join(" · "); if (!errs.length) cbLastOk = Date.now();
+  return cbLastErr || "ok";
 }
 async function cbImport() {
   const parts = [];
@@ -10011,8 +10018,9 @@ function renderCbSettings() {
     <li>Paste this into the Project's <strong>instructions</strong>: <button type="button" class="stuck-btn" style="margin:4px 0" onclick="navigator.clipboard.writeText(CB_PROJECT_INSTRUCTIONS).then(()=>showAlert('Copied. Paste it in your Claude Project instructions.',{title:'Copied'}))">📋 Copy the instructions</button></li>
     <li>Chat with Claude in that Project about any project ("check the plan of Speck & Frac"). When you agree on changes, ask it to send them to Ideary. They show up here in the mentor, to Add/Skip, with Undo.</li>
   </ol>
+  ${on ? `<div class="form-hint">${cbLastOk ? "Last update for Claude: " + new Date(cbLastOk).toLocaleString() : "Not updated yet in this session."}${cbLastErr ? " · ⚠ " + escapeHtml(cbLastErr) : ""}</div>` : ""}
   <div class="form-hint">Each person uses their own Claude account and their own Drive: nothing is shared. Claude never changes your data by itself; everything arrives as a proposal.</div>
-  ${on ? `<button type="button" class="stuck-btn" onclick="cbLastHash={};cbExport().then(()=>showAlert('Updated and checked for proposals.',{title:'Claude'}))">↻ Update now & check for Claude's proposals</button>` : ""}`;
+  ${on ? `<button type="button" class="stuck-btn" onclick="cbLastHash={};this.disabled=true;this.textContent='Updating…';cbExport(true).then(r=>{showAlert(r==='ok'?'Updated: Claude can read the latest version now.':'Something failed: '+r,{title:'Claude'});renderCbSettings();})">↻ Update now & check for Claude's proposals</button>` : ""}`;
 }
 
 
@@ -10041,7 +10049,7 @@ function cbUpdateBadge() {
 }
 function openClaudeInbox(only) { cbOnly = only || null; renderClaudeInbox(); document.getElementById("cb-overlay").classList.add("open"); cbRefreshInbox(); }
 function closeClaudeInbox() { document.getElementById("cb-overlay").classList.remove("open"); }
-async function cbRefreshInbox(btn) { if (btn) { lockBtn(btn); btn.disabled = true; btn.textContent = "Checking…"; } try { await cbCheckSoon(true); } finally { if (btn) { btn.disabled = false; btn.textContent = "↻ Check now"; } renderClaudeInbox(); } }
+async function cbRefreshInbox(btn) { if (btn) { lockBtn(btn); btn.disabled = true; btn.textContent = "Checking…"; } let r = "ok"; try { r = await cbExport(true); } finally { if (btn) { btn.disabled = false; btn.textContent = "↻ Check now"; } renderClaudeInbox(); } if (r === "off") showAlert("Turn on \"Keep my projects readable for Claude\" in Settings → Claude first (and connect Google Drive).", { title: "Claude is off on this device" }); else if (r && r !== "ok" && r !== "busy") showAlert("Something failed while updating Claude's files: " + r, { title: "Claude" }); }
 function renderClaudeInbox() {
   const el = document.getElementById("cb-list"); if (!el) return;
   const all = cbPending(), list = cbOnly ? all.filter(x => x.p.id === cbOnly) : all;
@@ -11631,7 +11639,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-24 21:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-24 21:30 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
