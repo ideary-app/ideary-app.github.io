@@ -4492,6 +4492,7 @@ SHIPPING CHANGES
 .cb-item-h { font-family: var(--hand); font-size: 1.25rem; color: var(--ink); }
 .cb-item-intro { font-size: .9rem; margin: 2px 0 6px; }
 .cb-kind { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--slate); margin: 6px 0; }
+.cb-warn { color: #9a4a1a; font-size: .82rem; margin: 4px 0 2px; }
 .cb-acts { list-style: none; margin: 0; padding: 0; }
 .cb-acts li { padding: 8px 0; border-top: 1px dashed var(--line-strong); font-size: .9rem; }
 .cb-act-btns { display: flex; gap: 6px; margin-top: 6px; }
@@ -9937,6 +9938,15 @@ function cbProjectText(p) {
   });
   const docs = allDocs;
   if (docs.length) { L.push("## Documents (Google Docs in this project's documents folder — read them with Google Drive)"); docs.forEach(({ it, d }) => { L.push(`- [${docId(d)}] "${d.titulo}"${it !== p ? " (" + it.titulo + ")" : ""}${d.gdocId ? ` → Google Doc id ${d.gdocId}` : " (not in Drive yet)"}`); if (d.audit) { const pend = (d.audit.pasos || []).filter(x => x.estado !== "done"); if (pend.length) L.push(`  Still missing in it: ${pend.map(x => x.paso + (x.falta ? " (" + x.falta + ")" : "")).join("; ")}`); (d.audit.secciones || []).forEach(x => L.push(`  A complete version also needs: ${x.seccion}`)); } }); L.push(""); }
+  if ((p.cbLog || []).length) {
+    L.push("## Last changes from Claude (what Ideary actually applied — check it; fix anything marked ✗)");
+    p.cbLog.slice().reverse().forEach(e => {
+      L.push(`### ${e.at.slice(0, 16).replace("T", " ")} UTC — ${e.texto}${e.id ? " (id " + e.id + ")" : ""}`);
+      e.res.forEach(r => L.push(`- ${r.ok === true ? "✓" : r.ok === false ? "✗" : "·"} ${r.c}${r.note ? " — " + r.note : ""}`));
+      if ((e.health || []).length) L.push("Problems found in the project after applying:", ...e.health.map(h => "- ⚠ " + h));
+    });
+    const now = cbHealth(p); L.push(now.length ? "Problems in the project right now:\n" + now.map(h => "- ⚠ " + h).join("\n") : "Project check right now: no duplicates or broken titles.", "");
+  }
   const talk = (p.chat || []).filter(m => m.role === "user").slice(-15).map(m => "- " + String(m.text).replace(/\s+/g, " ").slice(0, 300));
   if (talk.length) L.push("## Recent things the person told the in-app mentor", ...talk, "");
   return L.join("\n");
@@ -9971,6 +9981,7 @@ Each proposal is JSON:
   Use these to remove old or contradicting decisions/notes, merge duplicates (edit one, delete the others), and turn a settled "thing to figure out" into a decision.
 - **tipo "plan"**: a full reorganization. Add "plan": {"intro":"…","capitulos":[{"id":"C1" or null,"titulo":"…","porque":"…","pasos":[{"id":"C1.S2" or null,"texto":"step TITLE only (always include it)","descripcion":"optional: new description","porque":"why, for new/moved steps"}]}],"quitar":[{"id":"C3.S1","porque":"why (only steps with no work)"}]}. Reuse ids; each id once; keep steps with work. A step sent with its existing id is that same step (Ideary keeps its status and work and applies your new text, chapter and order) — never send it again with id null. Steps with id null are new. Steps you leave out and list in "quitar" are deleted (only if they have no work); steps left out but not in "quitar" are kept. Use the ids of the LATEST project file.
 If the JSON is split in parts, put the parts' raw text in a field "chunk" instead (part 1 starts the JSON, the last part ends it).
+After the person applies a proposal, the project file gets a section "Last changes from Claude": what really landed (✓), what didn't (✗) and a health check (duplicate steps or documents, broken titles). When the person comes back, read it first, tell them if everything worked, and send a fix for anything marked ✗ or ⚠.
 After writing, tell the person: "Listo, abrí Ideary y vas a ver la propuesta en el mentor de <proyecto>." Ideary shows it with Add/Skip and Undo; nothing changes until they accept.
 `;
 let cbLastErr = "", cbLastOk = 0;
@@ -10063,7 +10074,7 @@ async function cbImport() {
     if (!msg || cbSeen().includes(key)) { await clear(); continue; }
     const proj = IDEAS.find(i => i.id === msg.proyecto) || IDEAS.find(i => !isChapter(i) && norm2(i.titulo) === norm2(msg.proyecto));
     if (!proj) { await clear(); cbMarkSeen(key); continue; }
-    const m = { role: "model", text: String(msg.texto || (msg.plan && msg.plan.intro) || "Proposal from Claude"), t: Date.now(), by: "Claude (your account)", fromClaude: true, actions: [] };
+    const m = { role: "model", text: String(msg.texto || (msg.plan && msg.plan.intro) || "Proposal from Claude"), t: Date.now(), by: "Claude (your account)", fromClaude: true, cbId: String(msg.id || ""), actions: [] };
     if (msg.tipo === "plan" && msg.plan && Array.isArray(msg.plan.capitulos)) {
       const root = pendRoot(proj), idx = planIndex(root);
       // ids may be from an older export: if the text doesn't match, find the step by its text
@@ -10085,6 +10096,7 @@ async function cbImport() {
         return hit ? { texto: stepTitle(hit.st) } : r ? { texto: stepTitle(r.st) } : null;
       }).filter(Boolean); });
       m.actions.forEach(a => { if (/_item$/.test(a.tipo)) { a._pin = itemPin(root, a.id, a.actual); if (!a.actual && a._pin) a.actual = a._pin.texto; } });
+      cbValidate(root, m);
     }
     proj.chat = (proj.chat || []).concat([{ role: "user", text: "📨 (sent from Claude)", t: Date.now() - 1 }, m]).slice(-30);
     cbMarkSeen(key); await clear(); imported++;
@@ -10183,7 +10195,7 @@ function renderClaudeInbox() {
       return `<div class="cb-item">${head}<div class="cb-kind">Whole plan, reorganized</div>${prev}<div class="pc-msgbar"><button type="button" class="sug-apply" onclick="cbDo('${pid}',${k},'plan')">Apply this plan</button><button type="button" class="sug-ignore" onclick="cbDo('${pid}',${k},'skip')">Skip</button></div></div>`;
     }
     const acts = (m.actions || []).map((a, j) => ({ a, j })).filter(x => !x.a.done);
-    return `<div class="cb-item">${head}<div class="cb-kind">${acts.length} change${acts.length > 1 ? "s" : ""}</div><ul class="cb-acts">${acts.map(({ a, j }) => `<li><span>${escapeHtml(cbActLabel(a))}</span>${a.porque ? `<div class="pc-why">${escapeHtml(a.porque)}</div>` : ""}<span class="cb-act-btns"><button type="button" class="sug-apply" onclick="cbDo('${pid}',${k},'one',${j})">Add</button><button type="button" class="sug-ignore" onclick="cbDo('${pid}',${k},'no',${j})">Skip</button></span></li>`).join("")}</ul><div class="pc-msgbar"><button type="button" class="sug-apply" onclick="cbDo('${pid}',${k},'all')">Add all ${acts.length}</button><button type="button" class="sug-ignore" onclick="cbDo('${pid}',${k},'skip')">Skip all</button></div></div>`;
+    return `<div class="cb-item">${head}<div class="cb-kind">${acts.length} change${acts.length > 1 ? "s" : ""}</div><ul class="cb-acts">${acts.map(({ a, j }) => `<li><span>${escapeHtml(cbActLabel(a))}</span>${a.porque ? `<div class="pc-why">${escapeHtml(a.porque)}</div>` : ""}${a._warn ? `<div class="cb-warn">⚠ ${escapeHtml(a._warn)}</div>` : ""}<span class="cb-act-btns"><button type="button" class="sug-apply" onclick="cbDo('${pid}',${k},'one',${j})">Add</button><button type="button" class="sug-ignore" onclick="cbDo('${pid}',${k},'no',${j})">Skip</button></span></li>`).join("")}</ul><div class="pc-msgbar"><button type="button" class="sug-apply" onclick="cbDo('${pid}',${k},'all')">Add all ${acts.length}</button><button type="button" class="sug-ignore" onclick="cbDo('${pid}',${k},'skip')">Skip all</button></div></div>`;
   }).join("") + (others ? `<button type="button" class="ai-retry" onclick="cbOnly=null;renderClaudeInbox()">See ${others} more from other projects</button>` : "");
   cbUpdateBadge();
 }
@@ -10201,6 +10213,71 @@ function cbActLabel(a) {
   if (a.tipo === "editar_about") return `New About${a.capitulo ? " (" + a.capitulo + ")" : ""}: ${String(a.texto || "").slice(0, 160)}${String(a.texto || "").length > 160 ? "…" : ""}`;
   return `${T[a.tipo] || a.tipo}: ${a.tipo === "editar_paso" ? `"${a.paso}" → "${a.texto || a.paso}"${a.descripcion != null ? " (+ new description)" : ""}` : what}${a.tipo === "editar_paso" ? "" : where}`;
 }
+/* ---- Claude bridge safety net ----
+   1) Every proposal is checked when it arrives: anything Ideary can't place gets a ⚠ before you accept it.
+   2) After you apply, Ideary checks that each change really landed and writes the result into the project's
+      file for Claude ("Last changes from Claude"), plus a health check (duplicate steps/documents, glued titles),
+      so Claude can confirm or fix it itself. Kept per project (Claude already reads that file). */
+function cbAllSteps(root) { return planIndex(root); }
+function cbValidate(root, m) {
+  const idx = planIndex(root), warn = [];
+  const stepExists = t => Object.values(idx.steps).some(v => sameStep(stepTitle(v.st), t) || sameStep(stepText(v.st), t));
+  const chExists = t => !t || /^(proyecto|project)$/i.test(String(t).trim()) || idx.chs.concat([root]).some(c => norm2(c.titulo) === norm2(t) || (norm2(t) && norm2(c.titulo).includes(norm2(t))));
+  (m.actions || []).forEach(a => {
+    const w = [];
+    if (a.tipo === "adjuntar_doc") { const want = (a.pasos || []).length, got = (a._steps || []).length; if (got < want) w.push(`only ${got} of ${want} steps were found`); if (!String(a.contenido || "").trim()) w.push("the document text is empty"); if (a.reemplaza && !findProjDoc(root, a.reemplaza)) w.push(`there is no document "${a.reemplaza}" to replace — a new one will be made`); }
+    else if (a.tipo === "borrar_doc") { const f = findProjDoc(root, a.doc || a.id || a.titulo); if (!f) w.push("that document doesn't exist"); else a._gdoc = f.d.gdocId || f.d.id; }
+    else if (/_item$/.test(a.tipo) && !a._pin) w.push(`"${a.actual || a.id}" wasn't found`);
+    else if (["editar_paso", "borrar_paso", "mover_paso"].includes(a.tipo) && a.paso && !stepExists(a.paso)) w.push(`step "${a.paso}" wasn't found`);
+    else if (["agregar_paso", "mover_paso", "mover_item"].includes(a.tipo) && a.capitulo && !chExists(a.capitulo)) w.push(`chapter "${a.capitulo}" doesn't exist`);
+    if (a.tipo === "agregar_paso" && a.texto && stepExists(a.texto)) w.push("that step already exists — it would be a duplicate");
+    if (w.length) a._warn = w.join("; "); else delete a._warn;
+  });
+  if (m.reorg && Array.isArray(m.reorg.notes) && m.reorg.notes.length) m._warn = m.reorg.notes.join(" ");
+}
+function cbHealth(root) {
+  const idx = planIndex(root), out = [], seen = {};
+  Object.entries(idx.steps).forEach(([id, v]) => {
+    const k = norm2(stepTitle(v.st)); if (k) (seen[k] = seen[k] || []).push(id);
+    if (typeof v.st === "object" && v.st.explicacion && String(v.st.texto || "").includes(String(v.st.explicacion).slice(0, 30))) out.push(`${id}: the title still contains its description`);
+  });
+  Object.values(seen).filter(ids => ids.length > 1).forEach(ids => out.push(`Duplicate steps: ${ids.join(", ")}`));
+  const dt = {}; projDocs(root).forEach((x, i) => { const k = norm2(x.d.titulo); (dt[k] = dt[k] || []).push("DOC" + (i + 1)); });
+  Object.values(dt).filter(v => v.length > 1).forEach(v => out.push(`Documents with the same title: ${v.join(", ")}`));
+  return out;
+}
+function cbVerify(root, a) {
+  if (a.done === "no") return { ok: null, note: "skipped by the person" };
+  if (!a.done) return { ok: null, note: "not applied yet" };
+  const idx = planIndex(root), steps = Object.values(idx.steps), hasStep = t => steps.some(v => sameStep(stepTitle(v.st), t));
+  try {
+    if (a.tipo === "adjuntar_doc") {
+      const d = projDocs(root).find(x => norm2(x.d.titulo) === norm2(a.titulo)); if (!d) return { ok: false, note: "the document isn't in the project" };
+      const miss = (a._steps || []).filter(x => !docSteps(d.d).some(t => sameStep(t, x.texto))).map(x => x.texto);
+      if (!d.d.gdocId) return { ok: false, note: "not saved to Google Drive" };
+      const lost = (a.pasos || []).length - (a._steps || []).length;
+      return miss.length ? { ok: false, note: "not attached to: " + miss.join("; ") } : lost > 0 ? { ok: false, note: `attached to ${(a._steps || []).length} step(s), but ${lost} step id(s) didn't exist` } : { ok: true, note: `attached to ${(a._steps || []).length} step(s)` };
+    }
+    if (a.tipo === "borrar_doc") return projDocs(root).some(x => (x.d.gdocId || x.d.id) === a._gdoc) ? { ok: false, note: "still there" } : { ok: true };
+    if (/_item$/.test(a.tipo) && !a._pin) return { ok: false, note: `"${a.actual || a.id}" wasn't found, nothing changed` };
+    if (/_item$/.test(a.tipo) && a._ok === true) return { ok: true };
+    if (a.tipo === "borrar_item") return itemFind(a._pin) ? { ok: false, note: "still there" } : { ok: true };
+    if (a.tipo === "editar_item") return Object.values(itemIndex(root)).some(v => v.texto === String(a.texto)) ? { ok: true } : { ok: false, note: "new text not found" };
+    if (a.tipo === "agregar_paso") return hasStep(a.texto) ? { ok: true } : { ok: false, note: "step not found after applying" };
+    if (a.tipo === "editar_paso") { if (a.texto && !hasStep(a.texto)) return { ok: false, note: "new title not found" }; if (a.descripcion != null && !steps.some(v => typeof v.st === "object" && v.st.explicacion === String(a.descripcion))) return { ok: false, note: "new description not found" }; return { ok: true }; }
+    if (a.tipo === "borrar_paso") return { ok: true };
+  } catch (e) { return { ok: false, note: "check failed: " + e.message }; }
+  return { ok: true };
+}
+function cbRecord(pid, k) {
+  const proj = IDEAS.find(i => i.id === pid), m = proj && proj.chat && proj.chat[k]; if (!m || !m.fromClaude) return;
+  const root = pendRoot(proj), entry = { at: new Date().toISOString(), id: m.cbId || "", texto: String(m.text || "").slice(0, 160), res: [] };
+  if (m.reorg) entry.res.push({ c: "Plan reorganization", ok: m.reorgDone ? true : m.reorgSkip ? null : null, note: m.reorgDone ? "applied" : m.reorgSkip ? "skipped by the person" : "not applied yet" });
+  (m.actions || []).forEach(a => { const v = cbVerify(root, a); entry.res.push({ c: a.cambio || a.tipo, t: a.tipo, ok: v.ok, note: v.note || "" }); });
+  entry.health = cbHealth(root);
+  root.cbLog = (root.cbLog || []).filter(e => !(e.id && e.id === entry.id)).concat([entry]).slice(-8);
+}
+
 async function cbDo(pid, k, what, j) {
   const prevId = pcProjId; pcProjId = pid;
   const p = IDEAS.find(i => i.id === pid), m = p && p.chat[k]; if (!m) { pcProjId = prevId; return; }
@@ -10210,7 +10287,8 @@ async function cbDo(pid, k, what, j) {
     else if (what === "all") await pcAddAll(k);
     else if (what === "one") await pcAct(k, j, true);
     else if (what === "no") { m.actions[j].done = "no"; }
-    saveIdeas(); render();
+    cbRecord(pid, k);
+    saveIdeas(); render(); if (typeof cbExport === "function") setTimeout(() => cbExport(), 1500);
   } catch (e) { showAlert(e.message, { title: "Couldn't apply" }); }
   finally { pcProjId = prevId; renderClaudeInbox(); render(); }
 }
@@ -10869,7 +10947,7 @@ async function pcAct(k, j, yes, batch) {
     }
     else if (a.tipo === "borrar_doc") { if (!(await applyDeleteDoc(proj, a))) await showAlert(`I couldn't find the document "${a.doc || a.titulo || ""}".`, { title: "Document" }); }
     else if (a.tipo === "adjuntar_doc") { try { await applyAttachDoc(proj, a); renderStepDocs && renderStepDocs(); } catch (e) { await showAlert("I couldn't create the document: " + e.message, { title: "Document" }); } }
-    else if (/_item$|^editar_about$/.test(a.tipo)) { if (!applyItemAction(proj, a)) await showAlert(`I couldn't find "${a.actual || a.id}" anymore — maybe it was already changed or removed.`, { title: "Not found" }); }
+    else if (/_item$|^editar_about$/.test(a.tipo)) { if (!(a._ok = applyItemAction(proj, a))) await showAlert(`I couldn't find "${a.actual || a.id}" anymore — maybe it was already changed or removed.`, { title: "Not found" }); }
     else if (a.tipo === "decision") { if (decTarget) decTarget.decisiones = decisionsOf(decTarget).concat([{ texto: a.texto }]); else proj.notas = (proj.notas || []).concat([{ texto: "Decided: " + a.texto, fecha: new Date().toISOString() }]); logChanges(proj, "Mentor", [`Added key decision "${a.texto}"`]); }
     else if (a.tipo === "resolver") { proj.cosasAResolver = (proj.cosasAResolver || []).concat([{ texto: a.texto, resuelto: false }]); logChanges(proj, "Mentor", [`Added thing to figure out "${a.texto}"`]); }
     else {
@@ -11768,7 +11846,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-26 16:30 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-26 16:50 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {

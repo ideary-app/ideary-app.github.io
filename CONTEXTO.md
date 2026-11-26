@@ -532,3 +532,9 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 - reemplaza: busca por DOCn, id de Google Doc o título, sobre IDEAS fresco; mismo título = mismo doc (nunca duplica).
 - Nueva acción borrar_doc {doc:"DOC2"|título}: lo quita y manda el Google Doc a la papelera.
 - Panel de Claude: sin scroll horizontal en mobile (links/textos largos se cortan).
+
+## 2026-11-26 — Red de seguridad del puente con Claude
+- Validación al llegar (`cbValidate`): cada acción que no se puede ubicar (pasos/ids inexistentes, doc a reemplazar que no existe, paso duplicado, texto vacío) muestra ⚠ en el panel antes de aceptar.
+- Verificación al aplicar (`cbVerify` + `cbRecord` en cbDo): comprueba que cada cambio quedó de verdad; guarda en el proyecto raíz `cbLog` (últimos 8) con ✓/✗ y un chequeo de salud (`cbHealth`: pasos duplicados, docs con mismo título, títulos con desc pegada). Exporta enseguida.
+- Informe por proyecto (no archivo general): sección "Last changes from Claude" dentro de ideary-project-*.md, que Claude ya lee antes de responder. README le pide leerlo primero y corregir lo marcado ✗/⚠.
+- Tests: tests/claude-bridge.test.js (proyecto sintético, no datos reales: el repo es público) + GitHub Action .github/workflows/tests.yml que los corre en cada push.
