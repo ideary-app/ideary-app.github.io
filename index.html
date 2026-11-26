@@ -9768,7 +9768,8 @@ async function applyReorg(k) {
    - ideary-for-claude-README.md : how Claude should read and answer (Claude reads it first)
    - ideary-projects.md          : index of projects
    - ideary-project-<name>.md    : one per project (plan with ids, notes, decisions…)
-   - ideary-inbox-1..8.txt       : empty files whose DESCRIPTION is where Claude writes its proposals
+   - "ideary-inbox (Claude writes here)" : a Google Doc Claude appends proposals to with its Docs tool
+   - ideary-inbox-1..8.txt       : older mailbox (description field), still read
      (Claude's Google Drive connector can edit a file's description; Ideary can read it because it
      created those files). Ideary imports them into the project's mentor chat, then clears them.
    Everything Claude sends is a proposal: it shows up with Add / Skip / Apply, never changes data alone. */
@@ -9896,8 +9897,12 @@ You are helping the person with their projects in **Ideary** (a planner for crea
 Act as a senior professional mentor in the project's field: honest, specific, beginner-friendly. When reviewing a plan, compare it with the real professional pipeline for that kind of project and catch what's missing, duplicated or out of order (for a 3D animated short that includes layout/previs — sets and camera blocking — before modeling). Free resources only, unless they ask for paid ones. Explain each change: what and why.
 
 ## How to send changes to Ideary (only when the person wants them)
-Ideary can't read your chat. To send a proposal, write it into the **description** of one of the empty files **ideary-inbox-1.txt … ideary-inbox-${CB_SLOTS}.txt** (use the Google Drive tool that updates a file's metadata: set "description"; do NOT create new files and do NOT change file contents). Use a slot whose description is empty. Keep each description under 4000 characters; if your proposal is longer, split the JSON text across several slots with the same "id" and "part"/"of".
-Each description is JSON:
+Ideary can't read your chat. To send a proposal, use the **Google Docs** tool to append it to the end of the Google Doc **"${CB_DOC}"** in this folder (find its id with Google Drive search; then a Docs batchUpdate with insertText at endOfSegmentLocation). Write each proposal as plain text:
+<<<IDEARY
+{ ...the JSON below, on one or many lines... }
+IDEARY>>>
+Several proposals = several blocks. No size limit; don't split. Ideary reads the document every couple of minutes, imports every complete block and empties the document. Never edit or delete other text in it. (The Google Drive tool can't edit files Ideary made, so don't use ideary-inbox-N.txt unless the Docs tool isn't available: then the old way still works — put the JSON in the description of an empty ideary-inbox-N.txt, under 4000 characters per slot.)
+Each proposal is JSON:
 {"ideary":1,"id":"unique-id-like-2026-11-18-1","part":1,"of":1,"proyecto":"<Ideary project id from the project file>","texto":"short intro for the person","tipo":"cambios" or "plan", ...}
 - **tipo "cambios"**: small edits. Add "actions": a list like the in-app mentor uses. Every action has "cambio" (short title of what changes) and "porque" (why). Types:
   {"tipo":"agregar_paso","capitulo":"exact chapter title","texto":"step"}, {"tipo":"editar_paso","paso":"exact current step text","texto":"new text"}, {"tipo":"mover_paso","paso":"exact step text","capitulo":"destination chapter","antesDe":"step it goes before or null"}, {"tipo":"borrar_paso","paso":"exact step text","capitulo":"chapter of that copy"}, {"tipo":"capitulo","titulo":"new chapter","antesDe":"chapter it goes before or null"}, {"tipo":"mover_capitulo","titulo":"chapter","antesDe":"chapter or null"}, {"tipo":"nota","texto":"note"}, {"tipo":"resolver","texto":"thing to figure out"}, {"tipo":"decision","texto":"decision"}
@@ -9929,6 +9934,7 @@ async function cbExport(force) {
     }
     const it = index.join("\n");
     if (cbLastHash.__index !== it) { await cbUpsert("ideary-projects.md", it); cbLastHash.__index = it; }
+    if (!cbFiles[CB_DOC]) await cbEnsureInboxDoc();
     for (let n = 1; n <= CB_SLOTS; n++) if (!cbFiles[`ideary-inbox-${n}.txt`]) await cbUpsert(`ideary-inbox-${n}.txt`, "Ideary inbox: Claude writes proposals in this file's description.", "text/plain", true);
     cbSaveState();
     await cbImport();
@@ -9936,6 +9942,31 @@ async function cbExport(force) {
   finally { cbBusy = false; }
   cbLastErr = errs.join(" · "); if (!errs.length) cbLastOk = Date.now();
   return cbLastErr || "ok";
+}
+
+/* Claude's Google Drive tool can only edit files Claude made, but its Google Docs tool CAN edit Google Docs.
+   So the main mailbox is a Google Doc made by Ideary: Claude appends proposals to it, Ideary reads and empties it. */
+const CB_DOC = "ideary-inbox (Claude writes here)";
+const CB_DOC_HEAD = "IDEARY INBOX. Claude appends proposals below, each between a line <<<IDEARY and a line IDEARY>>>. Ideary reads them and empties this document.";
+async function cbEnsureInboxDoc() {
+  const folder = await cbEnsureFolder();
+  let id = await cbFindInFolder(CB_DOC, folder);
+  if (!id) {
+    const b = "ideary-cbd", meta = { name: CB_DOC, mimeType: "application/vnd.google-apps.document", parents: [folder] };
+    const body = `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${b}\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n${CB_DOC_HEAD}\r\n--${b}--`;
+    const r = await cbDrive("/upload/drive/v3/files?uploadType=multipart&fields=id", { method: "POST", headers: { "Content-Type": `multipart/related; boundary=${b}` }, body });
+    if (!r.ok) throw new Error("Couldn't create the inbox document (" + r.status + ")");
+    id = (await r.json()).id;
+  }
+  cbFiles[CB_DOC] = id; cbSaveState(); return id;
+}
+function cbDocBlocks(text) {
+  const out = [], re = /<<<\s*IDEARY\s*([\s\S]*?)\s*IDEARY\s*>>>/g; let m;
+  const t = String(text || "").replace(/[“”„]/g, '"').replace(/[‘’]/g, "'").replace(/ /g, " ");
+  while ((m = re.exec(t))) out.push(m[1]);
+  // no markers: any whole JSON object starting with {"ideary"
+  if (!out.length) { const i = t.indexOf('{"ideary"'); if (i >= 0) out.push(t.slice(i, t.lastIndexOf("}") + 1)); }
+  return out;
 }
 async function cbImport() {
   const parts = [];
@@ -9945,6 +9976,18 @@ async function cbImport() {
     const d = String((await r.json()).description || "").trim(); if (!d) continue;
     let j = null; try { j = JSON.parse(d); } catch (e) { try { j = parseJsonLenient(d); } catch (e2) {} }
     parts.push({ slot: id, j, raw: d });
+  }
+  // the Google Doc mailbox
+  let docUsed = false; const docLeft = [];
+  if (cbFiles[CB_DOC]) {
+    const r = await cbDrive(`/drive/v3/files/${cbFiles[CB_DOC]}/export?mimeType=text%2Fplain`);
+    if (r.status === 404) { delete cbFiles[CB_DOC]; cbSaveState(); }
+    else if (r.ok) {
+      cbDocBlocks(await r.text()).forEach((raw, k) => {
+        let j = null; try { j = JSON.parse(raw); } catch (e) { try { j = parseJsonLenient(raw); } catch (e2) {} }
+        if (j && j.ideary) { parts.push({ slot: "doc:" + k, j, raw }); docUsed = true; } else docLeft.push(raw);
+      });
+    }
   }
   if (!parts.length) return;
   const groups = {};
@@ -9956,7 +9999,7 @@ async function cbImport() {
       const of = Math.max(...ps.map(p => +(p.j && p.j.of) || 1)); if (ps.length < of) continue; // wait for all parts
       try { msg = parseJsonLenient(ps.sort((a, b) => (+a.j.part || 0) - (+b.j.part || 0)).map(p => p.j.chunk).join("")); } catch (e) { msg = null; }
     }
-    const clear = async () => { for (const p of ps) await cbDrive(`/drive/v3/files/${p.slot}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ description: "" }) }); };
+    const clear = async () => { for (const p of ps.filter(p => !String(p.slot).startsWith("doc:"))) await cbDrive(`/drive/v3/files/${p.slot}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ description: "" }) }); };
     if (!msg || cbSeen().includes(key)) { await clear(); continue; }
     const proj = IDEAS.find(i => i.id === msg.proyecto) || IDEAS.find(i => !isChapter(i) && norm2(i.titulo) === norm2(msg.proyecto));
     if (!proj) { await clear(); cbMarkSeen(key); continue; }
@@ -9979,6 +10022,11 @@ async function cbImport() {
     logChanges(proj, "Claude", ["Received a proposal from Claude"]);
     cbNotice(proj);
   }
+  if (docUsed) {
+    // empty the mailbox, keeping anything that wasn't complete yet (Claude may still be writing it)
+    const txt = CB_DOC_HEAD + docLeft.map(x => "\n\n<<<IDEARY\n" + x + "\nIDEARY>>>").join("");
+    await cbDrive(`/upload/drive/v3/files/${cbFiles[CB_DOC]}?uploadType=media`, { method: "PATCH", headers: { "Content-Type": "text/plain; charset=UTF-8" }, body: txt });
+  }
   if (imported) { saveIdeas(); render(); }
 }
 // Check Claude's mailbox on its own: shortly after opening, when coming back to the app, and every 2 minutes while it's open.
@@ -9987,7 +10035,7 @@ async function cbCheckSoon(force) {
   if (!cbEnabled() || !driveReady || !accessToken || POPOUT || (!force && document.visibilityState !== "visible")) return;
   if (cbBusy) { if (!force) return; for (let i = 0; i < 40 && cbBusy; i++) await new Promise(r => setTimeout(r, 250)); }
   cbBusy = true;
-  try { if (Object.keys(cbFiles).filter(k => /inbox/.test(k)).length < CB_SLOTS) { cbBusy = false; return cbExport(); } await cbImport(); }
+  try { if (!cbFiles[CB_DOC] || Object.keys(cbFiles).filter(k => /inbox-\d/.test(k)).length < CB_SLOTS) { cbBusy = false; return cbExport(); } await cbImport(); }
   catch (e) { console.warn("Claude inbox:", e.message); } finally { cbBusy = false; }
 }
 setInterval(cbCheckSoon, 120000);
@@ -10005,7 +10053,7 @@ function cbToggle(on) {
   if (on) { if (!driveReady) { showAlert("Connect Google Drive first (Settings → Sync), then turn this on.", { title: "Needs Google Drive" }); return; } cbLastHash = {}; cbExport().then(() => showAlert("Done: your projects are in your Drive folder Ideary/for-claude. Now set up Claude (steps below).", { title: "Ready for Claude" })); }
   renderCbSettings(); cbUpdateBadge();
 }
-const CB_PROJECT_INSTRUCTIONS = `You help me with my projects in my app Ideary. At the start of every conversation, use Google Drive to search for the file "ideary-for-claude-README.md" (folder Ideary/for-claude) and follow it exactly: read ideary-projects.md and the file of the project I mention, without asking me to paste anything. When I want changes, send them to Ideary as the README explains (description of an empty ideary-inbox file). Answer in my language.`;
+const CB_PROJECT_INSTRUCTIONS = `You help me with my projects in my app Ideary. At the start of every conversation, use Google Drive to search for the file "ideary-for-claude-README.md" (folder Ideary/for-claude) and follow it exactly: read ideary-projects.md and the file of the project I mention, without asking me to paste anything. When I want changes, send them to Ideary as the README explains (append them with the Google Docs tool to the Google Doc "ideary-inbox (Claude writes here)"). Answer in my language.`;
 function renderCbSettings() {
   const el = document.getElementById("cb-settings"); if (!el) return;
   const on = cbEnabled();
@@ -11639,7 +11687,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-24 21:30 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-26 02:40 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {

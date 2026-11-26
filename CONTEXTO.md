@@ -509,3 +509,9 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 - Nuevas acciones en "cambios": borrar_item, editar_item, mover_item (capítulo o "proyecto"), convertir_item (a decision/nota/resolver/pendiente), editar_about (proyecto o capítulo). `applyItemAction`. Etiquetas en mentor y panel de Claude.
 - Bug plan duplicado: cbImport descartaba el id si Claude cambiaba el texto → paso nuevo + el viejo rescatado = duplicados. Ahora un id válido es ese paso (texto nuevo = edición, conserva estado y trabajo); solo ids desconocidos se buscan por texto.
 - README para Claude actualizado con todo esto.
+
+## 2026-11-26 — Buzón de Claude por Google Doc
+- El conector de Google Drive de Claude ya no puede editar archivos creados por Ideary (scope drive.file de su lado). Además Ideary (drive.file) no podría leer archivos creados por Claude, así que "Claude crea archivos nuevos" no sirve.
+- Sí funciona: el conector de **Google Docs** de Claude puede editar Google Docs creados por Ideary (probado con un replaceAllText no-op sobre la Biblia).
+- Nuevo buzón: Google Doc "ideary-inbox (Claude writes here)" en Ideary/for-claude (`cbEnsureInboxDoc`). Claude agrega al final bloques `<<<IDEARY {json} IDEARY>>>` con Docs insertText. `cbImport` lo exporta a texto, importa cada bloque completo (`cbDocBlocks`, tolera comillas tipográficas) y reescribe el doc dejando solo lo que no se pudo parsear. Los inbox .txt siguen leyéndose como respaldo.
+- README e instrucciones del proyecto de Claude actualizados.
