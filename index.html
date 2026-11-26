@@ -9764,7 +9764,7 @@ async function applyReorg(k) {
     c.pasos.forEach(p => {
       const o = p.ref ? stepObj(p.ref) : { texto: p.texto };
       if (!o) return;
-      if (p.ref && p.texto && p.texto !== o.texto) o.texto = p.texto;
+      if (p.ref && p.texto && p.texto !== o.texto) { docRenameStep(root, o.texto, p.texto); o.texto = p.texto; }
       if (p.descripcion != null && String(p.descripcion).trim()) o.explicacion = String(p.descripcion);
       if (p.ref && idx.steps[p.ref].ch.id === ch.id) lastPhase = idx.steps[p.ref].fase || lastPhase; // moved-in steps join the chapter's current phase
       faseOf(lastPhase).pasos.push(o);
@@ -9924,7 +9924,7 @@ function cbProjectText(p) {
   L.push(`# ${p.titulo}`, `Ideary project id: ${p.id}`, `Status: ${(ESTADOS[p.estado] || {}).label || p.estado}`, "");
   if (p.descripcion) L.push("## About", String(p.descripcion), "");
   const allDocs = [p].concat(isProject(p) ? projectChapters(p) : []).flatMap(it => docsOf(it).map(d => ({ it, d })));
-  const docId = d => "DOC" + (allDocs.findIndex(x => x.d === d) + 1);
+  const docId = d => "DOC" + (allDocs.findIndex(x => x.d === d || (x.d.id && x.d.id === d.id) || (x.d.gdocId && x.d.gdocId === d.gdocId)) + 1);
   const planLines = (idx.text || "(no plan yet)").split("\n").flatMap(line => {
     const m = /^\s+(C\d+\.S\d+) /.exec(line); if (!m) return [line];
     const r = idx.steps[m[1]], ds = docsOfStep(r.ch, stepTitle(r.st));
@@ -9940,10 +9940,10 @@ function cbProjectText(p) {
   const docs = allDocs;
   if (docs.length) { L.push("## Documents (Google Docs in this project's documents folder — read them with Google Drive)"); docs.forEach(({ it, d }) => { L.push(`- [${docId(d)}] "${d.titulo}"${it !== p ? " (" + it.titulo + ")" : ""}${d.gdocId ? ` → Google Doc id ${d.gdocId}` : " (not in Drive yet)"}`); if (d.audit) { const pend = (d.audit.pasos || []).filter(x => x.estado !== "done"); if (pend.length) L.push(`  Still missing in it: ${pend.map(x => x.paso + (x.falta ? " (" + x.falta + ")" : "")).join("; ")}`); (d.audit.secciones || []).forEach(x => L.push(`  A complete version also needs: ${x.seccion}`)); } }); L.push(""); }
   if ((p.cbLog || []).length) {
-    L.push("## Last changes from Claude (what Ideary actually applied — check it; fix anything marked ✗)");
+    L.push("## Last changes from Claude (re-checked against the project as it is now; fix anything marked ✗)");
     p.cbLog.slice().reverse().forEach(e => {
       L.push(`### ${e.at.slice(0, 16).replace("T", " ")} UTC — ${e.texto}${e.id ? " (id " + e.id + ")" : ""}`);
-      e.res.forEach(r => L.push(`- ${r.ok === true ? "✓" : r.ok === false ? "✗" : "·"} ${r.c}${r.note ? " — " + r.note : ""}`));
+      e.res.forEach(r => { const v = r.a && r.a.done && r.a.done !== "no" ? cbVerify(p, r.a) : r; L.push(`- ${v.ok === true ? "✓" : v.ok === false ? "✗" : "·"} ${r.c}${v.note ? " — " + v.note : ""}`); });
       if ((e.health || []).length) L.push("Problems found in the project after applying:", ...e.health.map(h => "- ⚠ " + h));
     });
     const now = cbHealth(p); L.push(now.length ? "Problems in the project right now:\n" + now.map(h => "- ⚠ " + h).join("\n") : "Project check right now: no duplicates or broken titles.", "");
@@ -10090,7 +10090,12 @@ async function cbImport() {
       m.actions = (msg.actions || []).filter(a => a && a.tipo);
       const sidx = planIndex(root);
       const sMatch = (st, t) => { const a = norm2(t); return a && (sameStep(stepTitle(st), t) || sameStep(stepText(st), t) || norm2(stepText(st)).startsWith(a) || a.startsWith(norm2(stepTitle(st)))); };
-      m.actions.forEach(a => { if (/_paso$/.test(a.tipo) && a.id) { const r = sidx.steps[String(a.id).trim()]; const hit = r && (!a.actual || sMatch(r.st, a.actual)) ? r : a.actual && Object.values(sidx.steps).find(v => sMatch(v.st, a.actual)); if (hit) { a._step = stepTitle(hit.st); if (!a.paso) a.paso = a._step; } } });
+      m.actions.forEach(a => { if (!/_paso$/.test(a.tipo) || a.tipo === "agregar_paso") return;
+        const r = a.id && sidx.steps[String(a.id).trim()], probe = a.actual || a.paso;
+        const hit = r && (!a.actual || sMatch(r.st, a.actual)) ? r
+          : probe && (Object.values(sidx.steps).find(v => norm2(stepTitle(v.st)) === norm2(probe)) || Object.values(sidx.steps).find(v => sMatch(v.st, probe)));
+        if (hit) { a._step = stepTitle(hit.st); a.paso = a._step; a._loc = { ch: hit.ch.id, fi: hit.fi, si: hit.si, t: a._step }; }
+      });
       m.actions.forEach(a => { if (a.tipo === "adjuntar_doc") a._steps = (a.pasos || []).map(x => {
         if (typeof x === "string") x = { id: x };
         const r = x && x.id && sidx.steps[String(x.id).trim()];
@@ -10258,7 +10263,9 @@ function cbVerify(root, a) {
   try {
     if (a.tipo === "adjuntar_doc") {
       const d = projDocs(root).find(x => norm2(x.d.titulo) === norm2(a.titulo)); if (!d) return { ok: false, note: "the document isn't in the project" };
-      const miss = (a._steps || []).filter(x => !docSteps(d.d).some(t => sameStep(t, x.texto))).map(x => x.texto);
+      const miss = (a._steps || []).filter(x => !steps.some(v => docsOfStep(v.ch, stepTitle(v.st)).includes(d.d) && (sameStep(stepTitle(v.st), x.texto) || docSteps(d.d).some(t => sameStep(t, stepTitle(v.st)))))).map(x => x.texto);
+      const shown = steps.filter(v => docsOfStep(v.ch, stepTitle(v.st)).includes(d.d)).length;
+      if (shown < (a._steps || []).length) return { ok: false, note: `shows on ${shown} step(s), expected ${(a._steps || []).length}${miss.length ? "; missing: " + miss.join("; ") : ""}` };
       if (!d.d.gdocId) return { ok: false, note: "not saved to Google Drive" };
       const lost = (a.pasos || []).length - (a._steps || []).length;
       return miss.length ? { ok: false, note: "not attached to: " + miss.join("; ") } : lost > 0 ? { ok: false, note: `attached to ${(a._steps || []).length} step(s), but ${lost} step id(s) didn't exist` } : { ok: true, note: `attached to ${(a._steps || []).length} step(s)` };
@@ -10269,9 +10276,15 @@ function cbVerify(root, a) {
     if (a.tipo === "borrar_item") return itemFind(a._pin) ? { ok: false, note: "still there" } : { ok: true };
     if (a.tipo === "editar_item") return Object.values(itemIndex(root)).some(v => v.texto === String(a.texto)) ? { ok: true } : { ok: false, note: "new text not found" };
     if (a.tipo === "agregar_paso") return hasStep(a.texto) ? { ok: true } : { ok: false, note: "step not found after applying" };
-    if (a.tipo === "editar_paso") { if (a.texto && !hasStep(a.texto)) return { ok: false, note: "new title not found" }; if (a.descripcion != null && !steps.some(v => typeof v.st === "object" && v.st.explicacion === String(a.descripcion))) return { ok: false, note: "new description not found" }; return { ok: true }; }
+    if (a.tipo === "editar_paso") {
+      const h = stepAtLoc(a._loc) || (a.texto && allStepsOf(root).find(x => x.texto === a.texto)); if (!h) return { ok: false, note: "the step isn't there" };
+      const st = h.idea.fases[h.f].pasos[h.s], bad = [];
+      if (a.texto && stepTitle(st) !== String(a.texto)) bad.push(`title is "${stepTitle(st)}"`);
+      if (a.descripcion != null && String((st && st.explicacion) || "") !== String(a.descripcion)) bad.push("description is still different");
+      return bad.length ? { ok: false, note: bad.join("; ") } : { ok: true, note: `${h.idea.titulo}: "${stepTitle(st)}"` };
+    }
     if (a.tipo === "borrar_paso") return { ok: true };
-    if (a.tipo === "estado_paso") { const v = steps.find(x => sameStep(stepTitle(x.st), a._step || a.paso)); return !v ? { ok: false, note: "step not found" } : ((typeof v.st === "object" && v.st.hecho) || 0) === stepStateNum(a.estado) ? { ok: true, note: ["not started", "in progress", "done"][stepStateNum(a.estado)] } : { ok: false, note: "state didn't change" }; }
+    if (a.tipo === "estado_paso") { const hl = stepAtLoc(a._loc), v = hl ? { st: hl.idea.fases[hl.f].pasos[hl.s] } : steps.find(x => sameStep(stepTitle(x.st), a._step || a.paso)); return !v ? { ok: false, note: "step not found" } : ((typeof v.st === "object" && v.st.hecho) || 0) === stepStateNum(a.estado) ? { ok: true, note: ["not started", "in progress", "done"][stepStateNum(a.estado)] } : { ok: false, note: "state didn't change" }; }
   } catch (e) { return { ok: false, note: "check failed: " + e.message }; }
   return { ok: true };
 }
@@ -10279,7 +10292,7 @@ function cbRecord(pid, k) {
   const proj = IDEAS.find(i => i.id === pid), m = proj && proj.chat && proj.chat[k]; if (!m || !m.fromClaude) return;
   const root = pendRoot(proj), entry = { at: new Date().toISOString(), id: m.cbId || "", texto: String(m.text || "").slice(0, 160), res: [] };
   if (m.reorg) entry.res.push({ c: "Plan reorganization", ok: m.reorgDone ? true : m.reorgSkip ? null : null, note: m.reorgDone ? "applied" : m.reorgSkip ? "skipped by the person" : "not applied yet" });
-  (m.actions || []).forEach(a => { const v = cbVerify(root, a); entry.res.push({ c: a.cambio || a.tipo, t: a.tipo, ok: v.ok, note: v.note || "" }); });
+  (m.actions || []).forEach(a => { const v = cbVerify(root, a); const slim = Object.assign({}, a); delete slim.contenido; delete slim.porque; entry.res.push({ c: a.cambio || a.tipo, t: a.tipo, ok: v.ok, note: v.note || "", a: slim }); });
   entry.health = cbHealth(root);
   root.cbLog = (root.cbLog || []).filter(e => !(e.id && e.id === entry.id)).concat([entry]).slice(-8);
 }
@@ -10861,7 +10874,7 @@ async function pcAct(k, j, yes, batch) {
         }
       } else if (a.tipo === "editar_paso" || a.tipo === "borrar_paso" || a.tipo === "mover_paso") {
         const steps = allStepsOf(root);
-        let hit = near(steps, x => x.texto, a.paso);
+        let hit = stepAtLoc(a._loc) || near(steps, x => x.texto, a.paso);
         if (a.tipo === "borrar_paso" && hit) {
           const copies = steps.filter(x => sameStep(x.texto, hit.texto));
           if (a.capitulo) { const inCh = copies.find(x => norm(x.idea.titulo) === norm(a.capitulo)) || copies.find(x => norm(a.capitulo) && norm(x.idea.titulo).includes(norm(a.capitulo))); if (inCh) hit = inCh; }
@@ -10879,7 +10892,7 @@ async function pcAct(k, j, yes, batch) {
         }
         if (hit) {
           const fase = hit.idea.fases[hit.f];
-          if (a.tipo === "editar_paso") { let st = fase.pasos[hit.s]; if (typeof st === "string") st = fase.pasos[hit.s] = { texto: st }; if (a.texto) st.texto = a.texto; if (a.descripcion != null) st.explicacion = String(a.descripcion); logChanges(hit.idea, "Mentor", [`Step "${hit.texto}" → "${a.texto || hit.texto}"${a.descripcion != null ? " (new description)" : ""}`]); }
+          if (a.tipo === "editar_paso") { let st = fase.pasos[hit.s]; if (typeof st === "string") st = fase.pasos[hit.s] = { texto: st }; const oldT = st.texto; if (a.texto) st.texto = a.texto; if (a.descripcion != null) st.explicacion = String(a.descripcion); if (a.texto && oldT !== a.texto) docRenameStep(root, oldT, a.texto); if (a._loc) a._loc = { ch: hit.idea.id, fi: hit.f, si: hit.s, t: st.texto }; a._ok = true; logChanges(hit.idea, "Mentor", [`Step "${hit.texto}" → "${a.texto || hit.texto}"${a.descripcion != null ? " (new description)" : ""}`]); }
           else {
             const [st] = fase.pasos.splice(hit.s, 1);
             if (a.tipo === "borrar_paso") logChanges(hit.idea, "Mentor", [`Deleted step "${hit.texto}"`]);
@@ -10939,7 +10952,7 @@ async function pcAct(k, j, yes, batch) {
     } else if (a.tipo === "estado_paso") {
       const norm = x => String(x || "").trim().toLowerCase();
       const steps = allStepsOf(proj), want = a._step || a.paso || a.actual;
-      const hit = steps.find(x => norm(x.texto) === norm(want)) || steps.find(x => norm(want) && (norm(x.texto).includes(norm(want)) || norm(want).includes(norm(x.texto))));
+      const hit = stepAtLoc(a._loc) || steps.find(x => norm(x.texto) === norm(want)) || steps.find(x => norm(want) && (norm(x.texto).includes(norm(want)) || norm(want).includes(norm(x.texto))));
       if (!hit) a._ok = false;
       if (hit) {
         const fase = hit.idea.fases[hit.f]; let st = fase.pasos[hit.s]; if (typeof st === "string") st = fase.pasos[hit.s] = { texto: st };
@@ -11854,7 +11867,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-26 19:40 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-26 20:30 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -13962,6 +13975,23 @@ function collectNotesFromInputs() {
   }).filter(v => v !== null);
 }
 // What's actually inside a step, so a reviewer can judge progress: images, files, the person's notes, tutor talk.
+// a step found by where it was when the proposal arrived (chapter + position + title), so a fuzzy match never edits the wrong step
+function stepAtLoc(loc) {
+  if (!loc) return null;
+  const it = IDEAS.find(i => i.id === loc.ch); if (!it || !Array.isArray(it.fases)) return null;
+  const st = it.fases[loc.fi] && it.fases[loc.fi].pasos && it.fases[loc.fi].pasos[loc.si];
+  if (st && stepTitle(st) === loc.t) return { idea: it, f: loc.fi, s: loc.si, texto: loc.t };
+  for (let fi = 0; fi < it.fases.length; fi++) { const si = (it.fases[fi].pasos || []).findIndex(x => stepTitle(x) === loc.t); if (si >= 0) return { idea: it, f: fi, s: si, texto: loc.t }; }
+  return null;
+}
+// documents point at steps by title: when a title changes, move the link with it
+function docRenameStep(root, oldT, newT) {
+  if (!oldT || !newT || oldT === newT || !root) return;
+  [root].concat(isProject(root) ? projectChapters(root) : []).forEach(it => docsOf(it).forEach(d => {
+    const ps = docSteps(d); if (!ps.some(t => sameStep(t, oldT))) return;
+    d.pasos = ps.map(t => sameStep(t, oldT) ? newT : t).filter((t, i, a) => a.findIndex(x => sameStep(x, t)) === i);
+  }));
+}
 function stepStateNum(e) { e = String(e || "").trim().toLowerCase().replace(/[_-]/g, " "); return /sin empezar|not started|to ?do|pend|undone|none|nada/.test(e) ? 0 : /curso|progress|doing|empez/.test(e) ? 1 : 2; }
 function stepWorkSummary(o) {
   if (!o || typeof o !== "object") return "";

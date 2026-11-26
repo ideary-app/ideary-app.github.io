@@ -93,6 +93,26 @@ const applyAll = p => p.evaluate(async () => { for (const b of [...document.quer
   ok(h.join() === "0,1,2,true", "states set: not started / in progress / done, report ✓ (" + h + ")");
   await p.close();
 
+  console.log("Exact step edits, docs follow renamed steps, stable doc ids, live re-check");
+  p = await page(b);
+  await p.evaluate(() => { const c2 = IDEAS.find(i => i.id === "c2"); c2.fases[0].pasos = [{ texto: "Montar Storyboard y Animatic con cámaras duales (16:9 y 9:16)", explicacion: "vieja A" }, { texto: "Montar storyboard", explicacion: "vieja B" }, { texto: "Configurar iluminación: Atardecer dorado vs. Noche policial", explicacion: "luz" }]; });
+  await send(p, [{ ideary: 1, id: "m5", proyecto: "p1", texto: "fix", tipo: "cambios", actions: [
+    { tipo: "adjuntar_doc", titulo: "Guion (B4)", contenido: "X", reemplaza: "DOC1", pasos: [{ id: "C1.S3", actual: "Editar audio" }, { id: "C2.S1" }] },
+    { tipo: "editar_paso", id: "C2.S1", actual: "Montar Storyboard y Animatic con cámaras duales (16:9 y 9:16)", descripcion: "nueva A" },
+    { tipo: "editar_paso", id: "C2.S3", actual: "Configurar iluminación: Atardecer dorado vs. Noche policial", texto: "Configurar iluminación: tardecita vs. hora azul" },
+    { tipo: "editar_paso", id: "C1.S3", actual: "Editar audio", texto: "Grabar voces scratch y armar audio guía" }] }]);
+  await applyAll(p);
+  const z = await p.evaluate(() => { const g = id => IDEAS.find(i => i.id === id), c2 = g("c2").fases[0].pasos, t = cbProjectText(g("p1"));
+    return { a: c2[0].explicacion, b: c2[1].explicacion, l: c2[2].texto, doc0: /\[DOC0\]/.test(t), audioDoc: /Grabar voces scratch y armar audio guía[^\n]*\n(\s+(desc|work):[^\n]*\n)*\s+\[DOC1\]/.test(t) || /Grabar voces scratch y armar audio guía[^\n]*\n\s+\[DOC1\]/.test(t), log: g("p1").cbLog.slice(-1)[0].res.map(r => r.ok) }; });
+  ok(z.a === "nueva A" && z.b === "vieja B", "description edited on the exact step, not its neighbour");
+  ok(z.l === "Configurar iluminación: tardecita vs. hora azul", "title with ':' edited");
+  ok(z.audioDoc, "document follows the renamed step");
+  ok(!z.doc0, "no [DOC0] anywhere");
+  ok(z.log.every(x => x === true), "report ✓ (" + z.log + ")");
+  await p.evaluate(() => { IDEAS.find(i => i.id === "c2").fases[0].pasos[0].explicacion = "alguien la pisó"; });
+  ok(await p.evaluate(() => /✗[^\n]*description is still different/.test(cbProjectText(IDEAS.find(i => i.id === "p1")))), "export re-checks now: a lost change shows ✗");
+  await p.close();
+
   console.log("Bad proposals are flagged and reported");
   p = await page(b);
   await send(p, [{ ideary: 1, id: "m3", proyecto: "p1", texto: "mala", tipo: "cambios", actions: [

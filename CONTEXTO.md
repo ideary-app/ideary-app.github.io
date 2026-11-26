@@ -543,3 +543,9 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 - estado_paso acepta id + actual (se resuelve al importar → a._step), estado "hecho"/"en_curso"/"sin_empezar" (`stepStateNum`; antes "sin_empezar" terminaba en done). Actualiza el estado de la fase. Valida (⚠) y verifica (✓/✗) como las demás.
 - Export/planIndex: debajo de cada paso con algo, "work: N images, N files (nombres), notes: '…', N messages with the tutor" (`stepWorkSummary`; cuenta adjuntos del paso).
 - Tests nuevos en tests/claude-bridge.test.js.
+
+## 2026-11-26 — Fixes: editar_paso en el paso equivocado, doc que se despega al renombrar, [DOC0], re-chequeo en vivo
+- Causa de "✓ pero no cambió": editar_paso buscaba el paso con `near` (difuso) → editaba un vecino parecido, y la verificación aceptaba "algún paso tiene esa desc". Ahora al importar se guarda la ubicación exacta (`a._loc`: capítulo + posición + título) y `stepAtLoc` la usa primero (editar/borrar/mover/estado_paso). Verificación compara título/desc finales en ESE paso.
+- Docs enlazan pasos por título: `docRenameStep` mueve el enlace cuando cambia el título (editar_paso y reorganización de plan). Por eso C1.S7 perdió el guion (se renombró después de adjuntar).
+- [DOC0]: ids de docs se resuelven por id/gdocId, no por identidad de objeto.
+- "Last changes from Claude" re-verifica contra los datos actuales en cada export (el log guarda una copia liviana de cada acción) → si algo se pierde después (p. ej. sync), aparece ✗.
