@@ -515,3 +515,6 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 - Sí funciona: el conector de **Google Docs** de Claude puede editar Google Docs creados por Ideary (probado con un replaceAllText no-op sobre la Biblia).
 - Nuevo buzón: Google Doc "ideary-inbox (Claude writes here)" en Ideary/for-claude (`cbEnsureInboxDoc`). Claude agrega al final bloques `<<<IDEARY {json} IDEARY>>>` con Docs insertText. `cbImport` lo exporta a texto, importa cada bloque completo (`cbDocBlocks`, tolera comillas tipográficas) y reescribe el doc dejando solo lo que no se pudo parsear. Los inbox .txt siguen leyéndose como respaldo.
 - README e instrucciones del proyecto de Claude actualizados.
+
+## 2026-11-26 — Botón de Claude en el header mobile + ícono nuevo
+- Ícono bandeja de entrada con flecha (propuestas que llegan) en desktop y mobile; en mobile botón amarillo a la derecha del buscador (#cb-hdr-m). Tocar = abre el panel y fuerza actualizar/leer (animación mientras chequea). Badge con cantidad (antes no se mostraba: display '' caía en none).
