@@ -538,3 +538,8 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 - Verificación al aplicar (`cbVerify` + `cbRecord` en cbDo): comprueba que cada cambio quedó de verdad; guarda en el proyecto raíz `cbLog` (últimos 8) con ✓/✗ y un chequeo de salud (`cbHealth`: pasos duplicados, docs con mismo título, títulos con desc pegada). Exporta enseguida.
 - Informe por proyecto (no archivo general): sección "Last changes from Claude" dentro de ideary-project-*.md, que Claude ya lee antes de responder. README le pide leerlo primero y corregir lo marcado ✗/⚠.
 - Tests: tests/claude-bridge.test.js (proyecto sintético, no datos reales: el repo es público) + GitHub Action .github/workflows/tests.yml que los corre en cada push.
+
+## 2026-11-26 — estado_paso por id + resumen de trabajo por paso
+- estado_paso acepta id + actual (se resuelve al importar → a._step), estado "hecho"/"en_curso"/"sin_empezar" (`stepStateNum`; antes "sin_empezar" terminaba en done). Actualiza el estado de la fase. Valida (⚠) y verifica (✓/✗) como las demás.
+- Export/planIndex: debajo de cada paso con algo, "work: N images, N files (nombres), notes: '…', N messages with the tutor" (`stepWorkSummary`; cuenta adjuntos del paso).
+- Tests nuevos en tests/claude-bridge.test.js.

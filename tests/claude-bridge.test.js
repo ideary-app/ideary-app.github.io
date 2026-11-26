@@ -81,6 +81,18 @@ const applyAll = p => p.evaluate(async () => { for (const b of [...document.quer
   ok(q.c1[1] === "Redactar guion literario final|B5|w", "renamed step keeps its work, new description");
   await p.close();
 
+  console.log("Step status by id + work summary");
+  p = await page(b);
+  await p.evaluate(() => { const st = IDEAS.find(i => i.id === "c1").fases[0].pasos[1]; st.adjuntos = [{ tipo: "img", nombre: "a.png" }, { tipo: "img", nombre: "b.png" }]; st.trabajo = "blockout del set industrial"; });
+  ok(await p.evaluate(() => /C1\.S2 Redactar guion[^\n]*\n\s+desc:[^\n]*\n\s+work: 2 images, notes: "blockout del set industrial"/.test(cbProjectText(IDEAS.find(i => i.id === "p1")))), "export shows the work under the step");
+  await send(p, [{ ideary: 1, id: "m4", proyecto: "p1", texto: "estados", tipo: "cambios", actions: [
+    { tipo: "estado_paso", id: "C1.S1", actual: "Definir reglas", estado: "sin_empezar" }, { tipo: "estado_paso", id: "C1.S3", actual: "Editar audio", estado: "en_curso" }, { tipo: "estado_paso", id: "C2.S1", estado: "hecho" }] }]);
+  ok((await p.evaluate(() => document.querySelectorAll(".cb-warn").length)) === 0, "no warnings");
+  await applyAll(p);
+  const h = await p.evaluate(() => [IDEAS.find(i => i.id === "c1").fases[0].pasos[0].hecho || 0, IDEAS.find(i => i.id === "c1").fases[0].pasos[2].hecho || 0, IDEAS.find(i => i.id === "c2").fases[0].pasos[0].hecho || 0, IDEAS.find(i => i.id === "p1").cbLog.slice(-1)[0].res.every(r => r.ok)]);
+  ok(h.join() === "0,1,2,true", "states set: not started / in progress / done, report ✓ (" + h + ")");
+  await p.close();
+
   console.log("Bad proposals are flagged and reported");
   p = await page(b);
   await send(p, [{ ideary: 1, id: "m3", proyecto: "p1", texto: "mala", tipo: "cambios", actions: [

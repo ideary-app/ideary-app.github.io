@@ -9653,10 +9653,11 @@ function planIndex(root) {
     let n = 0;
     (c.fases || []).forEach((f, fi) => (f.pasos || []).forEach((st, si) => {
       n++; const id = `C${ci + 1}.S${n}`, o = typeof st === "string" ? { texto: st } : st;
-      const work = o.hecho === 2 ? "done" : o.hecho === 1 ? "in progress" : (o.trabajo || (o.chat || []).length || (o.archivos || []).length) ? "has work" : "";
+      const work = o.hecho === 2 ? "done" : o.hecho === 1 ? "in progress" : (o.trabajo || (o.chat || []).length || (o.archivos || []).length || (o.adjuntos || []).length) ? "has work" : "";
       steps[id] = { ch: c, fi, si, st, fase: f.nombre || "", work };
       lines.push(`  ${id} ${o.texto}${work ? " (" + work + ")" : ""}`);
       if (o.explicacion) lines.push(`      desc: ${String(o.explicacion).replace(/\s+/g, " ")}`);
+      const ws = stepWorkSummary(o); if (ws) lines.push(`      work: ${ws}`);
     }));
   });
   return { chs, steps, text: lines.join("\n") };
@@ -9976,6 +9977,7 @@ Each proposal is JSON:
   {"tipo":"borrar_item","id":"D3","actual":"current text"}, {"tipo":"editar_item","id":"C2.N1","actual":"current text","texto":"new text"}, {"tipo":"mover_item","id":"C3.R2","actual":"current text","capitulo":"exact chapter title, or \"proyecto\" for the project level"}, {"tipo":"convertir_item","id":"T4","actual":"current text","a":"decision" | "nota" | "resolver" | "pendiente","texto":"optional new wording"}, {"tipo":"editar_about","texto":"the full new About","capitulo":"chapter title, or leave out for the project"}
   Attaching a document to steps (Ideary creates a Google Doc in the project's documents folder, so it can read and edit it later):
   {"tipo":"adjuntar_doc","titulo":"document title","contenido":"the full text (line breaks and leading spaces are kept; shown in Courier 12 — good for scripts)","pasos":[{"id":"C1.S4","actual":"current step text"}],"reemplaza":"title of an existing document to update instead of making a new one, or null"}
+  {"tipo":"estado_paso","id":"C1.S4","actual":"current step title","estado":"hecho" | "en_curso" | "sin_empezar"} sets a step's status. Under each step, "work: …" summarizes what the person has in it (images, files, their notes, talk with the tutor): use it to judge real progress before changing a status.
   {"tipo":"borrar_doc","doc":"DOC2 (or the exact title)"} removes a document (it goes to the Drive trash).
   Use "reemplaza" for a new version of a document (e.g. a new script draft) so there are no duplicates. Steps already show their attached documents ([DOCn] under the step) in the project file. In "contenido", inside the JSON, write line breaks as \\n.
   Use these to remove old or contradicting decisions/notes, merge duplicates (edit one, delete the others), and turn a settled "thing to figure out" into a decision.
@@ -10088,6 +10090,7 @@ async function cbImport() {
       m.actions = (msg.actions || []).filter(a => a && a.tipo);
       const sidx = planIndex(root);
       const sMatch = (st, t) => { const a = norm2(t); return a && (sameStep(stepTitle(st), t) || sameStep(stepText(st), t) || norm2(stepText(st)).startsWith(a) || a.startsWith(norm2(stepTitle(st)))); };
+      m.actions.forEach(a => { if (/_paso$/.test(a.tipo) && a.id) { const r = sidx.steps[String(a.id).trim()]; const hit = r && (!a.actual || sMatch(r.st, a.actual)) ? r : a.actual && Object.values(sidx.steps).find(v => sMatch(v.st, a.actual)); if (hit) { a._step = stepTitle(hit.st); if (!a.paso) a.paso = a._step; } } });
       m.actions.forEach(a => { if (a.tipo === "adjuntar_doc") a._steps = (a.pasos || []).map(x => {
         if (typeof x === "string") x = { id: x };
         const r = x && x.id && sidx.steps[String(x.id).trim()];
@@ -10205,6 +10208,7 @@ function cbActLabel(a) {
   const where = a.capitulo ? ` → ${a.capitulo}` : "";
   const it = a.actual || a.id || "";
   if (a.tipo === "borrar_doc") return `Remove document: ${a.titulo || a.doc || ""}`;
+  if (a.tipo === "estado_paso") return `Mark "${a._step || a.paso || a.actual || a.id}" as ${["not started", "in progress", "done"][stepStateNum(a.estado)]}`;
   if (a.tipo === "adjuntar_doc") return `${a.reemplaza ? "Update document" : "Attach document"}: "${a.titulo || ""}"${(a._steps || []).length ? " → " + a._steps.map(x => x.texto).join(", ") : ""}`;
   if (a.tipo === "borrar_item") return `Remove: "${it}"`;
   if (a.tipo === "editar_item") return `Reword: "${it}" → "${a.texto || ""}"`;
@@ -10227,6 +10231,7 @@ function cbValidate(root, m) {
     const w = [];
     if (a.tipo === "adjuntar_doc") { const want = (a.pasos || []).length, got = (a._steps || []).length; if (got < want) w.push(`only ${got} of ${want} steps were found`); if (!String(a.contenido || "").trim()) w.push("the document text is empty"); if (a.reemplaza && !findProjDoc(root, a.reemplaza)) w.push(`there is no document "${a.reemplaza}" to replace — a new one will be made`); }
     else if (a.tipo === "borrar_doc") { const f = findProjDoc(root, a.doc || a.id || a.titulo); if (!f) w.push("that document doesn't exist"); else a._gdoc = f.d.gdocId || f.d.id; }
+    else if (a.tipo === "estado_paso" && !a._step && !(a.paso && stepExists(a.paso))) w.push(`step "${a.id || ""} ${a.actual || a.paso || ""}" wasn't found`);
     else if (/_item$/.test(a.tipo) && !a._pin) w.push(`"${a.actual || a.id}" wasn't found`);
     else if (["editar_paso", "borrar_paso", "mover_paso"].includes(a.tipo) && a.paso && !stepExists(a.paso)) w.push(`step "${a.paso}" wasn't found`);
     else if (["agregar_paso", "mover_paso", "mover_item"].includes(a.tipo) && a.capitulo && !chExists(a.capitulo)) w.push(`chapter "${a.capitulo}" doesn't exist`);
@@ -10266,6 +10271,7 @@ function cbVerify(root, a) {
     if (a.tipo === "agregar_paso") return hasStep(a.texto) ? { ok: true } : { ok: false, note: "step not found after applying" };
     if (a.tipo === "editar_paso") { if (a.texto && !hasStep(a.texto)) return { ok: false, note: "new title not found" }; if (a.descripcion != null && !steps.some(v => typeof v.st === "object" && v.st.explicacion === String(a.descripcion))) return { ok: false, note: "new description not found" }; return { ok: true }; }
     if (a.tipo === "borrar_paso") return { ok: true };
+    if (a.tipo === "estado_paso") { const v = steps.find(x => sameStep(stepTitle(x.st), a._step || a.paso)); return !v ? { ok: false, note: "step not found" } : ((typeof v.st === "object" && v.st.hecho) || 0) === stepStateNum(a.estado) ? { ok: true, note: ["not started", "in progress", "done"][stepStateNum(a.estado)] } : { ok: false, note: "state didn't change" }; }
   } catch (e) { return { ok: false, note: "check failed: " + e.message }; }
   return { ok: true };
 }
@@ -10932,12 +10938,14 @@ async function pcAct(k, j, yes, batch) {
       }
     } else if (a.tipo === "estado_paso") {
       const norm = x => String(x || "").trim().toLowerCase();
-      const steps = allStepsOf(proj);
-      const hit = steps.find(x => norm(x.texto) === norm(a.paso)) || steps.find(x => norm(x.texto).includes(norm(a.paso)) || norm(a.paso).includes(norm(x.texto)));
+      const steps = allStepsOf(proj), want = a._step || a.paso || a.actual;
+      const hit = steps.find(x => norm(x.texto) === norm(want)) || steps.find(x => norm(want) && (norm(x.texto).includes(norm(want)) || norm(want).includes(norm(x.texto))));
+      if (!hit) a._ok = false;
       if (hit) {
         const fase = hit.idea.fases[hit.f]; let st = fase.pasos[hit.s]; if (typeof st === "string") st = fase.pasos[hit.s] = { texto: st };
-        const e = norm(a.estado); st.hecho = /progress|curso|doing/.test(e) ? 1 : /to do|todo|pend|undone|not/.test(e) ? 0 : 2;
+        st.hecho = stepStateNum(a.estado); a._ok = true;
         if (!st.hecho) delete st.hecho;
+        const vals = fase.pasos.map(x => (typeof x === "object" && x.hecho) || 0); fase.estado = vals.every(v => v === 2) ? "done" : vals.some(v => v) ? "in-progress" : fase.estado;
         logChanges(hit.idea, "Mentor", [`Step "${hit.texto}" → ${["to do", "in progress", "done"][st.hecho || 0]}`]);
       }
     } else if (a.tipo === "capitulo") {
@@ -11846,7 +11854,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-26 16:50 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-26 19:40 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
@@ -13952,6 +13960,20 @@ function collectNotesFromInputs() {
     if (!t) return null;
     return el.dataset.fecha ? { texto: t, fecha: el.dataset.fecha } : t;
   }).filter(v => v !== null);
+}
+// What's actually inside a step, so a reviewer can judge progress: images, files, the person's notes, tutor talk.
+function stepStateNum(e) { e = String(e || "").trim().toLowerCase().replace(/[_-]/g, " "); return /sin empezar|not started|to ?do|pend|undone|none|nada/.test(e) ? 0 : /curso|progress|doing|empez/.test(e) ? 1 : 2; }
+function stepWorkSummary(o) {
+  if (!o || typeof o !== "object") return "";
+  const parts = [], att = o.adjuntos || [], imgs = att.filter(a => a && a.tipo === "img").length, files = att.filter(a => a && a.tipo !== "img");
+  if (imgs) parts.push(`${imgs} image${imgs > 1 ? "s" : ""}`);
+  if (files.length) parts.push(`${files.length} file${files.length > 1 ? "s" : ""} (${files.map(f => f.nombre || "file").slice(0, 4).join(", ")})`);
+  if ((o.archivos || []).length) parts.push(`${o.archivos.length} more attachment${o.archivos.length > 1 ? "s" : ""}`);
+  const t = String(o.trabajo || "").replace(/\s+/g, " ").trim();
+  if (t) parts.push(`notes: "${t.length > 220 ? t.slice(0, 220) + "…" : t}"`);
+  const talk = (o.chat || []).filter(m => m.role === "user").length;
+  if (talk) parts.push(`${talk} message${talk > 1 ? "s" : ""} with the tutor`);
+  return parts.join(", ");
 }
 function stepTitle(step) { return typeof step === "string" ? step : String((step && step.texto) || ""); }
 // Repair titles that got their description glued on (an older plan import did that): cut where the description starts.
