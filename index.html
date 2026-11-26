@@ -9903,9 +9903,9 @@ function cbProjectText(p) {
   const planLines = (idx.text || "(no plan yet)").split("\n").flatMap(line => {
     const m = /^\s+(C\d+\.S\d+) /.exec(line); if (!m) return [line];
     const r = idx.steps[m[1]], ds = docsOfStep(r.ch, stepText(r.st));
-    return [line].concat(ds.map(d => `      📄 [${docId(d)}] "${d.titulo}"${d.gdocId ? " (Google Doc id " + d.gdocId + ")" : ""}`));
+    return [line].concat(ds.map(d => `      [${docId(d)}] "${d.titulo}"${d.gdocId ? " (Google Doc id " + d.gdocId + ")" : ""}`));
   });
-  L.push("## Plan (ids are for your answers: C = chapter, S = step; 📄 = documents attached to that step)", ...planLines, "");
+  L.push("## Plan (ids are for your answers: C = chapter, S = step; [DOCn] under a step = document attached to it)", ...planLines, "");
   const ix = Object.entries(itemIndex(p)), TITLES = { decisiones: "Decisions", notas: "Notes", cosasAResolver: "Things to figure out", pendientes: "Pending", referencias: "References" };
   L.push("## Everything else (ids: D decision, N note, T thing to figure out, P pending, R reference; C2.N1 = note of chapter C2)");
   [p].concat(isProject(p) ? planIndex(p).chs : []).forEach(it => {
@@ -9943,7 +9943,7 @@ Each proposal is JSON:
   {"tipo":"borrar_item","id":"D3","actual":"current text"}, {"tipo":"editar_item","id":"C2.N1","actual":"current text","texto":"new text"}, {"tipo":"mover_item","id":"C3.R2","actual":"current text","capitulo":"exact chapter title, or \"proyecto\" for the project level"}, {"tipo":"convertir_item","id":"T4","actual":"current text","a":"decision" | "nota" | "resolver" | "pendiente","texto":"optional new wording"}, {"tipo":"editar_about","texto":"the full new About","capitulo":"chapter title, or leave out for the project"}
   Attaching a document to steps (Ideary creates a Google Doc in the project's documents folder, so it can read and edit it later):
   {"tipo":"adjuntar_doc","titulo":"document title","contenido":"the full text (line breaks and leading spaces are kept; shown in Courier 12 — good for scripts)","pasos":[{"id":"C1.S4","actual":"current step text"}],"reemplaza":"title of an existing document to update instead of making a new one, or null"}
-  Use "reemplaza" for a new version of a document (e.g. a new script draft) so there are no duplicates. Steps already show their attached documents (📄 [DOCn]) in the project file. In "contenido", inside the JSON, write line breaks as \\n.
+  Use "reemplaza" for a new version of a document (e.g. a new script draft) so there are no duplicates. Steps already show their attached documents ([DOCn] under the step) in the project file. In "contenido", inside the JSON, write line breaks as \\n.
   Use these to remove old or contradicting decisions/notes, merge duplicates (edit one, delete the others), and turn a settled "thing to figure out" into a decision.
 - **tipo "plan"**: a full reorganization. Add "plan": {"intro":"…","capitulos":[{"id":"C1" or null,"titulo":"…","porque":"…","pasos":[{"id":"C1.S2" or null,"texto":"step text (always include it)","porque":"why, for new/moved steps"}]}],"quitar":[{"id":"C3.S1","porque":"why (only steps with no work)"}]}. Reuse ids; each id once; keep steps with work. A step sent with its existing id is that same step (Ideary keeps its status and work and applies your new text, chapter and order) — never send it again with id null. Steps with id null are new. Steps you leave out and list in "quitar" are deleted (only if they have no work); steps left out but not in "quitar" are kept. Use the ids of the LATEST project file.
 If the JSON is split in parts, put the parts' raw text in a field "chunk" instead (part 1 starts the JSON, the last part ends it).
@@ -9983,7 +9983,7 @@ async function cbExport(force) {
 /* Claude's Google Drive tool can only edit files Claude made, but its Google Docs tool CAN edit Google Docs.
    So the main mailbox is a Google Doc made by Ideary: Claude appends proposals to it, Ideary reads and empties it. */
 const CB_DOC = "ideary-inbox (Claude writes here)";
-const CB_DOC_HEAD = "IDEARY INBOX. Claude appends proposals below, each between a line <<<IDEARY and a line IDEARY>>>. Ideary reads them and empties this document.";
+const CB_DOC_HEAD = "IDEARY INBOX. Claude appends proposals below this line (see the README for the format). Ideary reads them and empties this document.";
 async function cbEnsureInboxDoc() {
   const folder = await cbEnsureFolder();
   let id = await cbFindInFolder(CB_DOC, folder);
@@ -10021,7 +10021,7 @@ async function cbImport() {
     else if (r.ok) {
       cbDocBlocks(await r.text()).forEach((raw, k) => {
         let j = null; try { j = JSON.parse(raw); } catch (e) { try { j = parseJsonLenient(raw); } catch (e2) {} }
-        if (j && j.ideary) { parts.push({ slot: "doc:" + k, j, raw }); docUsed = true; } else docLeft.push(raw);
+        if (j && j.ideary) { parts.push({ slot: "doc:" + k, j, raw }); docUsed = true; } else if (/\{/.test(raw)) docLeft.push(raw); else docUsed = true;
       });
     }
   }
@@ -11734,7 +11734,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-26 13:40 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-26 15:30 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
