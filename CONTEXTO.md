@@ -531,3 +531,4 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 - adjuntar_doc: confía en el id del paso (antes exigía que "actual" coincida con título+desc → solo quedaba el último); guarda títulos; docsOfStep tolera docs viejos con título+desc.
 - reemplaza: busca por DOCn, id de Google Doc o título, sobre IDEAS fresco; mismo título = mismo doc (nunca duplica).
 - Nueva acción borrar_doc {doc:"DOC2"|título}: lo quita y manda el Google Doc a la papelera.
+- Panel de Claude: sin scroll horizontal en mobile (links/textos largos se cortan).

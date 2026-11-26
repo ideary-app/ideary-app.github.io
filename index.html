@@ -4420,6 +4420,10 @@ SHIPPING CHANGES
 #doc-overlay { z-index: 230; }
 #dialog-overlay { z-index: 400; }
 #cb-overlay { z-index: 220; }
+#cb-list { overflow-x: hidden; }
+#cb-list, #cb-list * { overflow-wrap: anywhere; word-break: break-word; min-width: 0; }
+#cb-list pre, #cb-list code { white-space: pre-wrap; }
+#cb-list .cb-item { max-width: 100%; box-sizing: border-box; }
 .doc-box { max-width: 860px !important; width: 100%; height: min(94vh, 980px); display: flex; flex-direction: column; }
 .doc-title-in { width: 100%; font-family: var(--hand); font-size: 1.6rem; border: none; background: transparent; color: var(--ink); padding: 2px 0; outline: none; }
 .doc-tools { display: flex; gap: 4px; flex-wrap: wrap; padding: 6px 0; border-bottom: 1px dashed var(--line-strong); }
@@ -11764,7 +11768,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-26 16:20 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-26 16:30 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
