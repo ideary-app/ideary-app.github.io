@@ -518,3 +518,8 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 
 ## 2026-11-26 — Botón de Claude en el header mobile + ícono nuevo
 - Ícono bandeja de entrada con flecha (propuestas que llegan) en desktop y mobile; en mobile botón amarillo a la derecha del buscador (#cb-hdr-m). Tocar = abre el panel y fuerza actualizar/leer (animación mientras chequea). Badge con cantidad (antes no se mostraba: display '' caía en none).
+
+## 2026-11-26 — Acción adjuntar_doc (Claude adjunta documentos a pasos)
+- {tipo:adjuntar_doc, titulo, contenido, pasos:[{id,actual}], reemplaza}. Al importar se resuelven los pasos (id + actual, o por texto). Al aplicar: crea Google Doc (docDriveCreate) en la carpeta documents del proyecto, colgado del proyecto raíz con d.pasos = textos de los pasos (así aparece en pasos de cualquier capítulo); con 'reemplaza' actualiza ese doc (docDriveWrite) y suma pasos.
+- d.formato='mono' + monoFormat: cada línea un párrafo Courier 12, sangrías con &nbsp;, conserva saltos; se re-aplica al abrir/guardar.
+- Export: debajo de cada paso '📄 [DOCn] título (Google Doc id)'; sección Documents con [DOCn]. README documentado.

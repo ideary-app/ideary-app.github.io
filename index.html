@@ -4447,6 +4447,7 @@ SHIPPING CHANGES
 .doc-meta { font-size: .75rem; color: var(--slate); white-space: nowrap; }
 .step-docs { margin: 8px 0 4px; }
 .doc-audit:empty { display: none; }
+.doc-body p.mono { white-space: pre-wrap; font-family: "Courier New", Courier, monospace; font-size: .92rem; margin: 0; }
 .step-doc-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .step-doc-chip { font: inherit; font-size: .76rem; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line-strong); background: rgba(255,255,255,.45); color: var(--ink); cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .step-doc-chip.pend { border-style: dashed; color: #9a5a2a; }
@@ -9543,7 +9544,8 @@ function renderPcChat() {
   const log = document.getElementById("pc-log");
   const chat = (proj && proj.chat) || [];
   const label = a => labelCore(a);
-  const labelCore = a => /_item$|^editar_about$/.test(a.tipo) ? (a.tipo === "borrar_item" ? `Remove <strong>${escapeHtml(a.actual || a.id || "")}</strong>` : a.tipo === "editar_item" ? `Rewrite <em>${escapeHtml(a.actual || a.id || "")}</em> → <strong>${escapeHtml(a.texto || "")}</strong>` : a.tipo === "mover_item" ? `Move <em>${escapeHtml(a.actual || a.id || "")}</em> to <strong>${escapeHtml(a.capitulo || "")}</strong>` : a.tipo === "convertir_item" ? `Turn <em>${escapeHtml(a.actual || a.id || "")}</em> into a <strong>${escapeHtml(a.a || "")}</strong>${a.texto ? ": " + escapeHtml(a.texto) : ""}` : `New About${a.capitulo ? " for <em>" + escapeHtml(a.capitulo) + "</em>" : ""}: <strong>${escapeHtml(String(a.texto || "").slice(0, 200))}</strong>`)
+  const labelCore = a => a.tipo === "adjuntar_doc" ? `${a.reemplaza ? "Update document" : "Attach document"} <strong>${escapeHtml(a.titulo || "")}</strong>${(a._steps || []).length ? " to: " + a._steps.map(x => "<em>" + escapeHtml(x.texto) + "</em>").join(", ") : ""}${a.reemplaza ? " (replaces “" + escapeHtml(a.reemplaza) + "”)" : ""}`
+    : /_item$|^editar_about$/.test(a.tipo) ? (a.tipo === "borrar_item" ? `Remove <strong>${escapeHtml(a.actual || a.id || "")}</strong>` : a.tipo === "editar_item" ? `Rewrite <em>${escapeHtml(a.actual || a.id || "")}</em> → <strong>${escapeHtml(a.texto || "")}</strong>` : a.tipo === "mover_item" ? `Move <em>${escapeHtml(a.actual || a.id || "")}</em> to <strong>${escapeHtml(a.capitulo || "")}</strong>` : a.tipo === "convertir_item" ? `Turn <em>${escapeHtml(a.actual || a.id || "")}</em> into a <strong>${escapeHtml(a.a || "")}</strong>${a.texto ? ": " + escapeHtml(a.texto) : ""}` : `New About${a.capitulo ? " for <em>" + escapeHtml(a.capitulo) + "</em>" : ""}: <strong>${escapeHtml(String(a.texto || "").slice(0, 200))}</strong>`)
     : a.tipo === "mover_capitulo" ? `Move chapter <em>${escapeHtml(a.titulo || "")}</em> ${a.antesDe ? "right before <strong>" + escapeHtml(a.antesDe) + "</strong>" : "<strong>to the end</strong> (last chapter)"}`
     : a.tipo === "borrar_capitulo" ? `Remove chapter <strong>${escapeHtml(a.titulo || "")}</strong> — ${a.destino ? `everything in it moves to <strong>${escapeHtml(a.destino)}</strong>` : "I'll ask you where what's in it goes first"}`
     : a.tipo === "mover" ? `Move ${escapeHtml(a.objeto || "note")} <em>${escapeHtml(a.viejo || "")}</em> to <strong>${escapeHtml(a.capitulo || "")}</strong>`
@@ -9849,6 +9851,25 @@ function itemOfKind(key, src) {
   if (key === "referencias") return typeof src === "object" && src.url ? src : { titulo: t, texto: t };
   return { texto: t, fecha: now };
 }
+async function applyAttachDoc(proj, a) {
+  const root = pendRoot(proj), now = new Date().toISOString();
+  const titulo = String(a.titulo || "Document").slice(0, 200), body = monoFormat(String(a.contenido || ""));
+  const stepTexts = (a._steps || []).map(x => x.texto);
+  let found = null;
+  if (a.reemplaza) { const all = [root].concat(isProject(root) ? projectChapters(root) : []).flatMap(it => docsOf(it).map(d => ({ it, d }))); found = all.find(x => norm2(x.d.titulo) === norm2(a.reemplaza)) || all.find(x => sameStep(x.d.titulo, a.reemplaza)); }
+  if (found) {
+    const d = found.d; d.titulo = titulo; d.formato = "mono"; d.html = body; d.actualizado = now;
+    d.pasos = docSteps(d).concat(stepTexts.filter(t => !docSteps(d).some(x => sameStep(x, t))));
+    if (d.gdocId) await docDriveWrite(d, body); else await docDriveCreate(found.it, d, body);
+    logChanges(found.it, "Claude", [`Updated document "${titulo}"`]);
+  } else {
+    const d = { id: "doc" + Date.now().toString(36), titulo, html: body, formato: "mono", pasos: stepTexts, fecha: now, actualizado: now, by: "Claude" };
+    await docDriveCreate(root, d, body);
+    root.documentos = docsOf(root).concat([d]);
+    logChanges(root, "Claude", [`Attached document "${titulo}"${stepTexts.length ? " to " + stepTexts.length + " step" + (stepTexts.length > 1 ? "s" : "") : ""}`]);
+  }
+  return true;
+}
 function applyItemAction(proj, a) {
   const root = pendRoot(proj), pin = a._pin || itemPin(root, a.id, a.actual);
   if (a.tipo === "editar_about") {
@@ -9877,15 +9898,22 @@ function cbProjectText(p) {
   const idx = planIndex(p), L = [];
   L.push(`# ${p.titulo}`, `Ideary project id: ${p.id}`, `Status: ${(ESTADOS[p.estado] || {}).label || p.estado}`, "");
   if (p.descripcion) L.push("## About", String(p.descripcion), "");
-  L.push("## Plan (ids are for your answers: C = chapter, S = step)", idx.text || "(no plan yet)", "");
+  const allDocs = [p].concat(isProject(p) ? projectChapters(p) : []).flatMap(it => docsOf(it).map(d => ({ it, d })));
+  const docId = d => "DOC" + (allDocs.findIndex(x => x.d === d) + 1);
+  const planLines = (idx.text || "(no plan yet)").split("\n").flatMap(line => {
+    const m = /^\s+(C\d+\.S\d+) /.exec(line); if (!m) return [line];
+    const r = idx.steps[m[1]], ds = docsOfStep(r.ch, stepText(r.st));
+    return [line].concat(ds.map(d => `      📄 [${docId(d)}] "${d.titulo}"${d.gdocId ? " (Google Doc id " + d.gdocId + ")" : ""}`));
+  });
+  L.push("## Plan (ids are for your answers: C = chapter, S = step; 📄 = documents attached to that step)", ...planLines, "");
   const ix = Object.entries(itemIndex(p)), TITLES = { decisiones: "Decisions", notas: "Notes", cosasAResolver: "Things to figure out", pendientes: "Pending", referencias: "References" };
   L.push("## Everything else (ids: D decision, N note, T thing to figure out, P pending, R reference; C2.N1 = note of chapter C2)");
   [p].concat(isProject(p) ? planIndex(p).chs : []).forEach(it => {
     if (it !== p && it.descripcion) L.push(`### About chapter — ${it.titulo}`, String(it.descripcion).slice(0, 1500), "");
     ITEM_KINDS.forEach(([key]) => { const rows = ix.filter(([, v]) => v.it === it && v.key === key); if (!rows.length) return; L.push(`### ${TITLES[key]} — ${it.titulo}`); rows.forEach(([id, v]) => L.push(`- [${id}] ${String(v.texto).replace(/\s+/g, " ")}${key === "referencias" && v.x && v.x.url ? " (" + v.x.url + ")" : ""}`)); L.push(""); });
   });
-  const docs = [p].concat(isProject(p) ? projectChapters(p) : []).flatMap(it => docsOf(it).map(d => ({ it, d })));
-  if (docs.length) { L.push("## Documents (Google Docs in this project's documents folder — read them with Google Drive)"); docs.forEach(({ it, d }) => { L.push(`- "${d.titulo}"${it !== p ? " (" + it.titulo + ")" : ""}${d.gdocId ? ` → Google Doc id ${d.gdocId}` : " (not in Drive yet)"}`); if (d.audit) { const pend = (d.audit.pasos || []).filter(x => x.estado !== "done"); if (pend.length) L.push(`  Still missing in it: ${pend.map(x => x.paso + (x.falta ? " (" + x.falta + ")" : "")).join("; ")}`); (d.audit.secciones || []).forEach(x => L.push(`  A complete version also needs: ${x.seccion}`)); } }); L.push(""); }
+  const docs = allDocs;
+  if (docs.length) { L.push("## Documents (Google Docs in this project's documents folder — read them with Google Drive)"); docs.forEach(({ it, d }) => { L.push(`- [${docId(d)}] "${d.titulo}"${it !== p ? " (" + it.titulo + ")" : ""}${d.gdocId ? ` → Google Doc id ${d.gdocId}` : " (not in Drive yet)"}`); if (d.audit) { const pend = (d.audit.pasos || []).filter(x => x.estado !== "done"); if (pend.length) L.push(`  Still missing in it: ${pend.map(x => x.paso + (x.falta ? " (" + x.falta + ")" : "")).join("; ")}`); (d.audit.secciones || []).forEach(x => L.push(`  A complete version also needs: ${x.seccion}`)); } }); L.push(""); }
   const talk = (p.chat || []).filter(m => m.role === "user").slice(-15).map(m => "- " + String(m.text).replace(/\s+/g, " ").slice(0, 300));
   if (talk.length) L.push("## Recent things the person told the in-app mentor", ...talk, "");
   return L.join("\n");
@@ -9913,6 +9941,9 @@ Each proposal is JSON:
   {"tipo":"agregar_paso","capitulo":"exact chapter title","texto":"step"}, {"tipo":"editar_paso","paso":"exact current step text","texto":"new text"}, {"tipo":"mover_paso","paso":"exact step text","capitulo":"destination chapter","antesDe":"step it goes before or null"}, {"tipo":"borrar_paso","paso":"exact step text","capitulo":"chapter of that copy"}, {"tipo":"capitulo","titulo":"new chapter","antesDe":"chapter it goes before or null"}, {"tipo":"mover_capitulo","titulo":"chapter","antesDe":"chapter or null"}, {"tipo":"nota","texto":"note"}, {"tipo":"resolver","texto":"thing to figure out"}, {"tipo":"decision","texto":"decision"}
   Cleaning up existing items (by the [id] shown in the project file; always add "actual": the item's current text, so Ideary finds the right one even if ids moved):
   {"tipo":"borrar_item","id":"D3","actual":"current text"}, {"tipo":"editar_item","id":"C2.N1","actual":"current text","texto":"new text"}, {"tipo":"mover_item","id":"C3.R2","actual":"current text","capitulo":"exact chapter title, or \"proyecto\" for the project level"}, {"tipo":"convertir_item","id":"T4","actual":"current text","a":"decision" | "nota" | "resolver" | "pendiente","texto":"optional new wording"}, {"tipo":"editar_about","texto":"the full new About","capitulo":"chapter title, or leave out for the project"}
+  Attaching a document to steps (Ideary creates a Google Doc in the project's documents folder, so it can read and edit it later):
+  {"tipo":"adjuntar_doc","titulo":"document title","contenido":"the full text (line breaks and leading spaces are kept; shown in Courier 12 — good for scripts)","pasos":[{"id":"C1.S4","actual":"current step text"}],"reemplaza":"title of an existing document to update instead of making a new one, or null"}
+  Use "reemplaza" for a new version of a document (e.g. a new script draft) so there are no duplicates. Steps already show their attached documents (📄 [DOCn]) in the project file. In "contenido", inside the JSON, write line breaks as \\n.
   Use these to remove old or contradicting decisions/notes, merge duplicates (edit one, delete the others), and turn a settled "thing to figure out" into a decision.
 - **tipo "plan"**: a full reorganization. Add "plan": {"intro":"…","capitulos":[{"id":"C1" or null,"titulo":"…","porque":"…","pasos":[{"id":"C1.S2" or null,"texto":"step text (always include it)","porque":"why, for new/moved steps"}]}],"quitar":[{"id":"C3.S1","porque":"why (only steps with no work)"}]}. Reuse ids; each id once; keep steps with work. A step sent with its existing id is that same step (Ideary keeps its status and work and applies your new text, chapter and order) — never send it again with id null. Steps with id null are new. Steps you leave out and list in "quitar" are deleted (only if they have no work); steps left out but not in "quitar" are kept. Use the ids of the LATEST project file.
 If the JSON is split in parts, put the parts' raw text in a field "chunk" instead (part 1 starts the JSON, the last part ends it).
@@ -10020,6 +10051,8 @@ async function cbImport() {
     } else {
       const root = pendRoot(proj);
       m.actions = (msg.actions || []).filter(a => a && a.tipo);
+      const sidx = planIndex(root);
+      m.actions.forEach(a => { if (a.tipo === "adjuntar_doc") a._steps = (a.pasos || []).map(x => { const r = x && x.id && sidx.steps[x.id]; const ok = r && (!x.actual || sameStep(stepText(r.st), x.actual)); if (ok) return { texto: stepText(r.st) }; const hit = x && x.actual && Object.values(sidx.steps).find(v => sameStep(stepText(v.st), x.actual)); return hit ? { texto: stepText(hit.st) } : null; }).filter(Boolean); });
       m.actions.forEach(a => { if (/_item$/.test(a.tipo)) { a._pin = itemPin(root, a.id, a.actual); if (!a.actual && a._pin) a.actual = a._pin.texto; } });
     }
     proj.chat = (proj.chat || []).concat([{ role: "user", text: "📨 (sent from Claude)", t: Date.now() - 1 }, m]).slice(-30);
@@ -10128,6 +10161,7 @@ function cbActLabel(a) {
   const what = a.texto || a.titulo || a.paso || "";
   const where = a.capitulo ? ` → ${a.capitulo}` : "";
   const it = a.actual || a.id || "";
+  if (a.tipo === "adjuntar_doc") return `${a.reemplaza ? "Update document" : "Attach document"}: "${a.titulo || ""}"${(a._steps || []).length ? " → " + a._steps.map(x => x.texto).join(", ") : ""}`;
   if (a.tipo === "borrar_item") return `Remove: "${it}"`;
   if (a.tipo === "editar_item") return `Reword: "${it}" → "${a.texto || ""}"`;
   if (a.tipo === "mover_item") return `Move: "${it}" → ${a.capitulo || ""}`;
@@ -10518,7 +10552,11 @@ function spFormat(src) {
   return out.join("");
 }
 function docScriptTidy() { const f = docCtx && docFind(docCtx.itemId, docCtx.docId), b = document.getElementById("doc-body"); if (f && f.d.formato === "guion" && b) { const h = spFormat(b.innerHTML); if (h !== b.innerHTML) { b.innerHTML = h; docChanged(); } } }
-function docShow(d, html) { return d && d.formato === "guion" ? spFormat(html) : html; }
+function monoFormat(src) {
+  const text = /<[a-z][\s\S]*>/i.test(src) ? docHtmlToText(String(src).replace(/<div>/g, "<p>").replace(/<\/div>/g, "</p>")) : String(src);
+  return text.replace(/\r/g, "").split("\n").map(l => { const lead = (/^[ \t\u00A0]*/.exec(l) || [""])[0].replace(/\t/g, "    "); return `<p class="mono" style="font-family:'Courier New',Courier,monospace;font-size:12pt;line-height:1.15;margin:0">${"&nbsp;".repeat(lead.length)}${escapeHtml(l.slice((/^[ \t\u00A0]*/.exec(l) || [""])[0].length)) || "&nbsp;"}</p>`; }).join("");
+}
+function docShow(d, html) { return d && d.formato === "guion" ? spFormat(html) : d && d.formato === "mono" ? monoFormat(html) : html; }
 const FORMAT_RULES = `You put a person's working document into the proper professional format for its kind. You get the document as it is now (it may be loose notes) and the project's context.
 1. Decide what kind of document it is (series/IP bible, script, beat sheet, character sheet, style guide, shot list, checklist, guide, list, pitch…).
 2. Rebuild it with the full standard structure of that kind, in the usual order, with every standard section; sections they haven't filled get one italic line "*To write: …*" saying concretely what goes there.
@@ -10796,6 +10834,7 @@ async function pcAct(k, j, yes, batch) {
       if (same) logChanges(r0, "Mentor", [`Chapter "${a.titulo}" already exists — not added twice`]);
       else { addChapter(proj.id, a.titulo, a.antesDe); logChanges(proj, "Mentor", [`Added chapter "${a.titulo}"`]); }
     }
+    else if (a.tipo === "adjuntar_doc") { try { await applyAttachDoc(proj, a); renderStepDocs && renderStepDocs(); } catch (e) { await showAlert("I couldn't create the document: " + e.message, { title: "Document" }); } }
     else if (/_item$|^editar_about$/.test(a.tipo)) { if (!applyItemAction(proj, a)) await showAlert(`I couldn't find "${a.actual || a.id}" anymore — maybe it was already changed or removed.`, { title: "Not found" }); }
     else if (a.tipo === "decision") { if (decTarget) decTarget.decisiones = decisionsOf(decTarget).concat([{ texto: a.texto }]); else proj.notas = (proj.notas || []).concat([{ texto: "Decided: " + a.texto, fecha: new Date().toISOString() }]); logChanges(proj, "Mentor", [`Added key decision "${a.texto}"`]); }
     else if (a.tipo === "resolver") { proj.cosasAResolver = (proj.cosasAResolver || []).concat([{ texto: a.texto, resuelto: false }]); logChanges(proj, "Mentor", [`Added thing to figure out "${a.texto}"`]); }
@@ -11695,7 +11734,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkForUpdate, 5 * 60 * 1000);
 setTimeout(checkForUpdate, 4000);
 
-const DEPLOY_TIMESTAMP = "2026-11-26 13:10 UTC"; // auto-updated on each deploy
+const DEPLOY_TIMESTAMP = "2026-11-26 13:40 UTC"; // auto-updated on each deploy
 
 const CHANGELOG_DATA = [
   {
