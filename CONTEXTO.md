@@ -524,3 +524,10 @@ Pedido de Tomas: todo lo que usa IA tiene que adaptarse solo a los cambios de Ge
 - d.formato='mono' + monoFormat: cada línea un párrafo Courier 12, sangrías con &nbsp;, conserva saltos; se re-aplica al abrir/guardar.
 - Export: debajo de cada paso '📄 [DOCn] título (Google Doc id)'; sección Documents con [DOCn]. README documentado.
 - Fix: el encabezado del Google Doc buzón tenía los marcadores <<<IDEARY…IDEARY>>> y se leía como bloque basura; bloques sin '{' se descartan. Export sin emoji (se veía mal codificado).
+
+## 2026-11-26 — Fixes puente Claude: docs en varios pasos, reemplaza, título/desc de pasos
+- Causa raíz: `checkReorg` mandaba `stepText` (título + descripción, cortado a 300) como texto del paso y `applyReorg` lo guardaba como título → títulos con la descripción pegada (y truncada). Ahora usa `stepTitle`; si la IA devuelve título+desc pegados se ignora. `repairStepTitles` (en migrateFasesIfNeeded) corta los títulos ya dañados donde empieza la descripción.
+- Export: "C1.S4 Título" y abajo "desc: …". Plan y editar_paso aceptan "descripcion".
+- adjuntar_doc: confía en el id del paso (antes exigía que "actual" coincida con título+desc → solo quedaba el último); guarda títulos; docsOfStep tolera docs viejos con título+desc.
+- reemplaza: busca por DOCn, id de Google Doc o título, sobre IDEAS fresco; mismo título = mismo doc (nunca duplica).
+- Nueva acción borrar_doc {doc:"DOC2"|título}: lo quita y manda el Google Doc a la papelera.
